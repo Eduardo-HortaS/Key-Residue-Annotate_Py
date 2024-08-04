@@ -1,5 +1,5 @@
 """
-hmmalign.py
+run_hmmalign.py
 
 Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
@@ -49,7 +49,7 @@ def parse_arguments():
         required=False, type=str, default="logs/run_hmmalign.log")
     return parser.parse_args()
 
-def setup_logging(log_path):
+def setup_logging(log_path: str) -> None:
     """Set up logging for the script."""
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
@@ -57,7 +57,7 @@ def setup_logging(log_path):
 
 #@measure_time_and_memory
 #@profile
-def run_hmmalign(dom_info_json):
+def run_hmmalign(dom_info_json: str) -> None:
     """
     Runs hmmalign for the domain in the domain_info JSON.
     """

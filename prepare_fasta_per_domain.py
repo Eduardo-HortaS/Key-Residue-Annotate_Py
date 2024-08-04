@@ -1,5 +1,5 @@
 """
-hmmsearch.py
+prepare_fasta_per_domain.py
 
 Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
@@ -25,7 +25,7 @@ a hits per domain JSON file, the domain accession to prep and the paths to the r
 
 1 - can_run_hmmalign - Checks if intermediary files are present for the given domain accession. If so, call prep_domain_fasta.
 
-1 - prep_domain_fasta - Accesses the JSON in search of the given accession and makes a multifasta with all hits contained in it.
+2 - prep_domain_fasta - Accesses the JSON in search of the given accession and makes a multifasta with all hits contained in it.
 
 Obs.: It'll make a subdir for each domain in the output directory. Also, it'll put the substring
 "target/" between target_seq_name and ali range to facilitate parsing in the next step.
@@ -37,6 +37,7 @@ import os
 import json
 import argparse
 import logging
+from typing import Any
 # from modules.decorators import measure_time_and_memory
 
 def parse_arguments():
@@ -58,13 +59,13 @@ def parse_arguments():
         required=False, type=str, default="logs/prepare_fasta_per_domain.log")
     return parser.parse_args()
 
-def setup_logging(log_path):
+def setup_logging(log_path: str) -> None:
     """Set up logging for the script."""
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def can_run_hmmalign(dom_accession, resource_dir, output_dir):
+def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> dict[str, Any]:
     """
     For a given domain accession, checks if the necessary resource files are present.
     Store this and paths to these files and to output in a dictionary,
@@ -86,7 +87,7 @@ def can_run_hmmalign(dom_accession, resource_dir, output_dir):
     }
     return domain_run_info
 
-def prep_domain_fasta(per_dom_json, dom_accession, output_dir):
+def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str) -> (str | None):
     """
     Loads a hits per domain JSON and searches for a target domain by its accession to
     generate a FASTA containing its hits across all sequences.
@@ -101,8 +102,7 @@ def prep_domain_fasta(per_dom_json, dom_accession, output_dir):
         return
 
     for accession, sequences in hits.items():
-        accession_for_check = accession.split(".")[0]
-        if accession_for_check == dom_accession:
+        if accession == dom_accession:
             for sequence_hits in sequences.values():
                 for hit in sequence_hits:
                     subseq = hit.get('subseq', '')

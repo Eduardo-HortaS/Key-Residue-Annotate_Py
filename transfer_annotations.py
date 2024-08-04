@@ -1,4 +1,3 @@
-
 """
 transfer_annotations.py
 
@@ -20,8 +19,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
 This script contains all functions dealing directly with transferring annotations.
-Intense usage begins by calling find_and_map_annotations with 2 arguments:
-a list of hmmalign result lines and the loaded dict of annotations.
+Intended usage begins by calling find_and_map_annotations with 2 arguments:
+a list of hmmalign result lines and the loaded annotations dict.
 
 """
 
@@ -30,15 +29,16 @@ import json
 import argparse
 import logging
 import traceback
+from typing import Any, Dict, Optional, Set
 # from modules.decorators import measure_time_and_memory
 # from memory_profiler import profile
 
 
 def parse_arguments():
-    """Parse command-line arguments for running hmmsearch
-    using a sequence database against target HMMs,
-    aiming to generate a hmmsearch_per_domain_output.json.
-    Also includes an output directory and a log file path.
+    """Parse command-line arguments for transferring annotations
+    per domain using its hmmalign alignment.
+    Generates PF*_report.json for each domain found, in every sequence.
+    Also needs paths to output and resource directories.
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -58,13 +58,13 @@ def setup_logging(log_path):
     logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def get_pfam_id_from_hmmalign_result(hmmalign_result):
+def get_pfam_id_from_hmmalign_result(hmmalign_result: str) -> str:
     """
     Extracts the PFAM ID from the hmmalign result filename.
     """
     return os.path.splitext(os.path.basename(hmmalign_result))[0].split('_')[-2]
 
-def get_annotation_filepath(resource_dir, pfam_id):
+def get_annotation_filepath(resource_dir: str, pfam_id: str) -> str:
     """
     Constructs and returns the filepaths for annotations,
     seed alignment, and report based on the PFAM ID.
@@ -72,7 +72,7 @@ def get_annotation_filepath(resource_dir, pfam_id):
     annotations_filepath = os.path.join(resource_dir, pfam_id, "annotations.json")
     return annotations_filepath
 
-def read_files(hmmalign_result, annotations_filepath):
+def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[str], Any]:
     """
     Reads and returns the content of the hmmalign result and annotations files.
     """
@@ -84,7 +84,7 @@ def read_files(hmmalign_result, annotations_filepath):
 
 #@measure_time_and_memory
 #@profile
-def find_and_map_annots(hmmalign_lines, annotations):
+def find_and_map_annots(hmmalign_lines: list, annotations: dict) -> dict:
     """
     Finds target lines and stores data for them in target_info.
     Then, finds sequence lines in hmmalign alignment for which we have annotations
@@ -95,7 +95,6 @@ def find_and_map_annots(hmmalign_lines, annotations):
     transfer_dict = {}
     target_info = {}
     visited_pos = {}
-
     for line in hmmalign_lines:
         if "target/" in line and not line.startswith("#"):
             parts = line.split("target/")
@@ -135,37 +134,43 @@ def find_and_map_annots(hmmalign_lines, annotations):
                             try:
                                 map_and_filter_annot_pos(target_hit_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_name, entry_annotations, transfer_dict, visited_pos[target_name][entry_name][target_hit_interval])
                                 print(f"Mapped and filtered annotation for {entry_name} and {target_name}")
-                            except Exception as e:
+                            except ValueError as ve:
                                 error_info = traceback.format_exc()
-                                print(f"********** --- Error in map_and_filter_annot_pos: {e} \n Error Info: {error_info}")
+                                print(f"ValueError in map_and_filter_annot_pos: {ve} \n Error Info: {error_info}")
+                            except KeyError as ke:
+                                error_info = traceback.format_exc()
+                                print(f"KeyError in map_and_filter_annot_pos: {ke} \n Error Info: {error_info}")
+                            except TypeError as te:
+                                error_info = traceback.format_exc()
+                                print(f"TypeError in map_and_filter_annot_pos: {te} \n Error Info: {error_info}")
     return transfer_dict
 
 # NOTE: Bugfix pending, 30 07
-def write_report(transfer_dict, pfam_id, output_dir):
+def write_report(transfer_dict: dict, pfam_id: str, output_dir: str) -> None:
     """
-    Writes the transfer dictionary to a report file in JSON format.
+    Writes the transfer dictionary to a report file in JSON format, per sequence-domain pair.
+    The report is written in the sequence's directory, with the name PF*_report.json.
     """
     for target_name in transfer_dict.keys():
-        print(transfer_dict[target_name])
         if transfer_dict[target_name]:
             json_data = json.dumps(transfer_dict[target_name], indent=4)
-            print(f"We got data for {target_name}!")
+            # print(f"We got data for {target_name}!")
         else:
             json_data = json.dumps({"Annotations": "None"}, indent=4)
-            print(f"No data for {target_name}!")
+            # print(f"No data for {target_name}!")
         target_name = target_name.replace("|", "-")
         pfam_id_report_filepath = os.path.join(output_dir, target_name, pfam_id + "_report.json")
         with open(pfam_id_report_filepath, 'w', encoding="utf-8") as report_file:
             report_file.write(json_data)
-        print(f"**************************** Transfer Report for sequence-domain pair, {target_name}-{pfam_id}: {pfam_id_report_filepath}")
+        print(f"**** Transfer Report for sequence-domain pair, {target_name}-{pfam_id}: {pfam_id_report_filepath} ****")
 
 #@measure_time_and_memory
 ##@profile
-def map_and_filter_annot_pos(target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_name, entry_annotations, transfer_dict, visited_pos, target_paired_uniprot_pos=None, caller_target_pos=None):
+def map_and_filter_annot_pos(target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, visited_pos: Set[str], target_paired_uniprot_pos: str =None, caller_target_pos: int =None) -> (bool | None):
     """
     Asks to map positions between annotated and target sequences.
     If target paired uniprot position and caller target position are provided,
-    this is an associated call for a paired position sent to validate_paired_position.
+    this is an associated call for a paired position sent to validate_paired_positions.
     Otherwise, it is a call for a single position sent to validate_annotations.
     Makes counter_uniprot_pos and counter_target_pos to track the current position in both sequences.
     """
@@ -173,13 +178,13 @@ def map_and_filter_annot_pos(target_sequence, target_name, target_hit_start, tar
     counter_target_pos = None
 
     if target_paired_uniprot_pos and caller_target_pos:
-        return validate_paired_position(target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_name, entry_annotations, transfer_dict, visited_pos, counter_target_pos, counter_uniprot_pos, target_paired_uniprot_pos, caller_target_pos)
+        return validate_paired_positions(target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_name, entry_annotations, transfer_dict, visited_pos, counter_target_pos, counter_uniprot_pos, target_paired_uniprot_pos, caller_target_pos)
     return validate_annotations(target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_name, entry_annotations, transfer_dict, visited_pos, counter_target_pos, counter_uniprot_pos)
 
 #@measure_time_and_memory
 #@profile
 # NOTE: Bugfix pending, 30 07
-def add_to_transfer_dict(transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_name):
+def add_to_transfer_dict(transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_name: str) -> None:
     """
     Adds anno_total data to the transfer dictionary.
     The dictionary is structured by target position, annotation ID (type + description),
@@ -236,11 +241,11 @@ def add_to_transfer_dict(transfer_dict, target_name, counter_target_pos, anno_id
                         "rep_entry_name": entry_name, "count": 1, "value": value}
                 else:
                     transfer_dict[target_name][counter_target_pos][anno_id]['additional_keys'][key]["count"] += 1
-    print(transfer_dict)
+    # print(f"[[[[[[ Add To Transfer Dict ]]]]]] {transfer_dict}")
 
 #@measure_time_and_memory
 #@profile
-def remove_failed_annotations(entry_annotations, counter_uniprot_pos_str, paired_position):
+def remove_failed_annotations(entry_annotations: Dict[str, Any], counter_uniprot_pos_str: str, paired_position: str) -> None:
     """
     Removes failed annotations from entry annotations.
     """
@@ -250,14 +255,14 @@ def remove_failed_annotations(entry_annotations, counter_uniprot_pos_str, paired
 
 #@measure_time_and_memory
 #@profile
-def make_anno_total_dict(entry_name, target_name, entry_annotations, counter_target_pos, counter_uniprot_pos_str, visited_pos, caller_target_pos=None):
+def make_anno_total_dict(entry_name: str, entry_annotations: Dict[str, Any], counter_target_pos: int, counter_uniprot_pos_str: str, visited_pos: Set[str], caller_target_pos: Optional[int] = None) -> Dict[str, Any]:
     """
     For any given annotation in appropriate format (list with 1 dict inside), paired or not, produces an anno_total dict and
     associated data to return as a dict to be extracted from in accordance to the calling function needs.
-    Used by process_annotation and validate_paired_position.
+    Used by process_annotation and validate_paired_positions.
     """
     good_eco_codes = ["ECO:0000269", "ECO:0000303", "ECO:0000305", "ECO:0000312", "ECO:0007744"]
-    print(f"Entry Annotations in make_anno_total_dict --- {entry_annotations}")
+    # print(f" MAKE ANNO --- Entry Annotations in make_anno_total_dict --- {entry_annotations}")
     if isinstance(entry_annotations[counter_uniprot_pos_str], list) and entry_annotations[counter_uniprot_pos_str]:
         anno_total = None
         annotation = entry_annotations[counter_uniprot_pos_str][0]
@@ -294,7 +299,9 @@ def make_anno_total_dict(entry_name, target_name, entry_annotations, counter_tar
             }
             # print(f"Look at anno_total's evidence: {anno_total['evidence']}")
             if caller_target_pos:
-                anno_total['paired_position'] = anno_paired_position
+                # if entry_name == "E2RU97_GIAIC":
+                #     print(f" --- DEBUG --- MAKE_ANNO --- the paired position value in anno_total: {anno_paired_position}")
+                anno_total['paired_position'] = anno_paired_position[entry_name]
 
             if anno_type == 'BINDING':
                 keys_to_exclude = {'type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid'}
@@ -323,14 +330,14 @@ def make_anno_total_dict(entry_name, target_name, entry_annotations, counter_tar
 
 #@measure_time_and_memory
 #@profile
-def process_annotation(entry_name, target_name, target_hit_start, target_hit_end, entry_annotations, transfer_dict, target_sequence, offset_start, offset_end, annot_sequence, counter_target_pos, counter_uniprot_pos_str, visited_pos):
+def process_annotation(entry_name: str, target_name: str, target_hit_start: int, target_hit_end: int, entry_annotations: Dict[str, Any], transfer_dict: dict, target_sequence: str, offset_start: int, offset_end: int, annot_sequence: str, counter_target_pos: int, counter_uniprot_pos_str: str, visited_pos: Set[str]) -> None:
     """
     Processes annotations to add them to the transfer dictionary by calling make_anno_total dict
     with anno_total containing at least type, description, count, and evidence, plus associated data.
     Additionally, it adds paired position if the other member also hits (successfull map_and_filter_annot_pos for it),
     and adds additional keys for BINDING annotations, if present.
     """
-    result_dict = make_anno_total_dict(entry_name, target_name, entry_annotations, counter_target_pos, counter_uniprot_pos_str, visited_pos)
+    result_dict = make_anno_total_dict(entry_name, entry_annotations, counter_target_pos, counter_uniprot_pos_str, visited_pos)
     annotation = result_dict['annotation']
     anno_type = result_dict['anno_type']
     anno_id = result_dict['anno_id']
@@ -356,7 +363,7 @@ def process_annotation(entry_name, target_name, target_hit_start, target_hit_end
 
 #@measure_time_and_memory
 #@profile
-def validate_paired_position(target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_name, entry_annotations, transfer_dict, visited_pos, counter_target_pos, counter_uniprot_pos, target_paired_uniprot_pos, caller_target_pos):
+def validate_paired_positions(target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, visited_pos: Set[str], counter_target_pos: int, counter_uniprot_pos: int, target_paired_uniprot_pos: str, caller_target_pos: int) -> bool:
     """
     Validates the 2nd member of a paired position by checking
     if the target paired uniprot position from caller is a valid match.
@@ -365,11 +372,12 @@ def validate_paired_position(target_sequence, target_name, target_hit_start, tar
     asking to remove both positions from entry_annotations
     in the process_annotation parent function.
     """
+
     paired_position_valid = False
     int_target_paired_uniprot_pos = int(target_paired_uniprot_pos)
     last_target_pos = False
 
-    print(f" --- VALIDATE PAIRED --- Running for {target_name}/{target_hit_start}-{target_hit_end} and {entry_name}/{offset_start}-{offset_end}")
+    print(f" --- DEBUG --- VAL_PAIRED --- Running for {target_name}/{target_hit_start}-{target_hit_end} and {entry_name}/{offset_start}-{offset_end}")
     while last_target_pos is False:
         for index, char in enumerate(annot_sequence):
             if char.isalpha():
@@ -379,30 +387,34 @@ def validate_paired_position(target_sequence, target_name, target_hit_start, tar
                 counter_target_pos = int(target_hit_start) if counter_target_pos is None else counter_target_pos + 1
 
             if counter_target_pos is None and counter_uniprot_pos is None:
+                print(" --- DEBUG --- VAL_PAIRED --- Counters were none!")
                 continue
 
             if counter_uniprot_pos == int_target_paired_uniprot_pos and target_sequence[index] == annot_sequence[index]:
-                result_dict = make_anno_total_dict(entry_name, target_name, entry_annotations, counter_target_pos, target_paired_uniprot_pos, visited_pos, caller_target_pos)
+                # if entry_name == "E2RU97_GIAIC":
+                #     print(f" --- DEBUG --- VAL_PAIRED --- We found a pos match for {target_name} and {entry_name} at target {counter_target_pos} and annot {counter_uniprot_pos}!")
+                result_dict = make_anno_total_dict(entry_name, entry_annotations, counter_target_pos, target_paired_uniprot_pos, visited_pos, caller_target_pos)
                 anno_id = result_dict['anno_id']
                 anno_total = result_dict['anno_total']
                 add_to_transfer_dict(transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_name)
                 visited_pos.add(target_paired_uniprot_pos)
+                print(f" --- DEBUG --- VAL_PAIRED --- Added to transfer dict for {target_name} and {entry_name} at target {counter_target_pos} and annot {counter_uniprot_pos}!")
+                print(f" --- DEBUG --- VAL_PAIRED --- Visited Pos after add in validate paired positions --- {visited_pos}")
                 paired_position_valid = True
                 return paired_position_valid
             else:
                 visited_pos.add(target_paired_uniprot_pos)
             if counter_target_pos == target_hit_end or counter_uniprot_pos == offset_end:
-                print(f"Ran out!")
-                print(f"Visited pos brother {visited_pos}")
+                # if entry_name == "E2RU97_GIAIC":
+                #     print(" --- DEBUG --- VAL_PAIRED --- Ran out!")
+                #     print(f" --- DEBUG --- VAL_PAIRED --- Visited pos brother {visited_pos}")
                 last_target_pos = True
                 break
-
-
     return paired_position_valid
 
 #@measure_time_and_memory
 #@profile
-def validate_annotations(target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_name, entry_annotations, transfer_dict, visited_pos, counter_target_pos, counter_uniprot_pos):
+def validate_annotations(target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, visited_pos: Set[str], counter_target_pos: int, counter_uniprot_pos: int) -> None:
     """
     Iterate on both annot and target sequence to find annotated positions that present the exact same amino acid in both sequences.
     These are sent to processing in process_annotation. Regardless, keep score of where we've been by adding to visited_pos set.
@@ -412,11 +424,13 @@ def validate_annotations(target_sequence, target_name, target_hit_start, target_
     if not any(pos in range(offset_start, offset_end + 1) for pos in annotated_uni_pos_list):
         return
 
-    print(f" --- VAL_ANNOTS --- Running for {target_name}/{target_hit_start}-{target_hit_end} and {entry_name}/{offset_start}-{offset_end}")
-    print(f"Entry Annotations --- {entry_annotations}")
+    # if entry_name == "E2RU97_GIAIC":
+    #     print(f" --- DEBUG --- VAL_ANNOTS --- Running for {target_name}/{target_hit_start}-{target_hit_end} and {entry_name}/{offset_start}-{offset_end}")
+        # print(f"Entry Annotations --- {entry_annotations}")
 
     last_target_pos = False
-    # print(f"Visited Pos in validate annotations --- {visited_pos}")
+    # if entry_name == "E2RU97_GIAIC":
+    #     print(f" --- DEBUG --- VAL_ANNOTS --- Visited Pos in validate annotations --- {visited_pos}")
 
     while last_target_pos is False:
         for index, char in enumerate(annot_sequence):
@@ -427,21 +441,24 @@ def validate_annotations(target_sequence, target_name, target_hit_start, target_
             counter_uniprot_pos_str = str(counter_uniprot_pos)
 
             if counter_target_pos is None and counter_uniprot_pos is None:
+                print(" --- Debug --- VAL_ANNOTS --- Counters were none!")
                 continue
 
             if counter_uniprot_pos_str not in visited_pos:
                 visited_pos.add(counter_uniprot_pos_str)
-                print(f"Counter Uni Pos {counter_uniprot_pos_str} = * {annot_sequence[index]} * \nCounter Tar Pos {str(counter_target_pos)} = ! {target_sequence[index]} !")
+                # if entry_name == "E2RU97_GIAIC":
+                #     print(f" --- Debug --- VAL_ANNOTS --- Counter Uni Pos {counter_uniprot_pos_str} = * {annot_sequence[index]} * \nCounter Tar Pos {str(counter_target_pos)} = ! {target_sequence[index]} !")
 
                 if counter_uniprot_pos_str in entry_annotations and target_sequence[index] == annot_sequence[index]:
-                    print(f" --- VAL_ANNOTS --- Went inside!!! For {target_name} and {entry_name}!")
                     counter_target_pos_str = str(counter_target_pos)
-                    print(f" --- VAL_ANNOTS --- We found a pos match for {target_name} and {entry_name} at target {counter_target_pos_str} and annot {counter_uniprot_pos_str}!")
+                    # if entry_name == "E2RU97_GIAIC":
+                    #     print(f" --- DEBUG --- VAL_ANNOTS --- We found a pos match for {target_name} and {entry_name} at target {counter_target_pos_str} and annot {counter_uniprot_pos_str}!")
                     process_annotation(entry_name, target_name, target_hit_start, target_hit_end, entry_annotations, transfer_dict, target_sequence, offset_start, offset_end, annot_sequence, counter_target_pos_str, counter_uniprot_pos_str, visited_pos)
 
             if counter_target_pos == target_hit_end or counter_uniprot_pos == offset_end:
-                print(f"Ran out!")
-                print(f"Visited pos brother {visited_pos}")
+                # if entry_name == "E2RU97_GIAIC":
+                #     print(" --- DEBUG --- VAL_ANNOTS --- Ran out!")
+                #     print(f" --- DEBUG --- VAL_ANNOTS --- Visited pos brother {visited_pos}")
                 last_target_pos = True
                 break
 
@@ -458,8 +475,6 @@ def main():
     hmmalign_lines, annotations = read_files(dom_align, annotations_filepath)
     try:
         transfer_dict = find_and_map_annots(hmmalign_lines, annotations)
-        print("!!Transferidooooo!!")
-        print(transfer_dict)
     except (KeyError, IndexError) as e:
         error_info = traceback.format_exc()
         print(f"Error transferring annotations for Pfam ID {pfam_id}: {e}\n{error_info}")

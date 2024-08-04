@@ -1,5 +1,5 @@
 """
-hmmsearch.py
+run_hmmsearch.py
 
 Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
@@ -41,8 +41,10 @@ import json
 import argparse
 import logging
 import sys
+from typing import Union
 import psutil
 import pyhmmer
+from pyhmmer.easel import SequenceBlock, SequenceFile
 import utils
 # from modules.decorators import measure_time_and_memory
 
@@ -65,13 +67,13 @@ def parse_arguments():
         required=False, type=str, default="logs/run_hmmsearch.log")
     return parser.parse_args()
 
-def setup_logging(log_path):
+def setup_logging(log_path: str) -> None:
     """Set up logging for the script."""
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-def load_sequence_file(fasta_path):
+def load_sequence_file(fasta_path: str) -> Union[SequenceBlock, SequenceFile]:
     """
     Loads a multifasta file either as a SequenceFile or a DigitalSequenceBlock,
     the latter only if the file loaded to memory would take less than 20% of the available memory.
@@ -89,7 +91,7 @@ def load_sequence_file(fasta_path):
             targets = seq_file
     return targets
 
-def run_hmmsearch(hmm, fasta_path, output_dir):
+def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str) -> None:
     """Runs pyhmmer hmmsearch with HMMs as query and target (multi)FASTA file and
     returns a JSON with the domains found for the target sequences with structure
     hits_per_domain[accession][target_seq] = [{<domain_data>}]
@@ -101,7 +103,7 @@ def run_hmmsearch(hmm, fasta_path, output_dir):
     targets = load_sequence_file(fasta_path)
 
     hits_per_domain = {}
-    per_domain_output = os.path.join(output_dir, "hmmsearch_per_domain_output.json")
+    per_domain_output = os.path.join(output_dir, "hmmsearch_per_domain.json")
     for top_hits in pyhmmer.hmmsearch(hmms, targets, bit_cutoffs="gathering"):
         for hit in top_hits:
             target_seq = hit.name.decode("utf-8")
@@ -109,7 +111,9 @@ def run_hmmsearch(hmm, fasta_path, output_dir):
                 alignment = domain.alignment
                 hmm_name = alignment.hmm_name.decode("utf-8")
                 # Accession is the Pfam ID
-                accession = alignment.hmm_accession.decode("utf-8") if alignment.hmm_accession.decode("utf-8") != hmm_name else None
+                accession = alignment.hmm_accession.decode("utf-8").split(".")[0] if alignment.hmm_accession.decode("utf-8") != hmm_name else None
+                if accession is None:
+                    continue
                 if accession not in hits_per_domain:
                     hits_per_domain[accession] = {}
                 ali_from_1 = alignment.target_from
