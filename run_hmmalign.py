@@ -49,15 +49,16 @@ def parse_arguments():
         required=False, type=str, default="logs/run_hmmalign.log")
     return parser.parse_args()
 
-def setup_logging(log_path: str) -> None:
+def configure_logging(log_path: str) -> logging.Logger:
     """Set up logging for the script."""
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
+    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    return logging.getLogger()
 
 #@measure_time_and_memory
 #@profile
-def run_hmmalign(dom_info_json: str) -> None:
+def run_hmmalign(dom_info_json: str, logger: logging.Logger) -> None:
     """
     Runs hmmalign for the domain in the domain_info JSON.
     """
@@ -74,17 +75,20 @@ def run_hmmalign(dom_info_json: str) -> None:
     result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
     if result.returncode != 0:
-        print(f"Error running hmmalign: {result.stderr.decode('utf-8')}")
+        logger.error(f"Error running hmmalign: {result.stderr.decode('utf-8')}")
     else:
-        print(f"Generated {pfam_id_hmmaligned}")
+        logger.info(f"Generated {pfam_id_hmmaligned}")
 
-def main():
+def main(logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     domain_info_json = args.dom_info
-    setup_logging(args.log)
 
-    run_hmmalign(domain_info_json)
+    logger.info(f"Running hmmalign for domain info JSON: {domain_info_json}")
+
+    run_hmmalign(domain_info_json, logger)
 
 if __name__ == '__main__':
-    main()
+    outer_args = parse_arguments()
+    outer_logger = configure_logging(outer_args.log)
+    main(outer_logger)

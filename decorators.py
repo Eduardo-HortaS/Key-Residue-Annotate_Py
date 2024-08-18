@@ -23,9 +23,11 @@ This script contains all decorator functions used in the SSF-Predict pipeline.
 """
 
 import time
+import logging
+from typing import Callable, Any
 import memory_profiler
 
-def measure_time(func):
+def measure_time(func: Callable[..., Any], logger: logging.Logger):
     """
     Measures the time it took to execute the decorated function.
     """
@@ -34,11 +36,11 @@ def measure_time(func):
         result = func(*args, **kwargs)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"\n{func.__name__} execution time: {execution_time:.6f} seconds\n")
+        logger.info(f"\n{func.__name__} execution time: {execution_time:.6f} seconds\n")
         return result
     return wrapper
 
-def measure_memory(func):
+def measure_memory(func: Callable[..., Any], logger: logging.Logger):
     """
     Measures the memory usage before and after the decorated function's execution.
     """
@@ -47,11 +49,11 @@ def measure_memory(func):
         result = func(*args, **kwargs)
         memory_after = memory_profiler.memory_usage()[0]
         memory_used = memory_after - memory_before
-        print(f"\nMemory increase for {func.__name__}: {memory_used:.2f} MB\n")
+        logger.info(f"\nMemory increase for {func.__name__}: {memory_used:.2f} MB\n")
         return result
     return wrapper
 
-def measure_time_and_memory(func):
+def measure_time_and_memory(func: Callable[..., Any], logger: logging.Logger):
     """
     Measures both execution time and memory usage increase of the decorated function.
     """
@@ -63,7 +65,7 @@ def measure_time_and_memory(func):
         memory_after = memory_profiler.memory_usage()[0]
         execution_time = end_time - start_time
         memory_used = memory_after - memory_before
-        print(f"\n{func.__name__} execution time: {execution_time:.6f} seconds")
-        print(f"Memory increase for {func.__name__}: {memory_used:.2f} MB\n")
+        logger.info(f"\n{func.__name__} execution time: {execution_time:.6f} seconds")
+        logger.info(f"Memory increase for {func.__name__}: {memory_used:.2f} MB\n")
         return result
     return wrapper

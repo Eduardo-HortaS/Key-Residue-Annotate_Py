@@ -67,31 +67,32 @@ def parse_arguments():
         required=False, type=str, default="logs/run_hmmsearch.log")
     return parser.parse_args()
 
-def setup_logging(log_path: str) -> None:
+def configure_logging(log_path: str) -> logging.Logger:
     """Set up logging for the script."""
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
+    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    return logging.getLogger()
 
-def load_sequence_file(fasta_path: str) -> Union[SequenceBlock, SequenceFile]:
+def load_sequence_file(fasta_path: str, logger: logging.Logger) -> Union[SequenceBlock, SequenceFile]:
     """
     Loads a multifasta file either as a SequenceFile or a DigitalSequenceBlock,
     the latter only if the file loaded to memory would take less than 20% of the available memory.
     """
     available_memory = psutil.virtual_memory().available
     target_size= os.stat(fasta_path).st_size
-    print(f"Available memory: {available_memory/1024:.1f} KiB")
-    print(f"Database on-disk size: {target_size/1024:.1f} KiB")
+    logger.info(f"Available memory: {available_memory/1024:.1f} KiB")
+    logger.info(f"Database on-disk size: {target_size/1024:.1f} KiB")
     with pyhmmer.easel.SequenceFile(fasta_path, digital=True) as seq_file:
         if target_size < available_memory * 0.2:
-            print("Pre-fetching targets into memory")
+            logger.info("Pre-fetching targets into memory")
             targets = seq_file.read_block()
-            print(f"Database in-memory size: {(sys.getsizeof(targets) + sum(sys.getsizeof(target) for target in targets))/1024:.1f} KiB")
+            logger.info(f"Database in-memory size: {(sys.getsizeof(targets) + sum(sys.getsizeof(target) for target in targets))/1024:.1f} KiB")
         else:
             targets = seq_file
     return targets
 
-def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str) -> None:
+def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Logger) -> None:
     """Runs pyhmmer hmmsearch with HMMs as query and target (multi)FASTA file and
     returns a JSON with the domains found for the target sequences with structure
     hits_per_domain[accession][target_seq] = [{<domain_data>}]
@@ -100,7 +101,7 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str) -> None:
     with open(hmm, 'rb') as f:
         hmms = list(pyhmmer.plan7.HMMFile(f))
 
-    targets = load_sequence_file(fasta_path)
+    targets = load_sequence_file(fasta_path, logger)
 
     hits_per_domain = {}
     per_domain_output = os.path.join(output_dir, "hmmsearch_per_domain.json")
@@ -135,21 +136,23 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str) -> None:
 
     with open(per_domain_output, "w", encoding='utf-8') as f:
         json.dump(hits_per_domain, f, indent=4)
-    print(f"HmmSearch TopHits results saved per domain - {per_domain_output}")
+    logger.info(f"HmmSearch TopHits results saved per domain - {per_domain_output}")
 
-def main():
+def main(logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     input_fasta = args.fasta
     input_hmm = args.hmm
     output_dir = args.output_dir
-    setup_logging(args.log)
+    logger.info(f"Running hmmsearch with arguments: {args}")
 
     yielded_sequences = utils.seqrecord_yielder(input_fasta)
     # May stop individualized fastas later,
     # if they end up not being useful in the next steps
     utils.make_dirs_and_write_fasta(yielded_sequences, output_dir)
-    run_hmmsearch(input_hmm, input_fasta, output_dir)
+    run_hmmsearch(input_hmm, input_fasta, output_dir, logger)
 
 if __name__ == '__main__':
-    main()
+    outer_args = parse_arguments()
+    outer_logger = configure_logging(outer_args.log)
+    main(outer_logger)

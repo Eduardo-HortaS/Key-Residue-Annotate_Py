@@ -55,13 +55,14 @@ def parse_arguments():
         required=False, type=str, default="logs/merge_sequences.log")
     return parser.parse_args()
 
-def setup_logging(log_path: str) -> None:
+def configure_logging(log_path: str) -> logging.Logger:
     """Set up logging for the script."""
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
+    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    return logging.getLogger()
 
-def merge_sequences(output_dir: str) -> None:
+def merge_sequences(output_dir: str, logger: logging.Logger) -> None:
     """Merges every sequence's PF*_report.json into a single JSON, with structure:
     report[sequence][domain] = {<pair's data>} in the output directory.
     For debugging purposes, also stores a list of unique domains in what_domains.txt.
@@ -71,7 +72,7 @@ def merge_sequences(output_dir: str) -> None:
 
     # Check if aggregated_report.json already exists
     if os.path.exists(aggregated_report_path):
-        print(f"Error: {aggregated_report_path} already exists. Please do not re-run this script, intended use is one-time only, after transfer_annotations.py")
+        logger.error(f"Error: {aggregated_report_path} already exists. Please do not re-run this script, intended use is one-time only, after transfer_annotations.py")
         return
 
     aggregated_report = {}
@@ -99,11 +100,11 @@ def merge_sequences(output_dir: str) -> None:
 
     with open(aggregated_report_path, "w", encoding="utf-8") as aggregated_report_file:
         json.dump(aggregated_report, aggregated_report_file, indent=4)
-    print(f"Wrote unique domains to {reported_domains_path}")
-    print(f"Wrote an aggregated report to {aggregated_report_path}")
+    logger.info(f"Wrote unique domains to {reported_domains_path}")
+    logger.info(f"Wrote an aggregated report to {aggregated_report_path}")
     return aggregated_report_path
 
-def write_tsv_representation(aggregated_report_path: str, output_tsv_path: str) -> None:
+def write_tsv_representation(aggregated_report_path: str, output_tsv_path: str, logger: logging.Logger) -> None:
     """
     Converts the aggregated report into a TSV representation and writes it to a file.
     Requires the path to the aggregated report JSON and the path to write the output TSV file.
@@ -187,16 +188,19 @@ def write_tsv_representation(aggregated_report_path: str, output_tsv_path: str) 
 
     with open(output_tsv_path, 'w', encoding='utf-8') as output_tsv_file:
         output_tsv_file.write(tsv_rep)
-    print(f"Wrote TSV representation to {output_tsv_path}")
+    logger.info(f"Wrote TSV representation to {output_tsv_path}")
 
-def main():
+def main(logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     output_dir = args.output_dir
-    setup_logging(args.log)
-    aggregated_report_path = merge_sequences(output_dir)
+    logger.info(f"Running merge_sequences with arguments: {args}")
+
+    aggregated_report_path = merge_sequences(output_dir, logger)
     output_tsv = os.path.join(output_dir, "initial_visualization.tsv")
-    write_tsv_representation(aggregated_report_path, output_tsv_path=output_tsv)
+    write_tsv_representation(aggregated_report_path, output_tsv_path=output_tsv, logger=logger)
 
 if __name__ == '__main__':
-    main()
+    outer_args = parse_arguments()
+    outer_logger = configure_logging(outer_args.log)
+    main(outer_logger)

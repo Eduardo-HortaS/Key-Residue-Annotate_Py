@@ -59,11 +59,12 @@ def parse_arguments():
         required=False, type=str, default="logs/prepare_fasta_per_domain.log")
     return parser.parse_args()
 
-def setup_logging(log_path: str) -> None:
+def configure_logging(log_path: str) -> logging.Logger:
     """Set up logging for the script."""
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='w', \
+    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    return logging.getLogger()
 
 def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> dict[str, Any]:
     """
@@ -87,7 +88,7 @@ def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> 
     }
     return domain_run_info
 
-def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str) -> (str | None):
+def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, logger: logging.Logger) -> (str | None):
     """
     Loads a hits per domain JSON and searches for a target domain by its accession to
     generate a FASTA containing its hits across all sequences.
@@ -98,7 +99,7 @@ def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str) ->
         with open(per_dom_json, 'r', encoding='utf-8') as f:
             hits = json.load(f)
     except IOError as e:
-        print(f"Error opening or reading the file: {e}")
+        logger.error(f"Error opening or reading the file: {e}")
         return
 
     for accession, sequences in hits.items():
@@ -121,29 +122,32 @@ def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str) ->
         fasta_file.write(fasta_data)
     return fasta_path
 
-def main():
+def main(logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     per_dom_json = args.per_dom_json
     dom_accession = args.dom_accession
     resource_dir = args.resource_dir
     output_dir = args.output_dir
-    setup_logging(args.log)
+
+    logger.info(f"Running prepare_fasta_per_domain with arguments: {args}")
 
     domain_info = can_run_hmmalign(dom_accession, resource_dir, output_dir)
     if domain_info['can_align']:
-        dom_fasta_path = prep_domain_fasta(per_dom_json, dom_accession, output_dir)
+        dom_fasta_path = prep_domain_fasta(per_dom_json, dom_accession, output_dir, logger)
         domain_info['dom_fasta'] = dom_fasta_path
         output_json_path = os.path.join(output_dir, dom_accession, 'domain_info.json')
         os.makedirs(os.path.dirname(output_json_path), exist_ok=True)
         try:
             with open(output_json_path, 'w', encoding='utf-8') as f:
                 json.dump(domain_info, f, indent=4)
-            print(f"Information for {dom_accession} was written to {output_json_path}")
+            logger.info(f"Information for {dom_accession} was written to {output_json_path}")
         except IOError as e:
-            print(f"Error writing the file: {e}")
+            logger.error(f"Error writing the file: {e}")
     else:
-        print(f"Couldn't find the necessary files for domain {dom_accession}")
+        logger.warning(f"Couldn't find the necessary files for domain {dom_accession}")
 
 if __name__ == '__main__':
-    main()
+    outer_args = parse_arguments()
+    outer_logger = configure_logging(outer_args.log)
+    main(outer_logger)

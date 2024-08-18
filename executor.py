@@ -33,10 +33,6 @@ import sys
 import traceback
 from joblib import Parallel, delayed
 
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename='pipeline_log.log')
-
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Run the pipeline")
     parser.add_argument('-iF', '--fasta', required=True, help='Input fasta file')
@@ -46,14 +42,20 @@ def parse_arguments():
     parser.add_argument("-e", "--eco-codes", help="List of ECO codes to filter annotations", nargs="*", type=str, default=[])
     parser.add_argument('-t', '--threads', type=int, default=1, help='Number of threads')
     parser.add_argument('-p', '--python', required=True, help='Path to the Python executable')
+    parser.add_argument('-l', '--log', help='Log path', required=False, type=str, default='logs/pipeline.log')
     return parser.parse_args()
 
-def run_command(command):
+def configure_logging(log_path):
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', filename=log_path)
+    logger = logging.getLogger()
+    return logger
+
+def run_command(command, logger):
     try:
         subprocess.run(command, shell=True, check=True)
     except Exception as e:
         error_info = traceback.format_exc()
-        logging.error("Command failed: %s \n Error: %s, Info: %s", command, e, error_info)
+        logger.error("Command failed: %s \n Error: %s, Info: %s", command, e, error_info)
         sys.exit(1)
 
 def main():
@@ -66,36 +68,37 @@ def main():
     eco_codes = args.eco_codes
     threads = args.threads
     python_executable = args.python
+    logger = configure_logging(args.log)
 
     # run_hmmsearch.py
     per_dom_json = os.path.join(output_dir, "hmmsearch_per_domain.json")
     if os.path.exists(per_dom_json):
-        print(f"Output for hmmsearch step {per_dom_json} already exists. Skipping.")
+        logger.info("Output for hmmsearch step %s already exists. Skipping.", per_dom_json)
     else:
-        run_hmmsearch_call = f"{python_executable} run_hmmsearch.py -iF {input_fasta} -iH {input_hmm} -o {output_dir}"
-        run_command(run_hmmsearch_call)
+        run_hmmsearch_call = f"{python_executable} run_hmmsearch.py -iF {input_fasta} -iH {input_hmm} -o {output_dir} -l {args.log}"
+        run_command(run_hmmsearch_call, logger)
 
     # prepare_fasta_per_domain.py
     prepare_fasta_done = os.path.join(output_dir, "prepare_fasta_per_domain.done")
     if os.path.exists(prepare_fasta_done):
-        print("PREPARE_FASTA_PER_DOMAIN.PY --- Skipping, output already exists")
+        logger.info("PREPARE_FASTA_PER_DOMAIN.PY --- Skipping, output already exists")
     else:
         with open(per_dom_json, "r", encoding="utf-8") as f:
             hits_per_domain = json.load(f)
 
         prepare_fasta_tasks = [
-            f"{python_executable} prepare_fasta_per_domain.py -iJ {per_dom_json} -iD {dom_accession} -r {resource_dir} -o {output_dir}"
+            f"{python_executable} prepare_fasta_per_domain.py -iJ {per_dom_json} -iD {dom_accession} -r {resource_dir} -o {output_dir} -l {args.log}"
             for dom_accession in hits_per_domain
         ]
-        Parallel(n_jobs=threads)(delayed(run_command)(task) for task in prepare_fasta_tasks)
+        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in prepare_fasta_tasks)
         with open(prepare_fasta_done, "w", encoding="utf-8") as f:
             f.write("")
-        print("PREPARE_FASTA_PER_DOMAIN.PY --- Executed")
+        logger.info("PREPARE_FASTA_PER_DOMAIN.PY --- Executed")
 
     # run_hmmalign.py
     run_hmmalign_done = os.path.join(output_dir, "run_hmmalign.done")
     if os.path.exists(run_hmmalign_done):
-        print("RUN_HMMALIGN.PY --- Skipping, output already exists")
+        logger.info("RUN_HMMALIGN.PY --- Skipping, output already exists")
     else:
         run_hmmalign_tasks = []
         for subdir in os.listdir(output_dir):
@@ -103,16 +106,16 @@ def main():
             if os.path.isdir(subdir_path) and subdir.startswith("PF"):
                 domain_info = os.path.join(subdir_path, "domain_info.json")
                 if os.path.isfile(domain_info):
-                    run_hmmalign_tasks.append(f"{python_executable} run_hmmalign.py -iDI {domain_info}")
-        Parallel(n_jobs=threads)(delayed(run_command)(task) for task in run_hmmalign_tasks)
+                    run_hmmalign_tasks.append(f"{python_executable} run_hmmalign.py -iDI {domain_info} -l {args.log}")
+        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in run_hmmalign_tasks)
         with open(run_hmmalign_done, "w", encoding="utf-8") as f:
             f.write("")
-        print("RUN_HMMALIGN.PY --- Executed.")
+        logger.info("RUN_HMMALIGN.PY --- Executed.")
 
     # transfer_annotations.py
     transfer_annotations_done = os.path.join(output_dir, "transfer_annotations.done")
     if os.path.exists(transfer_annotations_done):
-        print("TRANSFER_ANNOTATIONS.PY --- Skipping, output already exists")
+        logger.info("TRANSFER_ANNOTATIONS.PY --- Skipping, output already exists")
     else:
         transfer_annotations_tasks = []
         for subdir in os.listdir(output_dir):
@@ -120,25 +123,27 @@ def main():
             if os.path.isdir(subdir_path) and subdir.startswith("PF"):
                 dom_aligns = [dom_align for dom_align in glob.glob(os.path.join(subdir_path, "PF*_hmmalign.sth")) if os.path.isfile(dom_align)]
                 for dom_align in dom_aligns:
-                    transfer_annotations_tasks.append(f"{python_executable} transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir} --eco-codes {' '.join(eco_codes)}")
-        logging.info("Transfer annotations tasks: %s", transfer_annotations_tasks)
-        Parallel(n_jobs=threads)(delayed(run_command)(task) for task in transfer_annotations_tasks)
+                    transfer_annotations_tasks.append(f"{python_executable} transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir} --eco-codes {' '.join(eco_codes)} -l {args.log}")
+        logger.info("Transfer annotations tasks: %s", transfer_annotations_tasks)
+        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in transfer_annotations_tasks)
         with open(transfer_annotations_done, "w", encoding="utf-8") as f:
             f.write("")
-        print("TRANSFER_ANNOTATIONS.PY --- Executed")
+        logger.info("TRANSFER_ANNOTATIONS.PY --- Executed")
 
     # merge_sequences.py
     merge_sequences_done = os.path.join(output_dir, "merge_sequences.done")
     if os.path.exists(merge_sequences_done):
-        print("MERGE_SEQUENCES --- Skipping, output already exists")
+        logger.info("MERGE_SEQUENCES --- Skipping, output already exists")
     else:
-        merge_sequences_call = f"{python_executable} merge_sequences.py -o {output_dir}"
-        run_command(merge_sequences_call)
+        merge_sequences_call = f"{python_executable} merge_sequences.py -o {output_dir} -l {args.log}"
+        run_command(merge_sequences_call, logger)
         with open(merge_sequences_done, "w", encoding="utf-8") as f:
             f.write("")
-        print("MERGE_SEQUENCES --- Executed")
+        logger.info("MERGE_SEQUENCES --- Executed")
 
-    print("Pipeline finished successfully")
+    logger.info("Pipeline finished successfully")
+
+
 
 if __name__ == "__main__":
     main()
