@@ -43,7 +43,9 @@ def parse_arguments():
     parser.add_argument('-iH', '--hmm', required=True, help='Input hmm file')
     parser.add_argument('-r', '--resource_dir', required=True, help='Resource directory')
     parser.add_argument('-o', '--output_dir', required=True, help='Output directory')
+    parser.add_argument("-e", "--eco-codes", help="List of ECO codes to filter annotations", nargs="*", type=str, default=[])
     parser.add_argument('-t', '--threads', type=int, default=1, help='Number of threads')
+    parser.add_argument('-p', '--python', required=True, help='Path to the Python executable')
     return parser.parse_args()
 
 def run_command(command):
@@ -61,135 +63,82 @@ def main():
     input_hmm = args.hmm
     resource_dir = args.resource_dir
     output_dir = args.output_dir
+    eco_codes = args.eco_codes
     threads = args.threads
+    python_executable = args.python
 
     # run_hmmsearch.py
     per_dom_json = os.path.join(output_dir, "hmmsearch_per_domain.json")
     if os.path.exists(per_dom_json):
         print(f"Output for hmmsearch step {per_dom_json} already exists. Skipping.")
     else:
-        run_hmmsearch_call = f"python3 run_hmmsearch.py -iF {input_fasta} -iH {input_hmm} -o {output_dir}"
+        run_hmmsearch_call = f"{python_executable} run_hmmsearch.py -iF {input_fasta} -iH {input_hmm} -o {output_dir}"
         run_command(run_hmmsearch_call)
 
     # prepare_fasta_per_domain.py
-    with open(per_dom_json, "r", encoding="utf-8") as f:
-        hits_per_domain = json.load(f)
+    prepare_fasta_done = os.path.join(output_dir, "prepare_fasta_per_domain.done")
+    if os.path.exists(prepare_fasta_done):
+        print("PREPARE_FASTA_PER_DOMAIN.PY --- Skipping, output already exists")
+    else:
+        with open(per_dom_json, "r", encoding="utf-8") as f:
+            hits_per_domain = json.load(f)
 
-    prepare_fasta_tasks = [
-        f"python3 prepare_fasta_per_domain.py -iJ {per_dom_json} -iD {dom_accession} -r {resource_dir} -o {output_dir}"
-        for dom_accession in hits_per_domain
-    ]
-    Parallel(n_jobs=threads)(delayed(run_command)(task) for task in prepare_fasta_tasks)
+        prepare_fasta_tasks = [
+            f"{python_executable} prepare_fasta_per_domain.py -iJ {per_dom_json} -iD {dom_accession} -r {resource_dir} -o {output_dir}"
+            for dom_accession in hits_per_domain
+        ]
+        Parallel(n_jobs=threads)(delayed(run_command)(task) for task in prepare_fasta_tasks)
+        with open(prepare_fasta_done, "w", encoding="utf-8") as f:
+            f.write("")
+        print("PREPARE_FASTA_PER_DOMAIN.PY --- Executed")
 
     # run_hmmalign.py
-    run_hmmalign_tasks = []
-    for subdir in os.listdir(output_dir):
-        subdir_path = os.path.join(output_dir, subdir)
-        if os.path.isdir(subdir_path) and subdir.startswith("PF"):
-            domain_info = os.path.join(subdir_path, "domain_info.json")
-            if os.path.isfile(domain_info):
-                run_hmmalign_tasks.append(f"python3 run_hmmalign.py -iDI {domain_info}")
-    Parallel(n_jobs=threads)(delayed(run_command)(task) for task in run_hmmalign_tasks)
+    run_hmmalign_done = os.path.join(output_dir, "run_hmmalign.done")
+    if os.path.exists(run_hmmalign_done):
+        print("RUN_HMMALIGN.PY --- Skipping, output already exists")
+    else:
+        run_hmmalign_tasks = []
+        for subdir in os.listdir(output_dir):
+            subdir_path = os.path.join(output_dir, subdir)
+            if os.path.isdir(subdir_path) and subdir.startswith("PF"):
+                domain_info = os.path.join(subdir_path, "domain_info.json")
+                if os.path.isfile(domain_info):
+                    run_hmmalign_tasks.append(f"{python_executable} run_hmmalign.py -iDI {domain_info}")
+        Parallel(n_jobs=threads)(delayed(run_command)(task) for task in run_hmmalign_tasks)
+        with open(run_hmmalign_done, "w", encoding="utf-8") as f:
+            f.write("")
+        print("RUN_HMMALIGN.PY --- Executed.")
 
     # transfer_annotations.py
-    transfer_annotations_tasks = []
-    for subdir in os.listdir(output_dir):
-        subdir_path = os.path.join(output_dir, subdir)
-        if os.path.isdir(subdir_path) and subdir.startswith("PF"):
-            dom_aligns = [dom_align for dom_align in glob.glob(os.path.join(subdir_path, "*_hmmalign.sth")) if os.path.isfile(dom_align)]
-            for dom_align in dom_aligns:
-                transfer_annotations_tasks.append(f"python3 transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir}")
-    Parallel(n_jobs=threads)(delayed(run_command)(task) for task in transfer_annotations_tasks)
+    transfer_annotations_done = os.path.join(output_dir, "transfer_annotations.done")
+    if os.path.exists(transfer_annotations_done):
+        print("TRANSFER_ANNOTATIONS.PY --- Skipping, output already exists")
+    else:
+        transfer_annotations_tasks = []
+        for subdir in os.listdir(output_dir):
+            subdir_path = os.path.join(output_dir, subdir)
+            if os.path.isdir(subdir_path) and subdir.startswith("PF"):
+                dom_aligns = [dom_align for dom_align in glob.glob(os.path.join(subdir_path, "PF*_hmmalign.sth")) if os.path.isfile(dom_align)]
+                for dom_align in dom_aligns:
+                    transfer_annotations_tasks.append(f"{python_executable} transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir} --eco-codes {' '.join(eco_codes)}")
+        logging.info("Transfer annotations tasks: %s", transfer_annotations_tasks)
+        Parallel(n_jobs=threads)(delayed(run_command)(task) for task in transfer_annotations_tasks)
+        with open(transfer_annotations_done, "w", encoding="utf-8") as f:
+            f.write("")
+        print("TRANSFER_ANNOTATIONS.PY --- Executed")
 
     # merge_sequences.py
-    merge_sequences_call = f"python3 merge_sequences.py -o {output_dir}"
-    run_command(merge_sequences_call)
-    print("Pipeline finished successfully.")
+    merge_sequences_done = os.path.join(output_dir, "merge_sequences.done")
+    if os.path.exists(merge_sequences_done):
+        print("MERGE_SEQUENCES --- Skipping, output already exists")
+    else:
+        merge_sequences_call = f"{python_executable} merge_sequences.py -o {output_dir}"
+        run_command(merge_sequences_call)
+        with open(merge_sequences_done, "w", encoding="utf-8") as f:
+            f.write("")
+        print("MERGE_SEQUENCES --- Executed")
+
+    print("Pipeline finished successfully")
 
 if __name__ == "__main__":
     main()
-
-
-# import os
-# import json
-# import argparse
-# import subprocess
-# import glob
-# from joblib import Parallel, delayed
-
-# def parse_arguments():
-#     """
-#     Parse command-line arguments for running all
-#     scripts in the pipeline.
-#     Neccessary arguments: proteome fasta, HMM database,
-#     output directory and resource directory.
-#     Optional: number of threads to use, default is 1.
-
-#     Returns:
-#         argparse.Namespace: Parsed command-line arguments.
-#     """
-
-#     parser = argparse.ArgumentParser(description=
-#     'Runs hmmsearch using a sequence database against target HMMs \
-#     aiming to generate a hmmsearch_per_domain.json file.')
-#     parser.add_argument("-iF", "--fasta", help="Path to fasta file", required=True, type=str)
-#     parser.add_argument("-iH", "--hmm", help="Path to target HMMs database file", required=True, type=str)
-#     parser.add_argument("-r", "--resource-dir", help="Resource dir path", required=True, type=str)
-#     parser.add_argument("-o", "--output-dir", help="Output dir path", required=True, type=str)
-#     parser.add_argument("-t", "--threads", help="Number of threads to use", required=False, type=int, default=1)
-#     return parser.parse_args()
-
-# def main():
-#     """Main function for running the pipeline."""
-#     args = parse_arguments()
-#     input_fasta = args.fasta
-#     input_hmm = args.hmm
-#     resource_dir = args.resource_dir
-#     output_dir = args.output_dir
-#     threads = args.threads
-
-#     # run_hmmsearch.py
-#     per_dom_json = os.path.join(output_dir, "hmmsearch_per_domain.json")
-#     if os.path.exists(per_dom_json):
-#         print(f"Output for hmmsearch step {per_dom_json} already exists. Skipping.")
-#     else:
-#         run_hmmsearch_call = f"python3 run_hmmsearch.py -iF {input_fasta} -iH {input_hmm} -o {output_dir}"
-#         subprocess.run(run_hmmsearch_call, shell=True, check=True)
-
-#     # prepare_fasta_per_domain.py
-#     with open(per_dom_json, "r", encoding="utf-8") as f:
-#         hits_per_domain = json.load(f)
-
-#     prepare_fasta_tasks = [
-#         f"python3 prepare_fasta_per_domain.py -iJ {per_dom_json} -iD {dom_accession} -r {resource_dir} -o {output_dir}"
-#         for dom_accession in hits_per_domain
-#     ]
-#     Parallel(n_jobs=threads)(delayed(subprocess.run)(task, shell=True, check=True) for task in prepare_fasta_tasks)
-
-#     # run_hmmalign.py
-#     run_hmmalign_tasks = []
-#     for subdir in os.listdir(output_dir):
-#         subdir_path = os.path.join(output_dir, subdir)
-#         if os.path.isdir(subdir_path) and subdir.startswith("PF"):
-#             domain_info = os.path.join(subdir_path, "domain_info.json")
-#             if os.path.isfile(domain_info):
-#                 run_hmmalign_tasks.append(f"python3 run_hmmalign.py -iDI {domain_info}")
-#     Parallel(n_jobs=threads)(delayed(subprocess.run)(task, shell=True, check=True) for task in run_hmmalign_tasks)
-
-#     # transfer_annotations.py
-#     transfer_annotations_tasks = []
-#     for subdir in os.listdir(output_dir):
-#         subdir_path = os.path.join(output_dir, subdir)
-#         if os.path.isdir(subdir_path) and subdir.startswith("PF"):
-#             dom_aligns = [dom_align for dom_align in glob.glob(os.path.join(subdir_path, "*_hmmalign.sth")) if os.path.isfile(dom_align)]
-#             for dom_align in dom_aligns:
-#                 transfer_annotations_tasks.append(f"python3 transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir}")
-#     Parallel(n_jobs=threads)(delayed(subprocess.run)(task, shell=True, check=True) for task in transfer_annotations_tasks)
-
-#     # merge_sequences.py
-#     merge_sequences_call = f"python3 merge_sequences.py -o {output_dir}"
-#     subprocess.run(merge_sequences_call, shell=True, check=True)
-#     print("Pipeline finished successfully.")
-
-# if __name__ == "__main__":
-#     main()
