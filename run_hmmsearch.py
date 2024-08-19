@@ -44,7 +44,7 @@ import sys
 from typing import Union
 import psutil
 import pyhmmer
-from pyhmmer.easel import SequenceBlock, SequenceFile
+from pyhmmer.easel import DigitalSequenceBlock, DigitalSequence
 import utils
 # from modules.decorators import measure_time_and_memory
 
@@ -63,6 +63,7 @@ def parse_arguments():
     parser.add_argument("-iF", "--fasta", help="Path to fasta file", required=True, type=str)
     parser.add_argument("-iH", "--hmm", help="Path to target HMMs database file", required=True, type=str)
     parser.add_argument("-o", "--output-dir", help="Output dir path", required=True, type=str)
+    parser.add_argument("-n", "--nucleotide", help="Flag to indicate nucleotide instead of default protein sequences", default=False, action="store_true")
     parser.add_argument("-l", "--log", help="Log path", \
         required=False, type=str, default="logs/run_hmmsearch.log")
     return parser.parse_args()
@@ -74,7 +75,7 @@ def configure_logging(log_path: str) -> logging.Logger:
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     return logging.getLogger()
 
-def load_sequence_file(fasta_path: str, logger: logging.Logger) -> Union[SequenceBlock, SequenceFile]:
+def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is_nucleotide: bool = False) -> Union[DigitalSequenceBlock, DigitalSequence]:
     """
     Loads a multifasta file either as a SequenceFile or a DigitalSequenceBlock,
     the latter only if the file loaded to memory would take less than 20% of the available memory.
@@ -83,16 +84,28 @@ def load_sequence_file(fasta_path: str, logger: logging.Logger) -> Union[Sequenc
     target_size= os.stat(fasta_path).st_size
     logger.info(f"Available memory: {available_memory/1024:.1f} KiB")
     logger.info(f"Database on-disk size: {target_size/1024:.1f} KiB")
-    with pyhmmer.easel.SequenceFile(fasta_path, digital=True) as seq_file:
+
+    if is_nucleotide:
+        alphabet = pyhmmer.easel.Alphabet.dna()
+    else:
+        alphabet = pyhmmer.easel.Alphabet.amino()
+
+    with pyhmmer.easel.SequenceFile(fasta_path, digital=True, alphabet=alphabet) as seq_file:
         if target_size < available_memory * 0.2:
             logger.info("Pre-fetching targets into memory")
             targets = seq_file.read_block()
+            if is_nucleotide:
+                logger.info("Translating nucleotide sequences to protein sequences")
+                targets = targets.translate()
             logger.info(f"Database in-memory size: {(sys.getsizeof(targets) + sum(sys.getsizeof(target) for target in targets))/1024:.1f} KiB")
         else:
             targets = seq_file
+            if is_nucleotide:
+                logger.info("Translating nucleotide sequences to protein sequences")
+                targets = targets.translate()
     return targets
 
-def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Logger) -> None:
+def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Logger, is_nucleotide: bool = False) -> None:
     """Runs pyhmmer hmmsearch with HMMs as query and target (multi)FASTA file and
     returns a JSON with the domains found for the target sequences with structure
     hits_per_domain[accession][target_seq] = [{<domain_data>}]
@@ -101,7 +114,7 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
     with open(hmm, 'rb') as f:
         hmms = list(pyhmmer.plan7.HMMFile(f))
 
-    targets = load_sequence_file(fasta_path, logger)
+    targets = load_and_translate_sequence_file(fasta_path, logger, is_nucleotide)
 
     hits_per_domain = {}
     per_domain_output = os.path.join(output_dir, "hmmsearch_per_domain.json")
@@ -144,13 +157,14 @@ def main(logger: logging.Logger):
     input_fasta = args.fasta
     input_hmm = args.hmm
     output_dir = args.output_dir
+    is_nucleotide = args.nucleotide
     logger.info(f"Running hmmsearch with arguments: {args}")
 
     yielded_sequences = utils.seqrecord_yielder(input_fasta)
     # May stop individualized fastas later,
     # if they end up not being useful in the next steps
     utils.make_dirs_and_write_fasta(yielded_sequences, output_dir)
-    run_hmmsearch(input_hmm, input_fasta, output_dir, logger)
+    run_hmmsearch(input_hmm, input_fasta, output_dir, logger, is_nucleotide)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()

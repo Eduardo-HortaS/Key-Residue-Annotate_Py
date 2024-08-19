@@ -183,7 +183,7 @@ def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, targe
 
 #@measure_time_and_memory
 #@profile
-def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_alphanum_name: str) -> None:
+def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_primary_accession: str) -> None:
     """
     Adds anno_total data to the transfer dictionary.
     The dictionary is structured by target position, annotation ID (type + description),
@@ -195,7 +195,6 @@ def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_nam
         logger.error("@ @ ------------- AttributeError: Anno_total: %s", anno_total)
         logger.error(f"@ @-------------- AttributeError: {ae} - target_name: {target_name}, entry_mnemo_name: {entry_mnemo_name} \n", traceback.format_exc())
         raise
-    entry_codes = entry_alphanum_name + " | " + entry_mnemo_name
 
     if target_name not in transfer_dict:
         transfer_dict[target_name] = {}
@@ -223,7 +222,7 @@ def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_nam
             transfer_dict[target_name][counter_target_pos][anno_id].setdefault('evidence', {})
         if evidence_value not in transfer_dict[target_name][counter_target_pos][anno_id]['evidence']:
             transfer_dict[target_name][counter_target_pos][anno_id]['evidence'][evidence_value] = {
-                "rep_entry_codes": entry_codes, "count": 1}
+                "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
         else:
             transfer_dict[target_name][counter_target_pos][anno_id]['evidence'][evidence_value]["count"] += 1
 
@@ -232,7 +231,7 @@ def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_nam
             transfer_dict[target_name][counter_target_pos][anno_id].setdefault('paired_position', {})
         if paired_position_value not in transfer_dict[target_name][counter_target_pos][anno_id]['paired_position']:
             transfer_dict[target_name][counter_target_pos][anno_id]['paired_position'][paired_position_value] = {
-                "rep_entry_codes": entry_codes, "count": 1}
+                "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
         else:
             transfer_dict[target_name][counter_target_pos][anno_id]['paired_position'][paired_position_value]["count"] += 1
 
@@ -243,7 +242,7 @@ def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_nam
             if anno_total['type'] == 'BINDING':
                 if key not in transfer_dict[target_name][counter_target_pos][anno_id]['additional_keys']:
                     transfer_dict[target_name][counter_target_pos][anno_id]['additional_keys'][key] = {
-                        "rep_entry_codes": entry_codes, "count": 1, "value": value}
+                        "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
                 else:
                     transfer_dict[target_name][counter_target_pos][anno_id]['additional_keys'][key]["count"] += 1
 
@@ -349,7 +348,7 @@ def process_annotation(logger: logging.Logger, good_eco_codes: list, entry_mnemo
 
     paired_position = result_dict['paired_position']
     if anno_total:
-        entry_alphanum_name = annotation.get('entry', None)
+        entry_primary_accession = annotation.get('entry', None)
         if anno_type in ['DISULFID', 'CROSSLNK', 'SITE', 'BINDING'] and paired_position is not None:
             target_paired_annotations = entry_annotations.get(paired_position, [])
             target_paired_annotation_dict = next((annotation for annotation in target_paired_annotations if annotation['type'] == anno_type), None)
@@ -363,7 +362,7 @@ def process_annotation(logger: logging.Logger, good_eco_codes: list, entry_mnemo
                 annotation['paired_position'] = paired_target_position
                 anno_total['paired_position'] = paired_target_position
                 try:
-                    add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_alphanum_name)
+                    add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession)
                 except Exception as e:
                     logger.error(f"---> DEBUG --- PROCESS_ANNOT --- Error in add_to_transfer_dict: {e}")
                     traceback.print_exc()
@@ -373,7 +372,7 @@ def process_annotation(logger: logging.Logger, good_eco_codes: list, entry_mnemo
                 remove_failed_annotations(entry_annotations, counter_uniprot_pos_str, paired_position, anno_type)
                 visited_pos.add(counter_uniprot_pos_str)
         else:
-            add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_alphanum_name)
+            add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession)
             visited_pos.add(counter_uniprot_pos_str)
     else:
         logger.info(f"---> DEBUG --- PROCESS_ANNOT --- NO ANNOTATION FOR SINGLE --- Anno Total was None for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos} and annotated {counter_uniprot_pos_str}")
@@ -428,8 +427,8 @@ def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, targ
                     counter_uniprot_pos_str = str(counter_uniprot_pos)
                     logger.info(f"---> DEBUG --- VAL_PAIRED --- NO ANNOTATION FOR PAIR --- Anno Total was None - FAILED - for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos} and annotated {counter_uniprot_pos_str}")
                     return paired_position_valid
-                entry_alphanum_name = annotation.get('entry', None)
-                add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_alphanum_name)
+                entry_primary_accession = annotation.get('entry', None)
+                add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession)
                 visited_pos.add(target_paired_uniprot_pos)
                 paired_position_valid = True
                 return paired_position_valid
