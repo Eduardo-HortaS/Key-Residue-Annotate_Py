@@ -138,19 +138,11 @@ def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotation
                 annot_sequence = splitted[1].split()[1]
                 for target_name, target_per_interval in target_info.items():
                     for target_hit_interval, target_info_list in target_per_interval.items():
-                        # if target_name not in visited_pos:
-                        #     visited_pos[target_name] = {}
-                        # if entry_mnemo_name not in visited_pos[target_name]:
-                        #     visited_pos[target_name][entry_mnemo_name] = {}
-                        # if target_hit_interval not in visited_pos[target_name][entry_mnemo_name]:
-                        #     # NEW: Added paireable_types to visited_pos, as a way to control more granularly and avoid missing annotations inside the list of annotation_dicts
-                        #     visited_pos[target_name][entry_mnemo_name][target_hit_interval] = {ptype: set() for ptype in paireable_types}
                         for target_hit_start, target_hit_end, target_hit_sequence in target_info_list:
                             entry_annotations_copy = copy.deepcopy(entry_annotations)
                             # DEBUGGING a specific pair?
                             # if target_name == "sp||PTPRJ_HUMAN" and entry_mnemo_name == "TIE2_HUMAN":
                             map_and_filter_annot_pos(logger, good_eco_codes, target_hit_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations_copy, transfer_dict, annot_pos_paireable_type_hit_bools)
-                            # map_and_filter_annot_pos(logger, good_eco_codes, target_hit_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations_copy, transfer_dict, visited_pos[target_name][entry_mnemo_name][target_hit_interval])
                             logger.info(f"Mapped, filtered and possibly added to transfer_dict: target {target_name} and annotated {entry_mnemo_name} at target hit interval {target_hit_interval}")
     return transfer_dict
 
@@ -174,7 +166,7 @@ def write_report(logger: logging.Logger, transfer_dict: dict, pfam_id: str, outp
 
 #@measure_time_and_memory
 ##@profile
-def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], target_paired_uniprot_pos: str =None, caller_target_pos: int =None, annotation_dict: Optional[Dict[str, Any]] = None) -> (bool | None):
+def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], target_paired_uniprot_pos: str = None, caller_target_pos: int = None, annotation_dict: Optional[Dict[str, Any]] = None) -> (tuple[bool, dict | None] | None):
     """
     Asks to map positions between annotated and target sequences.
     If target paired uniprot position and caller target position are provided,
@@ -186,7 +178,7 @@ def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, targe
     counter_target_pos = None
 
     if target_paired_uniprot_pos and caller_target_pos and annotation_dict:
-        return validate_paired_positions(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, annotation_dict, entry_annotations, transfer_dict, annot_pos_paireable_type_hit_bools, counter_target_pos, counter_uniprot_pos, target_paired_uniprot_pos, caller_target_pos)
+        return validate_paired_positions(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, annotation_dict, entry_annotations, annot_pos_paireable_type_hit_bools, counter_target_pos, counter_uniprot_pos, target_paired_uniprot_pos, caller_target_pos)
     try:
         return validate_annotations(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations, transfer_dict, annot_pos_paireable_type_hit_bools, counter_target_pos, counter_uniprot_pos)
     except Exception as e:
@@ -196,12 +188,80 @@ def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, targe
 
 #@measure_time_and_memory
 #@profile
-def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_primary_accession: str) -> None:
+# def add_to_transfer_dict(hit: bool, logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_primary_accession: str, paired_position_res_hit: Optional[bool] = False, late_pair_anno_id: Optional[str] = "", late_pair_anno_total: Optional[dict] = None) -> None:
+#     """
+#     Adds anno_total data to the transfer dictionary.
+#     The dictionary is structured by target position, annotation ID (type + description),
+#     and various possible additional annotation details, mainly for BINDING annotations.
+#     """
+#     try:
+#         additional_keys = {k: v for k, v in anno_total.items() if k not in ['type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid', 'target_position']}
+#     except AttributeError as ae:
+#         logger.error("@ @ ------------- AttributeError: Anno_total: %s", anno_total)
+#         logger.error(f"@ @-------------- AttributeError: {ae} - target_name: {target_name}, entry_mnemo_name: {entry_mnemo_name} \n", traceback.format_exc())
+#         raise
+
+#     # NEW: Changes to group by match or miss
+#     if target_name not in transfer_dict:
+#         transfer_dict[target_name] = {'match': {}, 'miss': {}}
+
+#     hit_type = 'match' if hit else 'miss'
+
+#     if counter_target_pos not in transfer_dict[target_name][hit_type]:
+#         transfer_dict[target_name][hit_type][counter_target_pos] = {}
+
+#     if anno_id not in transfer_dict[target_name][hit_type][counter_target_pos]:
+#         essentials = {
+#             'type': anno_total.get('type'),
+#             'description': anno_total.get('description'),
+#             'count': anno_total.get('count')
+#         }
+#         transfer_dict[target_name][hit_type][counter_target_pos][anno_id] = {}
+#         transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('essentials', essentials)
+#         evidence_value = anno_total.get('evidence', None)
+#         paired_position_value = anno_total.get('paired_position', None)
+#     else:
+#         transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['essentials']['count'] += 1
+#         evidence_value = anno_total.get('evidence', None)
+#         paired_position_value = anno_total.get('paired_position', None)
+
+#     if evidence_value:
+#         if 'evidence' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
+#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('evidence', {})
+#         if evidence_value not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence']:
+#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence'][evidence_value] = {
+#                 "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
+#         else:
+#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence'][evidence_value]["count"] += 1
+
+#     if paired_position_value:
+#         if 'paired_position' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
+#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('paired_position', {})
+#         if paired_position_value not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position']:
+#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position'][paired_position_value] = {
+#                 "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
+#         else:
+#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position'][paired_position_value]["count"] += 1
+
+#     if additional_keys:
+#         if 'additional_keys' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
+#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('additional_keys', {})
+#         for key, _ in additional_keys.items():
+#             if anno_total['type'] == 'BINDING':
+#                 if key not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys']:
+#                     transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys'][key] = {
+#                         "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
+#                 else:
+#                     transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys'][key]["count"] += 1
+def add_to_transfer_dict(hit: bool, logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_primary_accession: str, paired_position_res_hit: Optional[bool] = None, late_pair_anno_id: Optional[str] = "", late_pair_anno_total: Optional[dict] = None) -> None:
     """
     Adds anno_total data to the transfer dictionary.
     The dictionary is structured by target position, annotation ID (type + description),
     and various possible additional annotation details, mainly for BINDING annotations.
+    If paired data is provided (paired_position_res_hit, late_pair_anno_id, late_pair_anno_total),
+    processes that data analogously after the main data.
     """
+    # Process main annotation
     try:
         additional_keys = {k: v for k, v in anno_total.items() if k not in ['type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid', 'target_position']}
     except AttributeError as ae:
@@ -209,58 +269,85 @@ def add_to_transfer_dict(logger: logging.Logger, transfer_dict: dict, target_nam
         logger.error(f"@ @-------------- AttributeError: {ae} - target_name: {target_name}, entry_mnemo_name: {entry_mnemo_name} \n", traceback.format_exc())
         raise
 
+    # Initialize transfer_dict structure if needed
     if target_name not in transfer_dict:
-        transfer_dict[target_name] = {}
+        transfer_dict[target_name] = {'match': {}, 'miss': {}}
 
-    if counter_target_pos not in transfer_dict[target_name]:
-        transfer_dict[target_name][counter_target_pos] = {}
+    # Process main annotation
+    _add_single_annotation(hit, transfer_dict, target_name, counter_target_pos, anno_id, 
+                         anno_total, entry_mnemo_name, entry_primary_accession, additional_keys)
 
-    if anno_id not in transfer_dict[target_name][counter_target_pos]:
+    # Process paired annotation if provided
+    if all(v is not None for v in [paired_position_res_hit, late_pair_anno_id, late_pair_anno_total]):
+        try:
+            paired_additional_keys = {k: v for k, v in late_pair_anno_total.items() 
+                                    if k not in ['type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid', 'target_position']}
+        except AttributeError as ae:
+            logger.error("@ @ ------------- AttributeError: Late pair anno total: %s", late_pair_anno_total)
+            logger.error(f"@ @-------------- AttributeError: {ae} - target_name: {target_name}, entry_mnemo_name: {entry_mnemo_name} \n", traceback.format_exc())
+            raise
+
+        _add_single_annotation(paired_position_res_hit, transfer_dict, target_name, 
+                             counter_target_pos, late_pair_anno_id, late_pair_anno_total,
+                             entry_mnemo_name, entry_primary_accession, paired_additional_keys)
+
+def _add_single_annotation(hit: bool, transfer_dict: dict, target_name: str, counter_target_pos: int, 
+                         anno_id: str, anno_total: dict, entry_mnemo_name: str, 
+                         entry_primary_accession: str, additional_keys: dict) -> None:
+    """Helper function to add a single annotation to transfer_dict"""
+    hit_type = 'match' if hit else 'miss'
+
+    if counter_target_pos not in transfer_dict[target_name][hit_type]:
+        transfer_dict[target_name][hit_type][counter_target_pos] = {}
+
+    if anno_id not in transfer_dict[target_name][hit_type][counter_target_pos]:
         essentials = {
             'type': anno_total.get('type'),
             'description': anno_total.get('description'),
             'count': anno_total.get('count')
         }
-        transfer_dict[target_name][counter_target_pos][anno_id] = {}
-        transfer_dict[target_name][counter_target_pos][anno_id].setdefault('essentials', essentials)
+        transfer_dict[target_name][hit_type][counter_target_pos][anno_id] = {}
+        transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('essentials', essentials)
         evidence_value = anno_total.get('evidence', None)
         paired_position_value = anno_total.get('paired_position', None)
     else:
-        transfer_dict[target_name][counter_target_pos][anno_id]['essentials']['count'] += 1
+        transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['essentials']['count'] += 1
         evidence_value = anno_total.get('evidence', None)
         paired_position_value = anno_total.get('paired_position', None)
 
     if evidence_value:
-        if 'evidence' not in transfer_dict[target_name][counter_target_pos][anno_id]:
-            transfer_dict[target_name][counter_target_pos][anno_id].setdefault('evidence', {})
-        if evidence_value not in transfer_dict[target_name][counter_target_pos][anno_id]['evidence']:
-            transfer_dict[target_name][counter_target_pos][anno_id]['evidence'][evidence_value] = {
+        if 'evidence' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
+            transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('evidence', {})
+        if evidence_value not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence']:
+            transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence'][evidence_value] = {
                 "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
         else:
-            transfer_dict[target_name][counter_target_pos][anno_id]['evidence'][evidence_value]["count"] += 1
+            transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence'][evidence_value]["count"] += 1
 
     if paired_position_value:
-        if 'paired_position' not in transfer_dict[target_name][counter_target_pos][anno_id]:
-            transfer_dict[target_name][counter_target_pos][anno_id].setdefault('paired_position', {})
-        if paired_position_value not in transfer_dict[target_name][counter_target_pos][anno_id]['paired_position']:
-            transfer_dict[target_name][counter_target_pos][anno_id]['paired_position'][paired_position_value] = {
+        if 'paired_position' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
+            transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('paired_position', {})
+        if paired_position_value not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position']:
+            transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position'][paired_position_value] = {
                 "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
         else:
-            transfer_dict[target_name][counter_target_pos][anno_id]['paired_position'][paired_position_value]["count"] += 1
+            transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position'][paired_position_value]["count"] += 1
 
     if additional_keys:
-        if 'additional_keys' not in transfer_dict[target_name][counter_target_pos][anno_id]:
-            transfer_dict[target_name][counter_target_pos][anno_id].setdefault('additional_keys', {})
+        if 'additional_keys' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
+            transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('additional_keys', {})
         for key, _ in additional_keys.items():
             if anno_total['type'] == 'BINDING':
-                if key not in transfer_dict[target_name][counter_target_pos][anno_id]['additional_keys']:
-                    transfer_dict[target_name][counter_target_pos][anno_id]['additional_keys'][key] = {
+                if key not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys']:
+                    transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys'][key] = {
                         "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
                 else:
-                    transfer_dict[target_name][counter_target_pos][anno_id]['additional_keys'][key]["count"] += 1
+                    transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys'][key]["count"] += 1
+
 
 #@measure_time_and_memory
 #@profile
+# NOTE: Pending 03/11
 def remove_failed_annotations(entry_annotations: Dict[str, Any], counter_uniprot_pos_str: str, paired_position: str, annotation_type: str) -> None:
     """
     Removes the specific failed annotations from entry annotations.
@@ -310,6 +397,7 @@ def make_anno_total_dict(good_eco_codes: list, entry_mnemo_name: str, annotation
 
     if anno_evidence[entry_mnemo_name]:
         if good_eco_codes:
+            # NOTE: Should I add a space after the comma to split correctly?
             evidence_items = anno_evidence[entry_mnemo_name].split(',')
             valid_evidence_items = []
             for item in evidence_items:
@@ -334,8 +422,8 @@ def make_anno_total_dict(good_eco_codes: list, entry_mnemo_name: str, annotation
             for key, value in annotation.items():
                 if key not in keys_to_exclude:
                     anno_total[key] = value
-
-    annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
+    if anno_type in annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str]:
+        annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
     return {
         "annotation": annotation,
         "anno_type": anno_type,
@@ -346,7 +434,7 @@ def make_anno_total_dict(good_eco_codes: list, entry_mnemo_name: str, annotation
 
 #@measure_time_and_memory
 #@profile
-def process_annotation(logger: logging.Logger, good_eco_codes: list, entry_mnemo_name: str, target_name: str, target_hit_start: int, target_hit_end: int, annotation_dict: Dict[str, Any], entry_annotations: Dict[str, Any], transfer_dict: dict, target_sequence: str, offset_start: int, offset_end: int, annot_sequence: str, counter_target_pos: int, counter_uniprot_pos_str: str, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]]) -> None:
+def process_annotation(res_hit: bool, logger: logging.Logger, good_eco_codes: list, entry_mnemo_name: str, target_name: str, target_hit_start: int, target_hit_end: int, annotation_dict: Dict[str, Any], entry_annotations: Dict[str, Any], transfer_dict: dict, target_sequence: str, offset_start: int, offset_end: int, annot_sequence: str, counter_target_pos: int, counter_uniprot_pos_str: str, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]]) -> None:
     """
     Processes annotations to add them to the transfer dictionary by calling make_anno_total dict
     with anno_total containing at least type, description, count, and evidence, plus associated data.
@@ -366,44 +454,57 @@ def process_annotation(logger: logging.Logger, good_eco_codes: list, entry_mnemo
             target_paired_annotations = entry_annotations.get(paired_position, [])
             target_paired_annotation_dict = next((annotation for annotation in target_paired_annotations if annotation['type'] == anno_type), None)
             if target_paired_annotation_dict:
-                paired_position_valid = map_and_filter_annot_pos(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations, transfer_dict, annot_pos_paireable_type_hit_bools, target_paired_uniprot_pos=paired_position, caller_target_pos=counter_target_pos, annotation_dict=target_paired_annotation_dict)
+                paired_position_res_hit, late_pair_result_dict = map_and_filter_annot_pos(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations, transfer_dict, annot_pos_paireable_type_hit_bools, target_paired_uniprot_pos=paired_position, caller_target_pos=counter_target_pos, annotation_dict=target_paired_annotation_dict)
+                if late_pair_result_dict:
+                    late_pair_anno_total = late_pair_result_dict['anno_total']
+                    late_pair_anno_id = late_pair_result_dict['anno_id']
+                else:
+                    late_pair_anno_total = None
+                    late_pair_anno_id = None
             else:
-                paired_position_valid = False
-            if paired_position_valid:
+                paired_position_res_hit = False
+                late_pair_anno_total = None
+                late_pair_anno_id = None
+            if late_pair_anno_total:
                 logger.info(f"---> DEBUG --- PROCESS_ANNOT --- Paired Position Valid for target {target_name} and annotated {entry_mnemo_name}")
                 paired_target_position = str(target_paired_annotation_dict['target_position'])
                 annotation['paired_position'] = paired_target_position
                 anno_total['paired_position'] = paired_target_position
                 try:
-                    add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession)
+                    add_to_transfer_dict(res_hit, logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession, paired_position_res_hit, late_pair_anno_id, late_pair_anno_total)
+                    if anno_type in annot_pos_paireable_type_hit_bools[paired_position]:
+                        annot_pos_paireable_type_hit_bools[paired_position][anno_type] = True
                 except Exception as e:
                     logger.error(f"---> DEBUG --- PROCESS_ANNOT --- Error in add_to_transfer_dict: {e}")
                     traceback.print_exc()
                     raise
-                annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
+                if anno_type in annot_pos_paireable_type_hit_bools[paired_position]:
+                    # Correct? paired_position in right numbering? Think so, but check
+                    annot_pos_paireable_type_hit_bools[paired_position][anno_type] = True
             else:
                 remove_failed_annotations(entry_annotations, counter_uniprot_pos_str, paired_position, anno_type)
-                annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
+                if anno_type in annot_pos_paireable_type_hit_bools[paired_position]:
+                    annot_pos_paireable_type_hit_bools[paired_position][anno_type] = True
         else:
-            add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession)
-            annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
+            add_to_transfer_dict(res_hit, logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession)
+            if anno_type in annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str]:
+                annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
     else:
-        logger.info(f"---> DEBUG --- PROCESS_ANNOT --- NO ANNOTATION FOR SINGLE --- Anno Total was None for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos} and annotated {counter_uniprot_pos_str}")
-        annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
+        logger.info(f"---> DEBUG --- PROCESS_ANNOT --- NO ANNOTATION FOR SINGLE --- Anno Total was None for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos} and annotated {counter_uniprot_pos_str} --- ORIGIN: No evidence of desired type")
+        if anno_type in annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str]:
+            annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
 
 #@measure_time_and_memory
 #@profile
-def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, annotation_dict: Dict[str, Any], entry_annotations: Dict[str, Any], transfer_dict: dict, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], counter_target_pos: Optional[int], counter_uniprot_pos: Optional[int], target_paired_uniprot_pos: str, caller_target_pos: int) -> bool:
+def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, annotation_dict: Dict[str, Any], entry_annotations: Dict[str, Any], annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], counter_target_pos: Optional[int], counter_uniprot_pos: Optional[int], target_paired_uniprot_pos: str, caller_target_pos: int) -> tuple[bool, dict | None]:
     """
     Validates the 2nd member of a paired position by checking
     if the target paired uniprot position from caller is a valid match.
-    Success means adding the annotation to the transfer dictionary.
-    Failure means returning paired_position_valid as False and
-    asking to remove both positions from entry_annotations
-    in the process_annotation parent function.
+    Success and failure both mean adding the annotation to the transfer dictionary
+    in the process_annotation parent function, difference lies in where (match | miss).
     """
-
-    paired_position_valid = False
+    paired_position_res_hit = False
+    late_pair_result_dict = None
     int_target_paired_uniprot_pos = int(target_paired_uniprot_pos)
     last_target_pos = False
     anno_type = annotation_dict['type']
@@ -420,39 +521,34 @@ def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, targ
             if counter_target_pos is None and counter_uniprot_pos is None:
                 continue
 
-            if counter_uniprot_pos == int_target_paired_uniprot_pos and target_sequence[index] == annot_sequence[index]:
+            if counter_uniprot_pos == int_target_paired_uniprot_pos:
+
+                # DEBUGGING INFO
                 # Calculate the start and end indices for the window
-                logger.info("\n --- DEBUG --- VAL_PAIRED --- Helpful Info for Paired Annotation Match \n")
+                logger.info("\n --- DEBUG --- VAL_PAIRED --- Helpful Info for paired match | miss \n")
                 start_index = max(0, index - 3)
                 end_index = min(len(annot_sequence), index + 4)  # end_index is exclusive
-
                 # Extract the window of amino acids
                 annot_window = annot_sequence[start_index:end_index]
                 target_window = target_sequence[start_index:end_index]
-
                 logger.info(f"---> DEBUG --- VAL_PAIRED --- Counter Tar Pos {str(counter_target_pos)} and amino acid {target_sequence[index]} + Counter Uni Pos (annotated) {str(counter_uniprot_pos)} and amino acid {annot_sequence[index]}")
                 logger.info(f"---> DEBUG --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
 
-                result_dict = make_anno_total_dict(good_eco_codes, entry_mnemo_name, annotation_dict, counter_target_pos, counter_uniprot_pos_str=target_paired_uniprot_pos, annot_pos_paireable_type_hit_bools=annot_pos_paireable_type_hit_bools, caller_target_pos=caller_target_pos, logger=logger, entry_annotations=entry_annotations)
-                anno_id = result_dict['anno_id']
-                anno_total = result_dict['anno_total']
-                annotation = result_dict['annotation']
+
+                paired_position_res_hit = bool(target_sequence[index] == annot_sequence[index])
+
+                late_pair_result_dict = make_anno_total_dict(good_eco_codes, entry_mnemo_name, annotation_dict, counter_target_pos, counter_uniprot_pos_str=target_paired_uniprot_pos, annot_pos_paireable_type_hit_bools=annot_pos_paireable_type_hit_bools, caller_target_pos=caller_target_pos, logger=logger, entry_annotations=entry_annotations)
+                anno_total = late_pair_result_dict['anno_total']
                 if anno_total is None:
-                    counter_uniprot_pos_str = str(counter_uniprot_pos)
-                    logger.info(f"---> DEBUG --- VAL_PAIRED --- NO ANNOTATION FOR PAIR --- Anno Total was None - FAILED - for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos} and annotated {counter_uniprot_pos_str}")
-                    return paired_position_valid
-                entry_primary_accession = annotation.get('entry', None)
-                add_to_transfer_dict(logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession)
-                annot_pos_paireable_type_hit_bools[target_paired_uniprot_pos][anno_type] = True
-                paired_position_valid = True
-                return paired_position_valid
-            else:
-                annot_pos_paireable_type_hit_bools[target_paired_uniprot_pos][anno_type] = True
+                    return paired_position_res_hit, late_pair_result_dict
+                if anno_type in annot_pos_paireable_type_hit_bools[target_paired_uniprot_pos]:
+                    annot_pos_paireable_type_hit_bools[target_paired_uniprot_pos][anno_type] = True
+                return paired_position_res_hit, late_pair_result_dict
 
             if counter_target_pos == target_hit_end or counter_uniprot_pos == offset_end:
                 last_target_pos = True
                 break
-    return paired_position_valid
+    return paired_position_res_hit, late_pair_result_dict
 
 #@measure_time_and_memory
 #@profile
@@ -478,11 +574,8 @@ def validate_annotations(logger: logging.Logger, good_eco_codes: list, target_se
             if counter_target_pos is None and counter_uniprot_pos is None:
                 continue
 
-            # # GOTTA CHANGE TO ACCOMODATE NEW STRUCTURE AND USAGE FOR VISITED_POS
-            # if counter_uniprot_pos_str not in visited_pos:
-            #     visited_pos.add(counter_uniprot_pos_str)
-
-            if counter_uniprot_pos_str in entry_annotations and target_sequence[index] == annot_sequence[index]:
+            # if counter_uniprot_pos_str in entry_annotations and target_sequence[index] == annot_sequence[index]:
+            if counter_uniprot_pos_str in entry_annotations:
                 counter_target_pos_str = str(counter_target_pos)
 
                 # DEBUGGING INFO
@@ -495,13 +588,13 @@ def validate_annotations(logger: logging.Logger, good_eco_codes: list, target_se
                 logger.info(f"---> DEBUG --- VAL_ANNOTS --- Annot Window: {annot_window} + Target Window: {target_window}")
 
 
-
+                res_hit = bool(target_sequence[index] == annot_sequence[index])
                 for annotation_dict in entry_annotations[counter_uniprot_pos_str]:
                     anno_type = annotation_dict.get('type', None)
                     if anno_type in annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str] and annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type]:
                         continue
                     try:
-                        process_annotation(logger, good_eco_codes, entry_mnemo_name, target_name, target_hit_start, target_hit_end, annotation_dict, entry_annotations, transfer_dict, target_sequence, offset_start, offset_end, annot_sequence, counter_target_pos, counter_uniprot_pos_str, annot_pos_paireable_type_hit_bools)
+                        process_annotation(res_hit, logger, good_eco_codes, entry_mnemo_name, target_name, target_hit_start, target_hit_end, annotation_dict, entry_annotations, transfer_dict, target_sequence, offset_start, offset_end, annot_sequence, counter_target_pos, counter_uniprot_pos_str, annot_pos_paireable_type_hit_bools)
                     except Exception as e:
                         logger.info(f"---> DEBUG --- VAL_ANNOTS --- Error in validate_annotations: {e}")
                         traceback.print_exc()
@@ -510,7 +603,6 @@ def validate_annotations(logger: logging.Logger, good_eco_codes: list, target_se
             if counter_target_pos == target_hit_end or counter_uniprot_pos == offset_end:
                 last_target_pos = True
                 break
-
 
 
 def main(logger: logging.Logger):
