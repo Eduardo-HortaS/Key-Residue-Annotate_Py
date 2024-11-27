@@ -19,9 +19,24 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
 This script contains all functions dealing directly with transferring annotations.
-Intended usage begins by calling find_and_map_annotations with 2 arguments:
+
+Intended usage:
+
+Runs for a single domain with 3 required arguments:
+paths to the domain's hmmalign result and resource and output dirs.
+Optionally takes a list of desired ECO codes to filter annotations.
+Execution begins by calling find_and_map_annots with 2 arguments:
 a list of hmmalign result lines and the loaded annotations dict.
 
+The function call order is as follows:
+parse_arguments -> configure_logging -> get_pfam_id_from_hmmalign_result -> get_annotation_filepath -> read_files ->
+find_and_map_annots -> map_and_filter_annot_pos -> validate_annotations -> process_annotations -> make_anno_total_dict
+(Anno_Total is None?) YES -> DO NOTHING --- position effectively skipped
+(Anno_Total is None?) NO -> PROCEED CHECK PAIREABLE ANNOTATIONS
+(paireable annotation?) NO -> add_to_transfer_dict
+(paireable annotation?) YES -> map_and_filter_annot_pos -> validate_paired_annotations ->  make_anno_total_dict -> process_annotation
+(Late Pair Anno Total is None?) YES -> remove_failed_annotations
+(Late Pair Anno Total is None?) NO -> add_to_transfer_dict
 """
 
 import os
@@ -46,12 +61,11 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser(description=
     'Generates a temporary multifasta for running hmmalign using a hits per domain JSON.')
-    parser.add_argument("-iA", "--dom-align", help="Path to domain's hmmalign alignment", required=True, type=str)
-    parser.add_argument("-r", "--resource-dir", help="Resource dir path", required=True, type=str)
-    parser.add_argument("-o", "--output-dir", help="Output dir path", required=True, type=str)
-    parser.add_argument("-e", "--eco-codes", help="List of ECO codes to filter annotations", nargs="*", type=str, default=[])
-    parser.add_argument("-l", "--log", help="Log path", \
-        required=False, type=str, default="logs/transfer_annotations.log")
+    parser.add_argument("-iA", "--dom-align", required=True, type=str, help="Path to domain's hmmalign alignment")
+    parser.add_argument("-r", "--resource-dir", required=True, type=str, help="Resource dir path")
+    parser.add_argument("-o", "--output-dir", required=True, type=str, help="Output dir path", )
+    parser.add_argument("-e", "--eco-codes", required=False, default=[], nargs="*", help="Space-separated ECO codes to filter annotations")
+    parser.add_argument("-l", "--log", required=False, default="logs/transfer_annotations.log", type=str, help="Log path")
     return parser.parse_args()
 
 def configure_logging(log_path: str) -> logging.Logger:
@@ -69,15 +83,15 @@ def get_pfam_id_from_hmmalign_result(hmmalign_result: str) -> str:
 
 def get_annotation_filepath(resource_dir: str, pfam_id: str) -> str:
     """
-    Constructs and returns the filepaths for annotations,
-    seed alignment, and report based on the PFAM ID.
+    Constructs and returns the filepaths for annotations JSON based on the PFAM ID.
     """
     annotations_filepath = os.path.join(resource_dir, pfam_id, "annotations.json")
     return annotations_filepath
 
-def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[str], Any]:
+def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[str], dict]:
     """
-    Reads and returns the content of the hmmalign result and annotations files.
+    Reads and returns the content of the hmmalign result and annotations files,
+    respectively, as lists of lines and a loaded JSON object.
     """
     with open(hmmalign_result, 'r', encoding="utf-8") as hmmaligned_file:
         hmmalign_lines = hmmaligned_file.readlines()
@@ -89,21 +103,30 @@ def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[st
 #@profile
 def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotations: dict, good_eco_codes: list) -> dict:
     """
-    Finds target lines and stores data for them in target_info.
-    Then, finds sequence lines in hmmalign alignment for which we have annotations
-    and calls map_and_filter_annot_pos to map positions with target lines iteratively.
-    Makes annot_pos_paireable_type_hit_bools dict to keep track of visited positions across calls
-    and sends it to map_and_filter_annot_pos.
+    From the hmmalign alignment lines, finds target lines and stores data for them in target_info,
+    organized by target name and hit interval. Then, finds seed sequences in hmmalign alignment
+    for which we have annotations and calls map_and_filter_annot_pos to map positions
+    by iteratin on both target and seed sequences. Makes annot_pos_paireable_type_hit_bools dict
+    to keep track of visited positions across calls, where relevant, and sends it to map_and_filter_annot_pos.
+
+    Args:
+        logger (logging.Logger): Logger object for logging.
+        hmmalign_lines (list): List of lines from the hmmalign alignment file.
+        annotations (dict): Loaded annotations JSON object.
+        good_eco_codes (list): List of ECO codes to filter annotations.
+
+    Returns:
+        dict: Transfer dictionary containing annotations for each sequence-domain pair.
     """
     transfer_dict = {}
     target_info = {}
     paireable_types = ['DISULFID', 'CROSSLNK', 'SITE', 'BINDING']
     annot_pos_paireable_type_hit_bools = {}
-
     for line in hmmalign_lines:
         if "target/" in line and not line.startswith("#"):
             parts = line.split("target/")
             target_name = parts[0].strip()
+            print('DELETE_AFTER_UNIT_TESTS - Target name:', target_name)
             target_relevant = parts[1].strip()
             target_parts = target_relevant.split()
             if len(target_parts) >= 2:
@@ -117,6 +140,10 @@ def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotation
                     target_info[target_name][target_hit_interval] = []
                 target_info[target_name][target_hit_interval].append((target_hit_start, target_hit_end, target_hit_sequence))
 
+    if not target_info:
+        logger.error("---> DEBUG --- FIND_AND_MAP --- No target sequences found in hmmalign lines!")
+        return transfer_dict
+
     for entry_mnemo_name, entry_annotations in annotations.items():
         #NEW: annot_pos_paireable_type_hit_bools instead of visited_pos, more granular and avoids missing annotations inside the list of annotation_dicts
         for counter_uniprot_pos_str, annotation_list in entry_annotations.items():
@@ -126,7 +153,7 @@ def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotation
                 anno_type = annotation_dict.get('type', None)
                 if anno_type in paireable_types:
                     annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = False
-
+        print(f"DELETE_AFTER_UNIT_TESTS - Annot Pos Paireable: {annot_pos_paireable_type_hit_bools}")
         for line in hmmalign_lines:
             if line.startswith("#") or 'target/' in line:
                 continue
@@ -144,6 +171,7 @@ def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotation
                             # if target_name == "sp||PTPRJ_HUMAN" and entry_mnemo_name == "TIE2_HUMAN":
                             map_and_filter_annot_pos(logger, good_eco_codes, target_hit_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations_copy, transfer_dict, annot_pos_paireable_type_hit_bools)
                             logger.info(f"Mapped, filtered and possibly added to transfer_dict: target {target_name} and annotated {entry_mnemo_name} at target hit interval {target_hit_interval}")
+    print('DELETE_AFTER_UNIT_TESTS - Pre-return Transfer Dict:', transfer_dict)
     return transfer_dict
 
 def write_report(logger: logging.Logger, transfer_dict: dict, pfam_id: str, output_dir: str) -> None:
@@ -166,11 +194,11 @@ def write_report(logger: logging.Logger, transfer_dict: dict, pfam_id: str, outp
 
 #@measure_time_and_memory
 ##@profile
-def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], target_paired_uniprot_pos: str = None, caller_target_pos: int = None, annotation_dict: Optional[Dict[str, Any]] = None) -> (tuple[bool, dict | None] | None):
+def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], target_paired_uniprot_pos: str = None, caller_target_pos: int = None, annotation_dict: Optional[Dict[str, Any]] = None) -> Optional[tuple[bool, Optional[dict]]]:
     """
     Asks to map positions between annotated and target sequences.
     If target paired uniprot position and caller target position are provided,
-    this is an associated call for a paired position sent to validate_paired_positions.
+    this is an associated call for a paired position sent to validate_paired_annotations.
     Otherwise, it is a call for a single position sent to validate_annotations.
     Makes counter_uniprot_pos and counter_target_pos to track the current position in both sequences.
     """
@@ -178,9 +206,10 @@ def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, targe
     counter_target_pos = None
 
     if target_paired_uniprot_pos and caller_target_pos and annotation_dict:
-        return validate_paired_positions(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, annotation_dict, entry_annotations, annot_pos_paireable_type_hit_bools, counter_target_pos, counter_uniprot_pos, target_paired_uniprot_pos, caller_target_pos)
+        return validate_paired_annotations(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, annotation_dict, entry_annotations, annot_pos_paireable_type_hit_bools, counter_target_pos, counter_uniprot_pos, target_paired_uniprot_pos, caller_target_pos)
     try:
-        return validate_annotations(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations, transfer_dict, annot_pos_paireable_type_hit_bools, counter_target_pos, counter_uniprot_pos)
+        validate_annotations(logger, good_eco_codes, target_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations, transfer_dict, annot_pos_paireable_type_hit_bools, counter_target_pos, counter_uniprot_pos)
+        return None
     except Exception as e:
         logger.error(f"---> DEBUG --- MAP_AND_FILTER --- Error in validate_annotations: {e}")
         traceback.print_exc()
@@ -253,17 +282,21 @@ def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, targe
 #                         "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
 #                 else:
 #                     transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys'][key]["count"] += 1
+
 def add_to_transfer_dict(hit: bool, logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_primary_accession: str, paired_position_res_hit: Optional[bool] = None, late_pair_anno_id: Optional[str] = "", late_pair_anno_total: Optional[dict] = None) -> None:
     """
     Adds anno_total data to the transfer dictionary.
-    The dictionary is structured by target position, annotation ID (type + description),
-    and various possible additional annotation details, mainly for BINDING annotations.
+    The dictionary is structured by target name, hit | miss branches,
+    target position, annotation ID (type + description).
+    Further, you'll have essentials, evidence and various possible additional annotation details, mainly for BINDING annotations. Keep tabs of how many times each annotation ID is found, as well as 
     If paired data is provided (paired_position_res_hit, late_pair_anno_id, late_pair_anno_total),
     processes that data analogously after the main data.
     """
+
+    ### PENDING - Conservation: Annotated grouping before hit_type, to compartmentalize cases where there is conservation but no annotation data for a given domain
     # Process main annotation
     try:
-        additional_keys = {k: v for k, v in anno_total.items() if k not in ['type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid', 'target_position']}
+        additional_keys = {k: v for k, v in anno_total.items() if k not in ['type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid', 'target_position', 'entry']}
     except AttributeError as ae:
         logger.error("@ @ ------------- AttributeError: Anno_total: %s", anno_total)
         logger.error(f"@ @-------------- AttributeError: {ae} - target_name: {target_name}, entry_mnemo_name: {entry_mnemo_name} \n", traceback.format_exc())
@@ -274,25 +307,25 @@ def add_to_transfer_dict(hit: bool, logger: logging.Logger, transfer_dict: dict,
         transfer_dict[target_name] = {'match': {}, 'miss': {}}
 
     # Process main annotation
-    _add_single_annotation(hit, transfer_dict, target_name, counter_target_pos, anno_id, 
+    _add_single_annotation(hit, transfer_dict, target_name, counter_target_pos, anno_id,
                          anno_total, entry_mnemo_name, entry_primary_accession, additional_keys)
 
     # Process paired annotation if provided
     if all(v is not None for v in [paired_position_res_hit, late_pair_anno_id, late_pair_anno_total]):
         try:
-            paired_additional_keys = {k: v for k, v in late_pair_anno_total.items() 
+            paired_additional_keys = {k: v for k, v in late_pair_anno_total.items()
                                     if k not in ['type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid', 'target_position']}
         except AttributeError as ae:
             logger.error("@ @ ------------- AttributeError: Late pair anno total: %s", late_pair_anno_total)
             logger.error(f"@ @-------------- AttributeError: {ae} - target_name: {target_name}, entry_mnemo_name: {entry_mnemo_name} \n", traceback.format_exc())
             raise
 
-        _add_single_annotation(paired_position_res_hit, transfer_dict, target_name, 
+        _add_single_annotation(paired_position_res_hit, transfer_dict, target_name,
                              counter_target_pos, late_pair_anno_id, late_pair_anno_total,
                              entry_mnemo_name, entry_primary_accession, paired_additional_keys)
 
-def _add_single_annotation(hit: bool, transfer_dict: dict, target_name: str, counter_target_pos: int, 
-                         anno_id: str, anno_total: dict, entry_mnemo_name: str, 
+def _add_single_annotation(hit: bool, transfer_dict: dict, target_name: str, counter_target_pos: int,
+                         anno_id: str, anno_total: dict, entry_mnemo_name: str,
                          entry_primary_accession: str, additional_keys: dict) -> None:
     """Helper function to add a single annotation to transfer_dict"""
     hit_type = 'match' if hit else 'miss'
@@ -372,7 +405,7 @@ def make_anno_total_dict(good_eco_codes: list, entry_mnemo_name: str, annotation
     """
     For any given annotation in appropriate format (list with 1 dict(annotation_dict) inside), paired or not, produces an anno_total dict and
     associated data to return as a dict to be extracted from in accordance to the calling function's needs.
-    Used by process_annotation and validate_paired_positions.
+    Used by process_annotation and validate_paired_annotations.
     """
     annotation = {}
     anno_type = ""
@@ -467,11 +500,13 @@ def process_annotation(res_hit: bool, logger: logging.Logger, good_eco_codes: li
                 late_pair_anno_id = None
             if late_pair_anno_total:
                 logger.info(f"---> DEBUG --- PROCESS_ANNOT --- Paired Position Valid for target {target_name} and annotated {entry_mnemo_name}")
-                paired_target_position = str(target_paired_annotation_dict['target_position'])
+                paired_target_position = str(late_pair_result_dict['annotation']['target_position'])  # Use late_pair_result_dict['annotation']
                 annotation['paired_position'] = paired_target_position
                 anno_total['paired_position'] = paired_target_position
                 try:
                     add_to_transfer_dict(res_hit, logger, transfer_dict, target_name, counter_target_pos, anno_id, anno_total, entry_mnemo_name, entry_primary_accession, paired_position_res_hit, late_pair_anno_id, late_pair_anno_total)
+                    if anno_type in annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str]:
+                        annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
                     if anno_type in annot_pos_paireable_type_hit_bools[paired_position]:
                         annot_pos_paireable_type_hit_bools[paired_position][anno_type] = True
                 except Exception as e:
@@ -483,6 +518,8 @@ def process_annotation(res_hit: bool, logger: logging.Logger, good_eco_codes: li
                     annot_pos_paireable_type_hit_bools[paired_position][anno_type] = True
             else:
                 remove_failed_annotations(entry_annotations, counter_uniprot_pos_str, paired_position, anno_type)
+                if anno_type in annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str]:
+                    annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
                 if anno_type in annot_pos_paireable_type_hit_bools[paired_position]:
                     annot_pos_paireable_type_hit_bools[paired_position][anno_type] = True
         else:
@@ -491,12 +528,13 @@ def process_annotation(res_hit: bool, logger: logging.Logger, good_eco_codes: li
                 annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
     else:
         logger.info(f"---> DEBUG --- PROCESS_ANNOT --- NO ANNOTATION FOR SINGLE --- Anno Total was None for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos} and annotated {counter_uniprot_pos_str} --- ORIGIN: No evidence of desired type")
+        # PENDING - Conservation: Add code to deal with conserved positions with no annotations
         if anno_type in annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str]:
             annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = True
 
 #@measure_time_and_memory
 #@profile
-def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, annotation_dict: Dict[str, Any], entry_annotations: Dict[str, Any], annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], counter_target_pos: Optional[int], counter_uniprot_pos: Optional[int], target_paired_uniprot_pos: str, caller_target_pos: int) -> tuple[bool, dict | None]:
+def validate_paired_annotations(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, annotation_dict: Dict[str, Any], entry_annotations: Dict[str, Any], annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], counter_target_pos: Optional[int], counter_uniprot_pos: Optional[int], target_paired_uniprot_pos: str, caller_target_pos: int) -> tuple[bool, dict | None]:
     """
     Validates the 2nd member of a paired position by checking
     if the target paired uniprot position from caller is a valid match.
@@ -504,7 +542,7 @@ def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, targ
     in the process_annotation parent function, difference lies in where (match | miss).
     """
     paired_position_res_hit = False
-    late_pair_result_dict = None
+    late_pair_result_dict = {}
     int_target_paired_uniprot_pos = int(target_paired_uniprot_pos)
     last_target_pos = False
     anno_type = annotation_dict['type']
@@ -538,9 +576,9 @@ def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, targ
                 paired_position_res_hit = bool(target_sequence[index] == annot_sequence[index])
 
                 late_pair_result_dict = make_anno_total_dict(good_eco_codes, entry_mnemo_name, annotation_dict, counter_target_pos, counter_uniprot_pos_str=target_paired_uniprot_pos, annot_pos_paireable_type_hit_bools=annot_pos_paireable_type_hit_bools, caller_target_pos=caller_target_pos, logger=logger, entry_annotations=entry_annotations)
-                anno_total = late_pair_result_dict['anno_total']
-                if anno_total is None:
-                    return paired_position_res_hit, late_pair_result_dict
+                # anno_total = late_pair_result_dict['anno_total']
+                # if anno_total is None:
+                #     return paired_position_res_hit, late_pair_result_dict
                 if anno_type in annot_pos_paireable_type_hit_bools[target_paired_uniprot_pos]:
                     annot_pos_paireable_type_hit_bools[target_paired_uniprot_pos][anno_type] = True
                 return paired_position_res_hit, late_pair_result_dict
@@ -552,13 +590,13 @@ def validate_paired_positions(logger: logging.Logger, good_eco_codes: list, targ
 
 #@measure_time_and_memory
 #@profile
-def validate_annotations(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], counter_target_pos: Optional[int], counter_uniprot_pos: Optional[int]) -> None:
+def validate_annotations(logger: logging.Logger, good_eco_codes: list, target_sequence: str, target_name: str, target_hit_start: int, target_hit_end: int, offset_start: int, offset_end: int, annot_sequence: str, entry_mnemo_name: str, entry_annotations: Dict[str, Any], transfer_dict: dict, annot_pos_paireable_type_hit_bools: Dict[str, Dict[str, bool]], counter_target_pos: int, counter_uniprot_pos: int) -> None:
     """
     Iterate on both annot and target sequence to find annotated positions that present the exact same amino acid in both sequences.
     These are sent to processing in process_annotation. Regardless, keep score of where we've been by setting True to annot_pos_paireable_type_hit_bools for visited combinations of annotated position and paireable type [D, C, S, B].
     """
 
-    annotated_uni_pos_list = [int(key) for key in entry_annotations.keys()]
+    annotated_uni_pos_list = [int(key) for key in entry_annotations.keys() if key != '0']
     if not any(pos in range(offset_start, offset_end + 1) for pos in annotated_uni_pos_list):
         return
     last_target_pos = False
@@ -574,6 +612,8 @@ def validate_annotations(logger: logging.Logger, good_eco_codes: list, target_se
             if counter_target_pos is None and counter_uniprot_pos is None:
                 continue
 
+            # PENDING - Conservation: Add code to deal with conserved positions, regardless of annotations
+
             # if counter_uniprot_pos_str in entry_annotations and target_sequence[index] == annot_sequence[index]:
             if counter_uniprot_pos_str in entry_annotations:
                 counter_target_pos_str = str(counter_target_pos)
@@ -586,7 +626,6 @@ def validate_annotations(logger: logging.Logger, good_eco_codes: list, target_se
                 target_window = target_sequence[start_index:end_index]
                 logger.info(f"---> DEBUG --- VAL_ANNOTS --- Counter Uni Pos {str(counter_uniprot_pos)} and amino acid {annot_sequence[index]} + Counter Tar Pos {str(counter_target_pos)} and amino acid {target_sequence[index]}")
                 logger.info(f"---> DEBUG --- VAL_ANNOTS --- Annot Window: {annot_window} + Target Window: {target_window}")
-
 
                 res_hit = bool(target_sequence[index] == annot_sequence[index])
                 for annotation_dict in entry_annotations[counter_uniprot_pos_str]:

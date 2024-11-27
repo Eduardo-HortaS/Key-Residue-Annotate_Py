@@ -42,4 +42,4 @@ config
 nextflow.config
 dags/
 *log*
-*test*
+*test

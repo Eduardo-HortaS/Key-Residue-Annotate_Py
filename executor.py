@@ -39,11 +39,11 @@ def parse_arguments():
     parser.add_argument('-iH', '--hmm', required=True, help='Input hmm file')
     parser.add_argument('-r', '--resource_dir', required=True, help='Resource directory')
     parser.add_argument('-o', '--output_dir', required=True, help='Output directory')
-    parser.add_argument('-t', '--threads', required=False, type=int, default=1, help='Number of threads')
+    parser.add_argument('-t', '--threads', required=False, default=1, type=int, help='Number of threads')
     parser.add_argument('-p', '--python', required=True, help='Path to the Python executable')
-    parser.add_argument("-n", "--nucleotide", required=False, default=False, action="store_true", help="Flag to indicate nucleotide instead of default protein sequences")
-    parser.add_argument("-e", "--eco-codes", required=False, type=str, default=[], nargs="*", help="List of ECO codes to filter annotations")
-    parser.add_argument('-l', '--log', required=True, type=str, help='Log path')
+    parser.add_argument("-n", "--nucleotide", required=False, default=False, type = bool, action="store_true", help="Flag to indicate nucleotide instead of default protein sequences")
+    parser.add_argument("-e", "--eco-codes", required=False, default=[], nargs="*", help="Space-separated ECO codes to filter annotations")
+    parser.add_argument('-l', '--log', required=True, default='logs/executor.log', type=str, help='Log path')
     return parser.parse_args()
 
 def configure_logging(log_path):
