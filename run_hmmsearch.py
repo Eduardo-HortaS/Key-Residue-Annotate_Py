@@ -21,7 +21,7 @@ MA 02110-1301, USA.
 This script contains all functions dealing directly with hmmsearch and needs 3 arguments:
 a FASTA file, a HMM targets file and the path to the output directory.
 
-# Moved to these general functions to utils.py, for better modularity:
+# Moved these general functions to utils.py, for better modularity:
     1 - Parses the FASTA file and stores each sequence's queryname (ex.: TTHY_XENLA) in a list,
     and generates a SeqRecord object to be used sequentially and *only once*.
 
@@ -29,7 +29,7 @@ a FASTA file, a HMM targets file and the path to the output directory.
     and writes the sequence to a 'sequence.fasta' file in the directory.
 
 3 - Runs pyhmmer hmmsearch on the FASTA file using the provided HMM database file,
-generates a 'hmmsearch_per_domain_output.json' file, one level above all sequence dirs.
+generates a 'hmmsearch_per_domain.json' file, one level above all sequence dirs.
 
     3.5 - Loads the sequence file, either as a SequenceFile or a DigitalSequenceBlock,
     depending on size and available memory.

@@ -126,7 +126,6 @@ def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotation
         if "target/" in line and not line.startswith("#"):
             parts = line.split("target/")
             target_name = parts[0].strip()
-            print('DELETE_AFTER_UNIT_TESTS - Target name:', target_name)
             target_relevant = parts[1].strip()
             target_parts = target_relevant.split()
             if len(target_parts) >= 2:
@@ -145,15 +144,15 @@ def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotation
         return transfer_dict
 
     for entry_mnemo_name, entry_annotations in annotations.items():
-        #NEW: annot_pos_paireable_type_hit_bools instead of visited_pos, more granular and avoids missing annotations inside the list of annotation_dicts
         for counter_uniprot_pos_str, annotation_list in entry_annotations.items():
+            if counter_uniprot_pos_str == "0":
+                continue
             if counter_uniprot_pos_str not in annot_pos_paireable_type_hit_bools:
                 annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str] = {}
             for annotation_dict in annotation_list:
                 anno_type = annotation_dict.get('type', None)
                 if anno_type in paireable_types:
                     annot_pos_paireable_type_hit_bools[counter_uniprot_pos_str][anno_type] = False
-        print(f"DELETE_AFTER_UNIT_TESTS - Annot Pos Paireable: {annot_pos_paireable_type_hit_bools}")
         for line in hmmalign_lines:
             if line.startswith("#") or 'target/' in line:
                 continue
@@ -167,11 +166,8 @@ def find_and_map_annots(logger: logging.Logger, hmmalign_lines: list, annotation
                     for target_hit_interval, target_info_list in target_per_interval.items():
                         for target_hit_start, target_hit_end, target_hit_sequence in target_info_list:
                             entry_annotations_copy = copy.deepcopy(entry_annotations)
-                            # DEBUGGING a specific pair?
-                            # if target_name == "sp||PTPRJ_HUMAN" and entry_mnemo_name == "TIE2_HUMAN":
                             map_and_filter_annot_pos(logger, good_eco_codes, target_hit_sequence, target_name, target_hit_start, target_hit_end, offset_start, offset_end, annot_sequence, entry_mnemo_name, entry_annotations_copy, transfer_dict, annot_pos_paireable_type_hit_bools)
                             logger.info(f"Mapped, filtered and possibly added to transfer_dict: target {target_name} and annotated {entry_mnemo_name} at target hit interval {target_hit_interval}")
-    print('DELETE_AFTER_UNIT_TESTS - Pre-return Transfer Dict:', transfer_dict)
     return transfer_dict
 
 def write_report(logger: logging.Logger, transfer_dict: dict, pfam_id: str, output_dir: str) -> None:
@@ -215,80 +211,12 @@ def map_and_filter_annot_pos(logger: logging.Logger, good_eco_codes: list, targe
         traceback.print_exc()
         raise
 
-#@measure_time_and_memory
-#@profile
-# def add_to_transfer_dict(hit: bool, logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_primary_accession: str, paired_position_res_hit: Optional[bool] = False, late_pair_anno_id: Optional[str] = "", late_pair_anno_total: Optional[dict] = None) -> None:
-#     """
-#     Adds anno_total data to the transfer dictionary.
-#     The dictionary is structured by target position, annotation ID (type + description),
-#     and various possible additional annotation details, mainly for BINDING annotations.
-#     """
-#     try:
-#         additional_keys = {k: v for k, v in anno_total.items() if k not in ['type', 'description', 'count', 'evidence', 'paired_position', 'aminoacid', 'target_position']}
-#     except AttributeError as ae:
-#         logger.error("@ @ ------------- AttributeError: Anno_total: %s", anno_total)
-#         logger.error(f"@ @-------------- AttributeError: {ae} - target_name: {target_name}, entry_mnemo_name: {entry_mnemo_name} \n", traceback.format_exc())
-#         raise
-
-#     # NEW: Changes to group by match or miss
-#     if target_name not in transfer_dict:
-#         transfer_dict[target_name] = {'match': {}, 'miss': {}}
-
-#     hit_type = 'match' if hit else 'miss'
-
-#     if counter_target_pos not in transfer_dict[target_name][hit_type]:
-#         transfer_dict[target_name][hit_type][counter_target_pos] = {}
-
-#     if anno_id not in transfer_dict[target_name][hit_type][counter_target_pos]:
-#         essentials = {
-#             'type': anno_total.get('type'),
-#             'description': anno_total.get('description'),
-#             'count': anno_total.get('count')
-#         }
-#         transfer_dict[target_name][hit_type][counter_target_pos][anno_id] = {}
-#         transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('essentials', essentials)
-#         evidence_value = anno_total.get('evidence', None)
-#         paired_position_value = anno_total.get('paired_position', None)
-#     else:
-#         transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['essentials']['count'] += 1
-#         evidence_value = anno_total.get('evidence', None)
-#         paired_position_value = anno_total.get('paired_position', None)
-
-#     if evidence_value:
-#         if 'evidence' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
-#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('evidence', {})
-#         if evidence_value not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence']:
-#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence'][evidence_value] = {
-#                 "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
-#         else:
-#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['evidence'][evidence_value]["count"] += 1
-
-#     if paired_position_value:
-#         if 'paired_position' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
-#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('paired_position', {})
-#         if paired_position_value not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position']:
-#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position'][paired_position_value] = {
-#                 "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
-#         else:
-#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['paired_position'][paired_position_value]["count"] += 1
-
-#     if additional_keys:
-#         if 'additional_keys' not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]:
-#             transfer_dict[target_name][hit_type][counter_target_pos][anno_id].setdefault('additional_keys', {})
-#         for key, _ in additional_keys.items():
-#             if anno_total['type'] == 'BINDING':
-#                 if key not in transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys']:
-#                     transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys'][key] = {
-#                         "rep_primary_accession": entry_primary_accession, "rep_mnemo_name": entry_mnemo_name, "count": 1}
-#                 else:
-#                     transfer_dict[target_name][hit_type][counter_target_pos][anno_id]['additional_keys'][key]["count"] += 1
-
 def add_to_transfer_dict(hit: bool, logger: logging.Logger, transfer_dict: dict, target_name: str, counter_target_pos: int, anno_id: str, anno_total: dict, entry_mnemo_name: str, entry_primary_accession: str, paired_position_res_hit: Optional[bool] = None, late_pair_anno_id: Optional[str] = "", late_pair_anno_total: Optional[dict] = None) -> None:
     """
     Adds anno_total data to the transfer dictionary.
     The dictionary is structured by target name, hit | miss branches,
     target position, annotation ID (type + description).
-    Further, you'll have essentials, evidence and various possible additional annotation details, mainly for BINDING annotations. Keep tabs of how many times each annotation ID is found, as well as 
+    Further, you'll have essentials, evidence and various possible additional annotation details, mainly for BINDING annotations. Keep tabs of how many times each annotation ID is found, as well as
     If paired data is provided (paired_position_res_hit, late_pair_anno_id, late_pair_anno_total),
     processes that data analogously after the main data.
     """

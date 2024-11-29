@@ -18,18 +18,19 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
-This script contains 2 functions, one sees suitable domains,
-the other prepares a fasta per each domain in the resulting hits per domain JSON.
-It needs 4 arguments:
-a hits per domain JSON file, the domain accession to prep and the paths to the resource directory and output directory.
+This script contains 2 functions, one sees if a domain in the hits per domain JSON is suitable,
+the other prepares a fasta for it if so. It needs 4 arguments:
+a hmmsearch hits per domain JSON, the domain accession to prep
+and the paths to the resource directory and output directory.
 
-1 - can_run_hmmalign - Checks if intermediary files are present for the given domain accession. If so, call prep_domain_fasta.
+1 - can_run_hmmalign - Checks if intermediary files are present for the given domain accession in resource dir.
+If so, call prep_domain_fasta.
 
 2 - prep_domain_fasta - Accesses the JSON in search of the given accession and makes a multifasta with all hits contained in it.
 
-Obs.: It'll make a subdir for each domain in the output directory. Also, it'll put the substring
-"target/" between target_seq_name and ali range to facilitate parsing in the next step.
-That is, that substring denotes a target sequence versus the seed sequences.
+Obs.: It'll make a subdir for each valid domain in the output directory. Also, it'll put the substring
+"target/" between target_seq_name and ali range to facilitate parsing in the transfer_annotations step:
+signalling that substring denotes a target sequence versus the seed sequences.
 
 """
 
@@ -41,10 +42,9 @@ from typing import Any
 # from modules.decorators import measure_time_and_memory
 
 def parse_arguments():
-    """Parse command-line arguments for running hmmsearch
-    using a sequence database against target HMMs,
-    aiming to generate a hmmsearch_per_domain_output.json.
-    Also includes an output directory and a log file path.
+    """Parse command-line arguments for finding out if a given domain from those
+    in the hmmsearch hits per domain JSON is suitable - presents required intermediary files.
+    Also includes paths to the resource directory and output directory, and a log file path.
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -77,13 +77,17 @@ def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> 
     # print(f"Dom access in can run {dom_accession}")
     hmm_file_path = os.path.join(resource_dir, dom_accession, "domain.hmm")
     seed_alignment_path = os.path.join(resource_dir, dom_accession, "alignment.seed")
+    conservations_file_path = os.path.join(resource_dir, dom_accession, "conservations.json")
+    annotations_file_path = os.path.join(resource_dir, dom_accession, "annotations.json")
     pfam_id_hmmaligned = os.path.join(output_dir, dom_accession, dom_accession + "_hmmalign.sth")
 
     # Check for file existence and prepare the dictionary
     domain_run_info = {
-            "can_align": os.path.isfile(hmm_file_path) and os.path.isfile(seed_alignment_path),
+            "can_align": os.path.isfile(hmm_file_path) and os.path.isfile(seed_alignment_path) and os.path.isfile(conservations_file_path) and os.path.isfile(annotations_file_path),
             "hmm_file": hmm_file_path if os.path.isfile(hmm_file_path) else None,
             "seed_alignment": seed_alignment_path if os.path.isfile(seed_alignment_path) else None,
+            "conservations": conservations_file_path if os.path.isfile(conservations_file_path) else None,
+            "annotations": annotations_file_path if os.path.isfile(annotations_file_path) else None,
             "pfam_id_hmmaligned": pfam_id_hmmaligned
     }
     return domain_run_info

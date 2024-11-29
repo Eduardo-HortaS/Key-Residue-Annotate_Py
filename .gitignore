@@ -43,3 +43,4 @@ nextflow.config
 dags/
 *log*
 *test
+*config*ini
