@@ -21,18 +21,20 @@ MA 02110-1301, USA.
 This script contains all functions dealing directly with hmmsearch and needs 3 arguments:
 a FASTA file, a HMM targets file and the path to the output directory.
 
+1 - Runs pyHMMER hmmsearch on the FASTA file using the provided HMM database file,
+generates a 'hmmsearch_per_domain.json' file, one level above all sequence dirs.
+Also, generates a 'hmmsearch_sequences.txt' and a 'hmmsearch_sequences.json'
+file in the output directory, these last two contain the sequence IDs with at least 1 domain hit.
+
+    1.5 - Loads the sequence file, either as a SequenceFile or a DigitalSequenceBlock,
+    depending on size and available memory.
+
 # Moved these general functions to utils.py, for better modularity:
-    1 - Parses the FASTA file and stores each sequence's queryname (ex.: TTHY_XENLA) in a list,
+    2 - Parses the FASTA file and stores each sequence's queryname (ex.: TTHY_XENLA) in a list,
     and generates a SeqRecord object to be used sequentially and *only once*.
 
-    2 - For each sequence, creates a directory
+    3 - For each sequence with at least 1 domain hit, creates a directory
     and writes the sequence to a 'sequence.fasta' file in the directory.
-
-3 - Runs pyhmmer hmmsearch on the FASTA file using the provided HMM database file,
-generates a 'hmmsearch_per_domain.json' file, one level above all sequence dirs.
-
-    3.5 - Loads the sequence file, either as a SequenceFile or a DigitalSequenceBlock,
-    depending on size and available memory.
 
 """
 
@@ -106,21 +108,49 @@ def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is
     return targets
 
 def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Logger, is_nucleotide: bool = False) -> None:
-    """Runs pyhmmer hmmsearch with HMMs as query and target (multi)FASTA file and
-    returns a JSON with the domains found for the target sequences with structure
-    hits_per_domain[accession][target_seq] = [{<domain_data>}]
-    for use in dealing with hits on a per domain basis.
-    Domain data contains the bitscore, alignment sequence start and end, alignment range and subsequence."""
+    """Run HMMER search against target sequences and save results.
+
+    Executes hmmsearch using HMM profiles as queries against target sequences.
+    Processes hits to extract domain information and saves results in multiple formats.
+
+    Args:
+        hmm: Path to HMM profiles database file
+        fasta_path: Path to target sequences FASTA file
+        output_dir: Directory to save output files
+        logger: Logger instance for tracking execution
+        is_nucleotide: If True, treats input as nucleotide sequences (default: False)
+
+    Returns:
+        set[str]: Set of sequence IDs that had at least one domain hit
+
+    Outputs:
+        - hmmsearch_per_domain.json: JSON file containing detailed domain hits
+          Structure: {pfam_id: {seq_id: [{seq_hits_data}]}}
+        - hmmsearch_sequences.txt: Plain text file with hit sequence IDs
+        - hmmsearch_sequences.json: JSON file with hit sequence IDs
+
+    Domain data includes:
+        - hmm_name: Name of the matching HMM profile
+        - target_seq_name: ID of the target sequence
+        - bitscore: HMMER bit score for the match
+        - ali_from: Start position of alignment in target
+        - ali_to: End position of alignment in target
+        - ali_range: Formatted string of alignment range
+        - subseq: Aligned subsequence without gaps
+    """
+
     with open(hmm, 'rb') as f:
         hmms = list(pyhmmer.plan7.HMMFile(f))
 
     targets = load_and_translate_sequence_file(fasta_path, logger, is_nucleotide)
 
     hits_per_domain = {}
-    per_domain_output = os.path.join(output_dir, "hmmsearch_per_domain.json")
+    hit_sequences = set()
+
     for top_hits in pyhmmer.hmmsearch(hmms, targets, bit_cutoffs="gathering"):
         for hit in top_hits:
             target_seq = hit.name.decode("utf-8")
+            hit_sequences.add(target_seq)
             for domain in hit.domains.included:
                 alignment = domain.alignment
                 hmm_name = alignment.hmm_name.decode("utf-8")
@@ -147,8 +177,24 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
                     "subseq": subseq
                 })
 
+    sequences_txt_path = os.path.join(output_dir, "hmmsearch_sequences.txt")
+    sequences_json_path = os.path.join(output_dir, "hmmsearch_sequences.json")
+    per_domain_output = os.path.join(output_dir, "hmmsearch_per_domain.json")
+
+    # Text file (human readable, grep and so on)
+    with open(sequences_txt_path, "w", encoding='utf-8') as f:
+        for seq in sorted(hit_sequences):
+            f.write(f"{seq}\n")
+
+    # JSON file (programmatic access)
+    with open(sequences_json_path, "w", encoding='utf-8') as f:
+        json.dump({"sequences": list(sorted(hit_sequences))}, f, indent=4)
+
     with open(per_domain_output, "w", encoding='utf-8') as f:
         json.dump(hits_per_domain, f, indent=4)
+
+    logger.info(f"HmmSearch hit sequences saved in text format - {sequences_txt_path}")
+    logger.info(f"HmmSearch hit sequences saved in JSON format - {sequences_json_path}")
     logger.info(f"HmmSearch TopHits results saved per domain - {per_domain_output}")
 
 def main(logger: logging.Logger):
@@ -160,10 +206,11 @@ def main(logger: logging.Logger):
     is_nucleotide = args.nucleotide
     logger.info(f"Running hmmsearch with arguments: {args}")
 
+    # Create dirs for all sequences, don't filter by those with hmmer hits because
+    # we want to run iprscan on all sequences, regardless of hmmer.
     yielded_sequences = utils.seqrecord_yielder(input_fasta)
-    # May stop individualized fastas later,
-    # if they end up not being useful in the next steps
     utils.make_dirs_and_write_fasta(yielded_sequences, output_dir)
+    # Run hmmsearch for all sequences
     run_hmmsearch(input_hmm, input_fasta, output_dir, logger, is_nucleotide)
 
 if __name__ == '__main__':

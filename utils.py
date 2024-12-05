@@ -27,9 +27,17 @@ import argparse
 import logging
 import os
 from multiprocessing import Pool
+from typing import Iterator
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from typing import TypeVar, List, Callable
 
-def get_querynames(fasta):
+# T = input type (could be str, int, dict, etc.)
+# R = return type (could be different from input)
+T = TypeVar('T')
+R = TypeVar('R')
+
+def get_querynames(fasta: str) -> List[str]:
     """Parses a FASTA file and returns a list of sequence "query names"."""
     sequences = []
     seq = SeqIO.parse(fasta, "fasta")
@@ -38,19 +46,29 @@ def get_querynames(fasta):
         sequences.append(queryname)
     return sequences
 
-def make_dirs_and_write_fasta(sequences, base_dir):
+def make_dirs_and_write_fasta(sequences: Iterator[SeqRecord], base_dir: str) -> None:
     """Creates a directory for each sequence and writes the sequence to a fasta file."""
     for record in sequences:
-        queryname = record.id.replace("|", "-")
-        os.makedirs(os.path.join(base_dir, queryname), exist_ok=True)
-        SeqIO.write(record, os.path.join(base_dir, queryname, "sequence.fasta"), "fasta")
+        used_queryname = record.id.replace("|", "-")
+        os.makedirs(os.path.join(base_dir, used_queryname), exist_ok=True)
+        SeqIO.write(record, os.path.join(base_dir, used_queryname, "sequence.fasta"), "fasta")
 
-def seqrecord_yielder(fasta):
+def seqrecord_yielder(fasta: str) -> Iterator[SeqRecord]:
     """Yields SeqRecord objects from a FASTA file."""
     for record in SeqIO.parse(fasta, "fasta"):
         yield record
 
-def parallelize(func, inputs, num_workers=None):
+def parallelize(func: Callable[[T], R], inputs: List[T], num_workers: int | None = None) -> List[R]:
+    """
+    Example usage of T and R:
+    - T could be str if inputs is List[str]
+    - R could be int if func returns integers
+
+    parallelize(len, ["hello", "world"]) would have:
+    - T = str (input strings)
+    - R = int (output lengths)
+    """
+
     if num_workers is None:
         num_cores = os.cpu_count()  # Automatically detect the number of CPU cores
         num_workers = max(1, num_cores - 1)  # Use num_cores - 1 to leave one core free
@@ -59,7 +77,6 @@ def parallelize(func, inputs, num_workers=None):
         results = pool.map(func, inputs)
     return results
 
-# TODO: Change it to work with all necessary arguments for the whole pipeline
 def parse_arguments():
     """
     Parse command line arguments for running hmmscan on a fasta file.
@@ -79,8 +96,7 @@ def parse_arguments():
         required=False, type=str, default="logs/hmmscan.log")
     return parser.parse_args()
 
-# TODO: Change it to work separately or only once for the whole pipeline.
-def setup_logging(log_file):
+def setup_logging(log_file: str ) -> None:
     """Configure logging settings."""
     log_dir = os.path.dirname(log_file)
     os.makedirs(log_dir, exist_ok=True)

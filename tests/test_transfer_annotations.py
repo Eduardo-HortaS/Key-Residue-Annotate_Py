@@ -4,10 +4,14 @@ Unit tests for transfer_annotations.py
 
 import logging
 import json
+import sys
+import os
 import copy
 from importlib import reload
 from argparse import Namespace
 from unittest.mock import patch, mock_open, MagicMock
+# Add the parent directory to the sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from transfer_annotations import (
     parse_arguments,
     configure_logging,

@@ -65,7 +65,7 @@ def configure_logging(log_path: str) -> logging.Logger:
 def merge_sequences(output_dir: str, logger: logging.Logger) -> None:
     """Merges every sequence's PF*_report.json into a single JSON, with structure:
     report[sequence][domain] = {<pair's data>} in the output directory.
-    For debugging purposes, also stores a list of unique domains in what_domains.txt.
+    For debugging purposes, also stores a list of unique domains in reported_domains.txt.
     Returns the path to aggregated_report.json."""
     aggregated_report_path = os.path.join(output_dir, "aggregated_report.json")
     reported_domains_path = os.path.join(output_dir, "reported_domains.txt")
@@ -77,7 +77,7 @@ def merge_sequences(output_dir: str, logger: logging.Logger) -> None:
 
     aggregated_report = {}
 
-    # Clear the contents of what_domains.txt before appending new data
+    # Clear the contents of reported_domains.txt before appending new data
     open(reported_domains_path, "w", encoding="utf-8").close()
 
     unique_domains = set()

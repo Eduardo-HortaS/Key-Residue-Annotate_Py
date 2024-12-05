@@ -137,8 +137,8 @@ def main():
         run_iprscan_tasks = []
         for subdir in os.listdir(output_dir):
             subdir_path = os.path.join(output_dir, subdir)
-            if os.path.isdir(subdir_path) and not subdir.startswith("PF"):
-                sequence_fasta = os.path.join(subdir_path, "sequence.fasta")
+            sequence_fasta = os.path.join(subdir_path, "sequence.fasta")
+            if os.path.isdir(subdir_path) and not subdir.startswith("PF") and os.path.isfile(sequence_fasta):
                 output_base_file = os.path.join(subdir_path, "iprscan")
                 run_iprscan_tasks.append(
                     f"{python_executable} run_iprscan.py -iP {iprscan_sh_path} -iF {sequence_fasta} -oB {output_base_file} -oF {output_format_iprscan} -dB {databases} -l {log}"
@@ -193,7 +193,7 @@ def main():
             if os.path.isdir(subdir_path) and subdir.startswith("PF"):
                 dom_aligns = [dom_align for dom_align in glob.glob(os.path.join(subdir_path, "PF*_hmmalign.sth")) if os.path.isfile(dom_align)]
                 for dom_align in dom_aligns:
-                    transfer_annotations_tasks.append(f"{python_executable} transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir} --eco-codes {" ".join(eco_codes)} -l {log}")
+                    transfer_annotations_tasks.append(f"{python_executable} transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir} --eco-codes {' '.join(eco_codes)} -l {log}")
         logger.info("Transfer annotations tasks: %s", transfer_annotations_tasks)
         Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in transfer_annotations_tasks)
         with open(transfer_annotations_done, "w", encoding="utf-8") as f:
