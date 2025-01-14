@@ -1,7 +1,7 @@
 """
 prepare_fasta_per_domain.py
 
-Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
+Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -69,26 +69,33 @@ def configure_logging(log_path: str) -> logging.Logger:
 def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> dict[str, Any]:
     """
     For a given domain accession, checks if the necessary resource files are present.
-    Store this and paths to these files and to output in a dictionary,
-    returned for outside determination of what domains to prep a fasta for.
+    Required: HMM file and seed alignment
+    Optional but need at least one: conservations or annotations file
     """
     if '.' in dom_accession:
         dom_accession = dom_accession.split('.')[0]
-    # print(f"Dom access in can run {dom_accession}")
+
     hmm_file_path = os.path.join(resource_dir, dom_accession, "domain.hmm")
     seed_alignment_path = os.path.join(resource_dir, dom_accession, "alignment.seed")
     conservations_file_path = os.path.join(resource_dir, dom_accession, "conservations.json")
     annotations_file_path = os.path.join(resource_dir, dom_accession, "annotations.json")
     pfam_id_hmmaligned = os.path.join(output_dir, dom_accession, dom_accession + "_hmmalign.sth")
 
-    # Check for file existence and prepare the dictionary
+    # Required files check
+    required_files_exist = (os.path.isfile(hmm_file_path) and
+                          os.path.isfile(seed_alignment_path))
+
+    # At least one optional file must exist
+    optional_file_exists = (os.path.isfile(conservations_file_path) or
+                          os.path.isfile(annotations_file_path))
+
     domain_run_info = {
-            "can_align": os.path.isfile(hmm_file_path) and os.path.isfile(seed_alignment_path) and os.path.isfile(conservations_file_path) and os.path.isfile(annotations_file_path),
-            "hmm_file": hmm_file_path if os.path.isfile(hmm_file_path) else None,
-            "seed_alignment": seed_alignment_path if os.path.isfile(seed_alignment_path) else None,
-            "conservations": conservations_file_path if os.path.isfile(conservations_file_path) else None,
-            "annotations": annotations_file_path if os.path.isfile(annotations_file_path) else None,
-            "pfam_id_hmmaligned": pfam_id_hmmaligned
+        "can_align": required_files_exist and optional_file_exists,
+        "hmm_file": hmm_file_path if os.path.isfile(hmm_file_path) else None,
+        "seed_alignment": seed_alignment_path if os.path.isfile(seed_alignment_path) else None,
+        "conservations": conservations_file_path if os.path.isfile(conservations_file_path) else None,
+        "annotations": annotations_file_path if os.path.isfile(annotations_file_path) else None,
+        "pfam_id_hmmaligned": pfam_id_hmmaligned
     }
     return domain_run_info
 

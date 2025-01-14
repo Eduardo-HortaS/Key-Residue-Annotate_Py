@@ -1,7 +1,7 @@
 """
 run_hmmsearch.py
 
-Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
+Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,7 +19,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
 This script contains all functions dealing directly with hmmsearch and needs 3 arguments:
-a FASTA file, a HMM targets file and the path to the output directory.
+a FASTA file, a HMM targets file and the path to the output directory. Optionally,
+a flag to indicate nucleotide sequences and a log file path.
 
 1 - Runs pyHMMER hmmsearch on the FASTA file using the provided HMM database file,
 generates a 'hmmsearch_per_domain.json' file, one level above all sequence dirs.
@@ -208,7 +209,7 @@ def main(logger: logging.Logger):
 
     # Create dirs for all sequences, don't filter by those with hmmer hits because
     # we want to run iprscan on all sequences, regardless of hmmer.
-    yielded_sequences = utils.seqrecord_yielder(input_fasta)
+    yielded_sequences = utils.seqrecord_yielder(input_fasta, is_nucleotide, logger)
     utils.make_dirs_and_write_fasta(yielded_sequences, output_dir)
     # Run hmmsearch for all sequences
     run_hmmsearch(input_hmm, input_fasta, output_dir, logger, is_nucleotide)

@@ -1,7 +1,7 @@
 """
 executor.py
 
-Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
+Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -52,8 +52,8 @@ def parse_arguments():
     parser.add_argument("-iP", "--iprscan-path", help="Path to interproscan.sh", required=True, type=str)
     parser.add_argument("-iF", "--input-fasta", help="Path to input sequence fasta", required=True, type=str)
     parser.add_argument("-oB", "--output-base-file", help="Path to output base file, ending right before the extension", required=True, type=str)
-    parser.add_argument("-oF", "--output-format", help="Output format (TSV, JSON, XML, GFF3)", required=False, type=str, default="TSV")
-    parser.add_argument("-dB", "--databases", help="Databases to use (default or comma-separated string)", required=False, type=str, default="panther,gene3d,smart,pfam,superfamily")
+    parser.add_argument("-oF", "--output-format", help="Output format/s, from (TSV, JSON, XML, GFF3). This pipeline only uses TSV, but the default is TSV, XML and GFF3 for possible downstream analyses", required=False, type=str, default="TSV, XML, GFF3")
+    parser.add_argument("-dB", "--databases", help="Optional: Comma-separated databases to limit the search, if the single purpose is using GO terms inside the pipeline, pass the string panther,gene3d,smart,pfam,superfamily", required=False, type=str, default="")
     parser.add_argument("-l", "--log", help="Log path", required=False, type=str, default="logs/run_iprscan.log")
     return parser.parse_args()
 
@@ -69,7 +69,10 @@ def run_interproscan(iprscan_path: str, input_fasta: str, output_basefile: str, 
     Runs InterProScan with the given arguments.
     """
     # NOTE: Kinda slow, not sure about CPU usage.
-    command = f"{iprscan_path} -i {input_fasta} -b {output_basefile} -f {output_format} -appl {databases} -goterms -iprlookup -dp --cpu 1"
+    command = f"{iprscan_path} -i {input_fasta} -b {output_basefile} -f {output_format} -goterms -iprlookup -dp --cpu 1"
+
+    if databases:
+        command += f" -appl {databases}"
 
     result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 

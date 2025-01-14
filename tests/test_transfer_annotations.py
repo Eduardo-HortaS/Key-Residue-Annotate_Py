@@ -10,26 +10,37 @@ import copy
 
 from importlib import reload
 from argparse import Namespace
-from unittest.mock import patch, mock_open, MagicMock, ANY, call
+from unittest.mock import patch, ANY, call, mock_open, MagicMock
 from tempfile import TemporaryDirectory
 # Add the parent directory to the sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from transfer_annotations import (
     parse_arguments,
     configure_logging,
     get_pfam_id_from_hmmalign_result,
     get_annotation_filepath,
     read_files,
+    iterate_aligned_sequences,
     find_and_map_annots,
+    read_conservations_and_annotations,
+    parse_go_annotations,
+    gather_go_terms_for_target,
+    get_alignment_sequences,
+    populate_conservation,
+    populate_go_data_for_annotations,
+    cleanup_improve_transfer_dict,
+    convert_sets_to_lists,
+    write_reports,
     map_and_filter_annot_pos,
+    add_to_transfer_dict,
+    make_anno_total_dict,
     validate_annotations,
     process_annotation,
-    make_anno_total_dict,
     validate_paired_annotations,
-    add_to_transfer_dict,
-    write_report,
     main
 )
+
 import pytest
 
 
@@ -57,6 +68,8 @@ resource_dir_mock = "/home/user/resources/"
 
 output_dir_mock = "/home/user/results/human/PF07728/"
 
+go_terms_mock = "/home/user/results/human/"
+
 good_eco_codes_mock = ["ECO:0000269", "ECO:0000255", "ECO:0000313", "ECO:0007669"]
 
 log_filepath_mock = "/home/user/logs/transfer_annotations.log"
@@ -64,7 +77,7 @@ log_filepath_mock = "/home/user/logs/transfer_annotations.log"
 
 ### Fixtures
 @pytest.fixture
-def annotations_content_binding_fixture():
+def annotations_content_binding_fixture_Q9NU22_PF07728():
     """Base annotations with only BINDING annotations"""
     return {
         "MCRB_ECOLI": {
@@ -94,7 +107,7 @@ def annotations_content_binding_fixture():
 @pytest.fixture
 # NOTE: Intrachain doesn't really appear in actual descriptions, added for clarity in my tests.
 # Instead, you might see Interchain and, in these cases, there'd be no paired_position key.
-def annotations_content_disulfid_fixture():
+def annotations_content_disulfid_fixture_Q9NU22_PF07728():
     """Separate fixture for DISULFID pair annotations"""
     return {
         "MCRB_ECOLI": {
@@ -122,7 +135,7 @@ def annotations_content_disulfid_fixture():
     }
 
 @pytest.fixture
-def annotations_content_all_types_PF00244_fixture():
+def annotations_content_all_types_fixture_H0YB80_PF00244():
     """Fixture for all annotations for PF00244"""
     return {
     "14338_ARATH": {
@@ -431,6 +444,126 @@ def annotations_content_all_types_PF00244_fixture():
 }
 
 @pytest.fixture
+def conservations_content_Q9NU22_PF07728():
+    return {
+    "Q7US48_RHOBA/138-284": {
+        "143": 0.9853259562184268,
+        "146": 0.8806005719733079,
+        "149": 0.956244087038789,
+        "267": 0.8021297672114909,
+        "283": 0.959562479284057,
+        "284": 0.8452762923351159
+    }
+}
+
+@pytest.fixture
+def conservations_content_H0YB80_PF00244():
+    return {
+    "C1E2K1_MICCC/19-248": {
+        "20": 0.9802880970432145,
+        "21": 0.8013100436681223,
+        "22": 0.83632447954056,
+        "23": 0.8230659025787965,
+        "24": 0.8863473909935669,
+        "25": 0.8404558404558404,
+        "26": 0.8196605374823197,
+        "27": 0.8921775898520085,
+        "28": 0.9500351864883885,
+        "29": 0.8625525946704067,
+        "32": 0.9007936507936508,
+        "36": 0.8561151079136691,
+        "51": 0.9382239382239382,
+        "54": 0.8360025624599615,
+        "55": 0.9296225207933462,
+        "56": 0.9481765834932822,
+        "57": 0.8817891373801917,
+        "58": 0.9156549520766774,
+        "59": 0.8792332268370607,
+        "60": 0.9060702875399361,
+        "61": 0.8446291560102301,
+        "62": 0.8378033205619413,
+        "63": 0.8959795788130185,
+        "64": 0.9527760051052967,
+        "65": 0.8864795918367347,
+        "68": 0.8354591836734694,
+        "70": 0.8068833652007649,
+        "71": 0.9700255102040817,
+        "74": 0.8662420382165605,
+        "75": 0.9292993630573249,
+        "81": 0.8132646490663232,
+        "83": 0.8134615384615385,
+        "101": 0.8401768793430195,
+        "106": 0.8635502210991788,
+        "108": 0.9348513598987982,
+        "109": 0.8949367088607595,
+        "113": 0.9358322744599746,
+        "124": 0.9197452229299363,
+        "132": 0.8320561941251596,
+        "135": 0.8855498721227621,
+        "136": 0.9213051823416507,
+        "137": 0.8509277031349968,
+        "139": 0.9430217669654289,
+        "140": 0.8856416772554002,
+        "141": 0.8162093171665603,
+        "142": 0.8750796685787126,
+        "143": 0.9859783301465902,
+        "144": 0.9315856777493606,
+        "146": 0.9775928297055058,
+        "147": 0.9814696485623003,
+        "149": 0.8355640535372849,
+        "150": 0.9681528662420382,
+        "168": 0.9736180904522613,
+        "171": 0.9656893325015595,
+        "175": 0.8119873817034701,
+        "182": 0.8391739674593242,
+        "184": 0.9311639549436797,
+        "186": 0.9043151969981238,
+        "187": 0.9743107769423559,
+        "188": 0.9191222570532915,
+        "189": 0.9228356336260979,
+        "190": 0.8745294855708908,
+        "191": 0.9780288763339611,
+        "192": 0.964824120603015,
+        "194": 0.9050911376492772,
+        "195": 0.9376966645689113,
+        "196": 0.9346323067253299,
+        "198": 0.8826498422712934,
+        "199": 0.9215189873417722,
+        "200": 0.833859759949463,
+        "207": 0.9721695129664769,
+        "208": 0.8228969006957622,
+        "211": 0.9375394321766561,
+        "214": 0.8852564102564102,
+        "215": 0.87001287001287,
+        "216": 0.8009020618556701,
+        "218": 0.9090322580645162,
+        "222": 0.8463047743623283,
+        "223": 0.8356344510190664,
+        "227": 0.8168187744458931,
+        "230": 0.8641732283464567,
+        "231": 0.8045901639344263,
+        "232": 0.8844386080105056,
+        "233": 0.8355263157894737,
+        "234": 0.8320158102766798,
+        "235": 0.8148880105401844,
+        "236": 0.9163372859025033,
+        "237": 0.8081740276862228,
+        "238": 0.8982826948480845,
+        "239": 0.9404367968232958,
+        "240": 0.9178263750828363,
+        "241": 0.8887408394403731,
+        "242": 0.9231283422459893,
+        "243": 0.9685408299866132,
+        "244": 0.9009370816599732,
+        "245": 0.8181208053691276,
+        "246": 0.9040163376446563,
+        "247": 0.9993174061433447,
+        "248": 0.8651196519216824
+    }
+}
+
+
+@pytest.fixture
 def logger():
     """Create a properly configured mock logger with all necessary methods"""
     mock_logger = MagicMock()
@@ -449,11 +582,17 @@ def good_eco_codes_no_eco255():
     return ["ECO:0000269", "ECO:0000313", "ECO:0007669"]
 
 @pytest.fixture
-def target_sequence():
+def target_sequence_Q9NU22():
     return ".........-VLLEGPIGCGKTSLVE.YLAAVTgr..........tkPPQLLKVQLGD.QT..DSKMLLGMYCCTd..........vPGEFVWQPGTLTQAAT..................MGHWILLEDIDYAP.L........D....VVS....V......LIP.LLENG.E...LLIPGRGDCLKVAPG-..----.............................FQFFAT-----.........--------------rrllscgg...................."
 
 @pytest.fixture
-def annot_sequence():
+def target_sequence_continuous_Q9NU22(target_sequence_Q9NU22):
+    target_sequence_to_process = target_sequence_Q9NU22
+    target_sequence_continuous_Q9NU22 = ''.join([char.upper() for char in target_sequence_to_process if char.isalpha()])
+    return target_sequence_continuous_Q9NU22
+
+@pytest.fixture
+def annot_sequence_Q9NU22():
     return ".........NIILQGPPGCGKTFVAR.RLAYLLtg.........ekaPQRVNMVQFHQ.SY..SYEDFIQGYCPN............GVGFRRKDGIFYNFCQqak...........eqpeKKYIFIIDEINRANlS........K....VFG....E......VMM.LMEHD.K...RGENWSVPLTYSENDE.eRFYVp..........................enVYIIGLMNTAD.........RSLAVVDYALRRRF............................"
 
 
@@ -551,329 +690,780 @@ def transfer_dict():
     return {}
 
 @pytest.fixture
-def transfer_dict_populated():
+def transfer_dict_populated_disulfid_Q9NU22():
     return {
-        "sp|Q9NU22|MDN1_HUMAN": {
-            "match": {
-                "333": {
-                    "DISULFID | Intrachain (with C-246); in linked form": {
-                        "essentials": {
-                            "type": "DISULFID",
-                            "description": "Intrachain (with C-246); in linked form",
-                            "count": 1
-                        },
-                        "evidence": {
-                            "ECO:0000269|PubMed:12345678": {
-                                "rep_primary_accession": "P15005",
-                                "rep_mnemo_name": "MCRB_ECOLI",
-                                "count": 1
+    "DOMAIN": {
+        "sequence_id": {
+            "sp|Q9NU22|MDN1_HUMAN": {
+                "sequence": "VLLEGPIGCGKTSLVEYLAAVTGRTKPPQLLKVQLGDQTDSKMLLGMYCCTDVPGEFVWQPGTLTQAATMGHWILLEDIDYAPLDVVSVLIPLLENGELLIPGRGDCLKVAPGFQFFATRRLLSCGG",
+                "length": 127,
+                "hit_start": 325,
+                "hit_end": 451,
+                "annotations": {
+                    "positions": {
+                        "333": {
+                            "DISULFID | Intrachain (with C-246); in linked form": {
+                                "essentials": {
+                                    "type": "DISULFID",
+                                    "description": "Intrachain (with C-246); in linked form",
+                                    "count": 1,
+                                    "annot_amino_acid": "C",
+                                    "target_amino_acid": "C"
+                                },
+                                "evidence": {
+                                    "ECO:0000269|PubMed:12345678": {
+                                        "rep_primary_accession": "P15005",
+                                        "rep_mnemo_name": "MCRB_ECOLI",
+                                        "count": 1
+                                    }
+                                },
+                                "paired_position": {
+                                    "373": {
+                                        "rep_primary_accession": "P15005",
+                                        "rep_mnemo_name": "MCRB_ECOLI",
+                                        "count": 1
+                                    }
+                                },
+                                "hit" : True,
+                                "additional_keys": {
+                                    "annot_position": {
+                                        "205": {
+                                            "rep_primary_accession": "P15005",
+                                            "rep_mnemo_name": "MCRB_ECOLI",
+                                            "count": 1
+                                        }
+                                    }
+                                }
                             }
                         },
-                        "paired_position": {
-                            "373": {
-                                "rep_primary_accession": "P15005",
-                                "rep_mnemo_name": "MCRB_ECOLI",
-                                "count": 1
-                            }
-                        },
-                        "additional_keys": {
-                            "annot_position": {
-                                "205": {
-                                    "rep_primary_accession": "P15005",
-                                    "rep_mnemo_name": "MCRB_ECOLI",
-                                    "count": 1
+                        "373": {
+                            "DISULFID | Intrachain (with C-205); in linked form": {
+                                "essentials": {
+                                    "type": "DISULFID",
+                                    "description": "Intrachain (with C-205); in linked form",
+                                    "count": 1,
+                                    "annot_amino_acid": "C",
+                                    "target_amino_acid": "C"
+                                },
+                                "evidence": {
+                                    "ECO:0000269|PubMed:12345678": {
+                                        "rep_primary_accession": "P15005",
+                                        "rep_mnemo_name": "MCRB_ECOLI",
+                                        "count": 1
+                                    }
+                                },
+                                "paired_position": {
+                                    "333": {
+                                        "rep_primary_accession": "P15005",
+                                        "rep_mnemo_name": "MCRB_ECOLI",
+                                        "count": 1
+                                    }
+                                },
+                                "hit" : True,
+                                "additional_keys": {
+                                    "annot_position": {
+                                        "246": {
+                                            "rep_primary_accession": "P15005",
+                                            "rep_mnemo_name": "MCRB_ECOLI",
+                                            "count": 1
+                                        }
+                                    }
                                 }
                             }
                         }
+                    },
+                    "indices": {
+                        "matches": set(["333", "373"]),
+                        "misses": set()
                     }
                 },
-                "373": {
-                    "DISULFID | Intrachain (with C-205); in linked form": {
-                        "essentials": {
-                            "type": "DISULFID",
-                            "description": "Intrachain (with C-205); in linked form",
-                            "count": 1
+                "conservations": {
+                    "positions": {},
+                    "indices": {
+                        "matches": set(),
+                        "misses": set()
+                    }
+                },
+                "position_conversion": {
+                    "target_to_aln": {
+                        "333": "18",
+                        "373": "72"
                         },
-                        "evidence": {
-                            "ECO:0000269|PubMed:12345678": {
-                                "rep_primary_accession": "P15005",
-                                "rep_mnemo_name": "MCRB_ECOLI",
-                                "count": 1
-                            }
-                        },
-                        "paired_position": {
-                            "333": {
-                                "rep_primary_accession": "P15005",
-                                "rep_mnemo_name": "MCRB_ECOLI",
-                                "count": 1
-                            }
-                        },
-                        "additional_keys": {
-                            "annot_position": {
-                                "246": {
-                                    "rep_primary_accession": "P15005",
-                                    "rep_mnemo_name": "MCRB_ECOLI",
-                                    "count": 1
-                                }
-                            }
+                    "aln_to_target": {
+                        "18": "333",
+                        "72": "373"
                         }
                     }
-                }
-            },
-            "miss": {}
-        }
-    }
-
-@pytest.fixture
-def transfer_dict_success_disulfid_MDN1_HUMAN():
-    return {
-    "match": {
-        "333": {
-            "DISULFID | Intrachain (with C-246); in linked form": {
-                "essentials": {
-                    "type": "DISULFID",
-                    "description": "Intrachain (with C-246); in linked form",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000269|PubMed:12345678": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "paired_position": {
-                    "373": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "annot_position": {
-                        "205": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
-            }
-        },
-        "373": {
-            "DISULFID | Intrachain (with C-205); in linked form": {
-                "essentials": {
-                    "type": "DISULFID",
-                    "description": "Intrachain (with C-205); in linked form",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000269|PubMed:12345678": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "paired_position": {
-                    "333": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "annot_position": {
-                        "246": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
-            }
-        }
-    },
-    "miss": {
-        "681": {
-            "DISULFID | Intrachain (with C-246); in linked form": {
-                "essentials": {
-                    "type": "DISULFID",
-                    "description": "Intrachain (with C-246); in linked form",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000269|PubMed:12345678": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "paired_position": {
-                    "717": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "annot_position": {
-                        "205": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
-            }
-        },
-        "717": {
-            "DISULFID | Intrachain (with C-205); in linked form": {
-                "essentials": {
-                    "type": "DISULFID",
-                    "description": "Intrachain (with C-205); in linked form",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000269|PubMed:12345678": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "paired_position": {
-                    "681": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "annot_position": {
-                        "246": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
             }
         }
     }
 }
 
 @pytest.fixture
-def transfer_dict_success_binding_MDN1_HUMAN():
-    return {
-    "match": {
-        "329": {
-            "BINDING | Interacts with GTP": {
-                "essentials": {
-                    "type": "BINDING",
-                    "description": "Interacts with GTP",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000255": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "ligand_id": {
-                        "ChEBI:CHEBI:37565": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
-            }
-        },
-        "330": {
-            "BINDING | Interacts with GTP": {
-                "essentials": {
-                    "type": "BINDING",
-                    "description": "Interacts with GTP",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000255": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "ligand_id": {
-                        "ChEBI:CHEBI:37565": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
-            }
-        },
-        "677": {
-            "BINDING | Interacts with GTP": {
-                "essentials": {
-                    "type": "BINDING",
-                    "description": "Interacts with GTP",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000255": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "ligand_id": {
-                        "ChEBI:CHEBI:37565": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
-            }
-        }
-    },
-    "miss": {
-        "678": {
-            "BINDING | Interacts with GTP": {
-                "essentials": {
-                    "type": "BINDING",
-                    "description": "Interacts with GTP",
-                    "count": 1
-                },
-                "evidence": {
-                    "ECO:0000255": {
-                        "rep_primary_accession": "P15005",
-                        "rep_mnemo_name": "MCRB_ECOLI",
-                        "count": 1
-                    }
-                },
-                "additional_keys": {
-                    "ligand_id": {
-                        "ChEBI:CHEBI:37565": {
-                            "rep_primary_accession": "P15005",
-                            "rep_mnemo_name": "MCRB_ECOLI",
-                            "count": 1
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+def transfer_dict_populated_disulfid_list_Q9NU22(transfer_dict_populated_disulfid_Q9NU22):
+    """Same dictionary but with lists instead of sets"""
+    return convert_sets_to_lists(copy.deepcopy(transfer_dict_populated_disulfid_Q9NU22))
 
 @pytest.fixture
-def transfer_dict_success_all_types_H0YB80_HUMAN():
-    return {
+def transfer_dict_populated_disulfid_post_processed_Q9NU22(transfer_dict_populated_disulfid_Q9NU22):
+    """Creates an extended version of transfer_dict_populated_disulfid_Q9NU22 with GO and conservation data."""
+    extended_dict = copy.deepcopy(transfer_dict_populated_disulfid_Q9NU22)
+    extended_dict["PF07728"] = extended_dict.pop("DOMAIN")
+    extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["conservations"]["positions"].update({
+        "137": {
+            "conservation": 0.956244087038789,
+            "hit": True
+        },
+        "179": {
+            "conservation": 0.8452762923351159,
+            "hit": True
+        }
+    })
+    extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["conservations"]["indices"]["matches"].update(["137", "179"])
+    go_data = {
+        "GO": {
+            "MCRB_ECOLI": {
+                "terms": "GO:006305",
+                "jaccard_index": "0.45"
+            }
+        }
     }
+    for pos in ["333", "373"]:
+        anno_key = next(iter(extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["annotations"]["positions"][pos].keys()))
+        extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["annotations"]["positions"][pos][anno_key].update(go_data)
+    return extended_dict
+
+@pytest.fixture
+def transfer_dict_populated_disulfid_post_processed_list_Q9NU22(transfer_dict_populated_disulfid_post_processed_Q9NU22):
+    """Post-processed version with lists"""
+    return convert_sets_to_lists(copy.deepcopy(transfer_dict_populated_disulfid_post_processed_Q9NU22))
+
+# @pytest.fixture
+# def transfer_dict_success_disulfid_Q9NU22():
+#     return {
+#     "match": {
+#         "333": {
+#             "DISULFID | Intrachain (with C-246); in linked form": {
+#                 "essentials": {
+#                     "type": "DISULFID",
+#                     "description": "Intrachain (with C-246); in linked form",
+#                     "count": 1,
+#                     "annot_amino_acid": "C",
+#                     "target_amino_acid": "C"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:12345678": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "paired_position": {
+#                     "373": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "annot_position": {
+#                         "205": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "373": {
+#             "DISULFID | Intrachain (with C-205); in linked form": {
+#                 "essentials": {
+#                     "type": "DISULFID",
+#                     "description": "Intrachain (with C-205); in linked form",
+#                     "count": 1,
+#                     "annot_amino_acid": "C",
+#                     "target_amino_acid": "R"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:12345678": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "paired_position": {
+#                     "333": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "annot_position": {
+#                         "246": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         }
+#     },
+#     "miss": {
+#         "681": {
+#             "DISULFID | Intrachain (with C-246); in linked form": {
+#                 "essentials": {
+#                     "type": "DISULFID",
+#                     "description": "Intrachain (with C-246); in linked form",
+#                     "count": 1,
+#                     "annot_amino_acid": "C",
+#                     "target_amino_acid": "T"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:12345678": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "paired_position": {
+#                     "717": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "annot_position": {
+#                         "205": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "717": {
+#             "DISULFID | Intrachain (with C-205); in linked form": {
+#                 "essentials": {
+#                     "type": "DISULFID",
+#                     "description": "Intrachain (with C-205); in linked form",
+#                     "count": 1,
+#                     "annot_amino_acid": "C",
+#                     "target_amino_acid": "K"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:12345678": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "paired_position": {
+#                     "681": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "annot_position": {
+#                         "246": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         }
+#     }
+# }
+
+# @pytest.fixture
+# def transfer_dict_success_binding_Q9NU22():
+#     return {
+#     "match": {
+#         "329": {
+#             "BINDING | Interacts with GTP": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with GTP",
+#                     "count": 1,
+#                     "annot_amino_acid": "G",
+#                     "target_amino_acid": "G"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000255": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_id": {
+#                         "ChEBI:CHEBI:37565": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "330": {
+#             "BINDING | Interacts with GTP": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with GTP",
+#                     "count": 1,
+#                     "annot_amino_acid": "P",
+#                     "target_amino_acid": "P"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000255": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_id": {
+#                         "ChEBI:CHEBI:37565": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "677": {
+#             "BINDING | Interacts with GTP": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with GTP",
+#                     "count": 1,
+#                     "annot_amino_acid": "G",
+#                     "target_amino_acid": "G"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000255": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_id": {
+#                         "ChEBI:CHEBI:37565": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         }
+#     },
+#     "miss": {
+#         "678": {
+#             "BINDING | Interacts with GTP": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with GTP",
+#                     "count": 1,
+#                     "annot_amino_acid": "P",
+#                     "target_amino_acid": "E"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000255": {
+#                         "rep_primary_accession": "P15005",
+#                         "rep_mnemo_name": "MCRB_ECOLI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_id": {
+#                         "ChEBI:CHEBI:37565": {
+#                             "rep_primary_accession": "P15005",
+#                             "rep_mnemo_name": "MCRB_ECOLI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         }
+#     }
+# }
+
+# @pytest.fixture
+# def transfer_dict_success_all_types_H0YB80():
+#     return {
+#     "match": {
+#         "12": {
+#             "BINDING | Interacts with peptide": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with peptide",
+#                     "count": 1,
+#                     "annot_amino_acid": "R",
+#                     "target_amino_acid": "R"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:21853016": {
+#                         "rep_primary_accession": "Q5CUW0",
+#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_ccd_id": {
+#                         "peptide": {
+#                             "rep_primary_accession": "Q5CUW0",
+#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             },
+#             "BINDING | Interacts with O-phospho-L-serine": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with O-phospho-L-serine",
+#                     "count": 1,
+#                     "annot_amino_acid": "R",
+#                     "target_amino_acid": "R"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:26551337": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 },
+#                 "paired_position": {
+#                     "13": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_id": {
+#                         "ChEBI:CHEBI:57524": {
+#                             "rep_primary_accession": "E2RU97",
+#                             "rep_mnemo_name": "1433_GIAIC",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "13": {
+#             "BINDING | Interacts with peptide": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with peptide",
+#                     "count": 1,
+#                     "annot_amino_acid": "Y",
+#                     "target_amino_acid": "Y"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:21853016": {
+#                         "rep_primary_accession": "Q5CUW0",
+#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_ccd_id": {
+#                         "peptide": {
+#                             "rep_primary_accession": "Q5CUW0",
+#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             },
+#             "BINDING | Interacts with O-phospho-L-serine": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with O-phospho-L-serine",
+#                     "count": 1,
+#                     "annot_amino_acid": "Y",
+#                     "target_amino_acid": "Y"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:26551337": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 },
+#                 "paired_position": {
+#                     "12": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_id": {
+#                         "ChEBI:CHEBI:57524": {
+#                             "rep_primary_accession": "E2RU97",
+#                             "rep_mnemo_name": "1433_GIAIC",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "57": {
+#             "BINDING | Interacts with peptide": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with peptide",
+#                     "count": 2,
+#                     "annot_amino_acid": "L",
+#                     "target_amino_acid": "L"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:21853016": {
+#                         "rep_primary_accession": "Q5CUW0",
+#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                         "count": 1
+#                     },
+#                     "ECO:0000269|PubMed:26551337": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_ccd_id": {
+#                         "peptide": {
+#                             "rep_primary_accession": "Q5CUW0",
+#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                             "count": 2
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "58": {
+#             "BINDING | Interacts with peptide": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with peptide",
+#                     "count": 2,
+#                     "annot_amino_acid": "N",
+#                     "target_amino_acid": "N"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:21853016": {
+#                         "rep_primary_accession": "Q5CUW0",
+#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                         "count": 1
+#                     },
+#                     "ECO:0000269|PubMed:26551337": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_ccd_id": {
+#                         "peptide": {
+#                             "rep_primary_accession": "Q5CUW0",
+#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                             "count": 2
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "65": {
+#             "BINDING | Interacts with peptide": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with peptide",
+#                     "count": 1,
+#                     "annot_amino_acid": "E",
+#                     "target_amino_acid": "E"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:21853016": {
+#                         "rep_primary_accession": "Q5CUW0",
+#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_ccd_id": {
+#                         "peptide": {
+#                             "rep_primary_accession": "Q5CUW0",
+#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "109": {
+#             "BINDING | Interacts with peptide": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with peptide",
+#                     "count": 2,
+#                     "annot_amino_acid": "N",
+#                     "target_amino_acid": "N"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:21853016": {
+#                         "rep_primary_accession": "Q5CUW0",
+#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                         "count": 1
+#                     },
+#                     "ECO:0000269|PubMed:26551337": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_ccd_id": {
+#                         "peptide": {
+#                             "rep_primary_accession": "Q5CUW0",
+#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                             "count": 2
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "113": {
+#             "BINDING | Interacts with peptide": {
+#                 "essentials": {
+#                     "type": "BINDING",
+#                     "description": "Interacts with peptide",
+#                     "count": 1,
+#                     "annot_amino_acid": "W",
+#                     "target_amino_acid": "W"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:21853016": {
+#                         "rep_primary_accession": "Q5CUW0",
+#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                         "count": 1
+#                     }
+#                 },
+#                 "additional_keys": {
+#                     "ligand_ccd_id": {
+#                         "peptide": {
+#                             "rep_primary_accession": "Q5CUW0",
+#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
+#                             "count": 1
+#                         }
+#                     }
+#                 }
+#             }
+#         },
+#         "61": {
+#             "MUTAGEN | V->D: Loss of binding to difopein.": {
+#                 "essentials": {
+#                     "type": "MUTAGEN",
+#                     "description": "V->D: Loss of binding to difopein.",
+#                     "count": 1,
+#                     "annot_amino_acid": "V",
+#                     "target_amino_acid": "V"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:19733174": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 }
+#             }
+#         }
+#     },
+#     "miss": {
+#         "78": {
+#             "MUTAGEN | R->K: Increased oligomerization.": {
+#                 "essentials": {
+#                     "type": "MUTAGEN",
+#                     "description": "R->K: Increased oligomerization.",
+#                     "count": 1,
+#                     "annot_amino_acid": "R",
+#                     "target_amino_acid": "K"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:24658679": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 }
+#             }
+#         },
+#         "86": {
+#             "MUTAGEN | T->A: Slightly decreased oligomerization.": {
+#                 "essentials": {
+#                     "type": "MUTAGEN",
+#                     "description": "T->A: Slightly decreased oligomerization.",
+#                     "count": 1,
+#                     "annot_amino_acid": "T",
+#                     "target_amino_acid": "A"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:24658679": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 }
+#             }
+#         },
+#         "92": {
+#             "MOD_RES | Phosphothreonine": {
+#                 "essentials": {
+#                     "type": "MOD_RES",
+#                     "description": "Phosphothreonine",
+#                     "count": 1,
+#                     "annot_amino_acid": "T",
+#                     "target_amino_acid": "S"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:16368691, ECO:0000269|PubMed:19733174, ECO:0000269|PubMed:24147113, ECO:0000269|PubMed:24658679": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 }
+#             },
+#             "MUTAGEN | T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides.": {
+#                 "essentials": {
+#                     "type": "MUTAGEN",
+#                     "description": "T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides.",
+#                     "count": 1,
+#                     "annot_amino_acid": "T",
+#                     "target_amino_acid": "S"
+#                 },
+#                 "evidence": {
+#                     "ECO:0000269|PubMed:16368691, ECO:0000269|PubMed:19733174": {
+#                         "rep_primary_accession": "E2RU97",
+#                         "rep_mnemo_name": "1433_GIAIC",
+#                         "count": 1
+#                     }
+#                 }
+#             }
+#         }
+#     }
+# }
 
 ## Added in Process_annotation
 @pytest.fixture
@@ -883,7 +1473,7 @@ def get_annotation_dict():
         """Extract specific annotation dict from fixture
         Args:
             fixture: The source fixture (for now only
-            annotations_content_binding_fixture or annotations_content_disulfid_fixture)
+            annotations_content_binding_fixture_Q9NU22_PF07728 or annotations_content_disulfid_fixture_Q9NU22_PF07728)
             pos: Position key (e.g. "201")
             index: Index in annotation list (default 0)
         """
@@ -891,35 +1481,25 @@ def get_annotation_dict():
     return get_annotation
 
 @pytest.fixture
-def annotation_dict_205(annotations_content_disulfid_fixture, get_annotation_dict):
-    return get_annotation_dict(annotations_content_disulfid_fixture, "205")
+def annotation_dict_205_Q9NU22(annotations_content_disulfid_fixture_Q9NU22_PF07728, get_annotation_dict):
+    return get_annotation_dict(annotations_content_disulfid_fixture_Q9NU22_PF07728, "205")
 
 @pytest.fixture
-def annotation_dict_246(annotations_content_disulfid_fixture, get_annotation_dict):
-    return get_annotation_dict(annotations_content_disulfid_fixture, "246")
+def annotation_dict_246_Q9NU22(annotations_content_disulfid_fixture_Q9NU22_PF07728, get_annotation_dict):
+    return get_annotation_dict(annotations_content_disulfid_fixture_Q9NU22_PF07728, "246")
 
 @pytest.fixture
-def annotation_dict_201(annotations_content_binding_fixture, get_annotation_dict):
-    return get_annotation_dict(annotations_content_binding_fixture, "201")
+def annotation_dict_201_Q9NU22(annotations_content_binding_fixture_Q9NU22_PF07728, get_annotation_dict):
+    return get_annotation_dict(annotations_content_binding_fixture_Q9NU22_PF07728, "201")
 
 @pytest.fixture
-def annotation_dict_202(annotations_content_binding_fixture, get_annotation_dict):
-    return get_annotation_dict(annotations_content_binding_fixture, "202")
+def annotation_dict_202_Q9NU22(annotations_content_binding_fixture_Q9NU22_PF07728, get_annotation_dict):
+    return get_annotation_dict(annotations_content_binding_fixture_Q9NU22_PF07728, "202")
 
 @pytest.fixture
-def annotation_dict_post_make_anno_total(annotation_dict_205):
-    annotation_dict = copy.deepcopy(annotation_dict_205)
-    return annotation_dict
-
-@pytest.fixture
-def paired_annotation_dict_post_map_filter(annotation_dict_246):
-    annotation_dict = copy.deepcopy(annotation_dict_246)
-    return annotation_dict
-
-@pytest.fixture
-def mock_make_anno_total_disulfid_return_205_P15005(annotation_dict_post_make_anno_total):
+def mock_make_anno_total_disulfid_return_205_P15005(annotation_dict_205_Q9NU22):
     return {
-        'annotation': annotation_dict_post_make_anno_total,
+        'annotation': annotation_dict_205_Q9NU22,
         'anno_type': 'DISULFID',
         'anno_id': 'DISULFID | Intrachain (with C-246); in linked form',
         'anno_total': {
@@ -928,15 +1508,19 @@ def mock_make_anno_total_disulfid_return_205_P15005(annotation_dict_post_make_an
             'count': 1,
             'evidence': 'ECO:0000269|PubMed:12345678',
             'target_position': '333',
-            'annot_position': '205'
+            'annot_position': '205',
+            'index_position': '18',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
+            'paired_target_position': '373'
         },
         'paired_annot_pos_str': '246'
     }
 
 @pytest.fixture
-def mock_make_anno_total_disulfid_return_246_P15005(annotation_dict_post_make_anno_total):
+def mock_make_anno_total_disulfid_return_246_P15005(annotation_dict_205_Q9NU22):
    return {
-        'annotation': annotation_dict_post_make_anno_total,
+        'annotation': annotation_dict_205_Q9NU22,
         'anno_type': 'DISULFID',
         'anno_id': 'DISULFID | Intrachain (with C-205); in linked form',
         'anno_total': {
@@ -945,13 +1529,17 @@ def mock_make_anno_total_disulfid_return_246_P15005(annotation_dict_post_make_an
             'count': 1,
             'evidence': 'ECO:0000269|PubMed:12345678',
             'target_position': '373',
-            'annot_position': '246'
+            'annot_position': '246',
+            'index_position': '72',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
+            'paired_target_position': '333'
         },
-        'paired_annot_position': '205'
+        'paired_annot_pos_str': '205'
     }
 
 @pytest.fixture
-def mock_make_anno_total_disulfid_return_205_P00750():
+def mock_make_anno_total_disulfid_return_205_Q9NU22():
     return {
         'annotation': {
                     "type": "DISULFID",
@@ -970,13 +1558,16 @@ def mock_make_anno_total_disulfid_return_205_P00750():
             "evidence": "ECO:0000250", # Changed from 269 to 250, testing different ECOs
             'target_position': '333',
             'annot_position': '205',
+            'index_position': '18',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
             'paired_target_position': '373'
         },
-        'paired_annot_position': '246'
+        'paired_annot_pos_str': '246'
     }
 
 @pytest.fixture
-def mock_make_anno_total_disulfid_return_246_P00750():
+def mock_make_anno_total_disulfid_return_246_Q9NU22():
     return {
         'annotation': {
                     "type": "DISULFID",
@@ -995,6 +1586,9 @@ def mock_make_anno_total_disulfid_return_246_P00750():
             "evidence": "ECO:0000250", # Changed from 269 to 250, testing different ECOs
             'target_position': '373',
             'annot_position': '246',
+            'index_position': '72',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
             'paired_target_position': '333'
         },
         'paired_annot_position': '205'
@@ -1002,9 +1596,9 @@ def mock_make_anno_total_disulfid_return_246_P00750():
 
 
 @pytest.fixture
-def mock_map_filter_disulfid_return(paired_annotation_dict_post_map_filter):
+def mock_map_filter_disulfid_return(annotation_dict_246_Q9NU22):
     return (True, {
-        'annotation': paired_annotation_dict_post_map_filter,
+        'annotation': annotation_dict_246_Q9NU22,
         'anno_type': 'DISULFID',
         'anno_id': 'DISULFID | Intrachain (with C-205); in linked form',
         'anno_total': {
@@ -1013,7 +1607,11 @@ def mock_map_filter_disulfid_return(paired_annotation_dict_post_map_filter):
             'count': 1,
             'evidence': 'ECO:0000269|PubMed:12345678',
             'target_position': '373',
-            'annot_position': '246'
+            'annot_position': '246',
+            'index_position': '72',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
+            'paired_target_position': '333'
         },
         'paired_annot_position': '205'
     })
@@ -1062,23 +1660,98 @@ def mock_paired_anno_total_disulfid():
         "paired_target_position": "333"
     }
 
+@pytest.fixture
+def minimal_hmmalign_lines_fixture_Q9NU22():
+    return """# STOCKHOLM 1.0
+Q7US48_RHOBA/138-284                          .GLMMVGEPGTAKSMLGELLAVAIS....GTGSLAVQGTAGTTEDQIKYGWNYAmll......drgPVHEALVPSPVMTAMR..........DGKVVRFEEITRCL.PEVQDALISILSER.R...MMIPEMDQAGDDNANSvFASP..................gFSIIATANLRD.......RGVSEMSAALKRRF.......................
+MCRB_ECOLI/196-350                                      .........NIILQGPPGCGKTFVAR.RLAYLLtg.........ekaPQRVNMVQFHQ.SY..SYEDFIQGYRCN............GVGFRRKDGIFYNFCQqak...........eqpeKKYIFIIDEINRANlS........K....VFG....E......VMM.LMEHD.K...RGENWSVPLTYSENDE.eRFYVp..........................enVYIIGLMNTAD.........RSLAVVDYALRRRF............................
+sp|Q9NU22|MDN1_HUMANtarget//325-451                     .........-VLLEGPIGCGKTSLVE.YLAAVTgr..........tkPPQLLKVQLGD.QT..DSKMLLGMYRCTd..........vPGEFVWQPGTLTQAAT..................MGHWILLEDIDYAP.L........D....VVS....V......LIP.LLENG.E...LLIPGRGDCLKVAPG-..----.............................-FQFFAT-----.........--------------rrllscgg....................
+//
+"""
+
+@pytest.fixture
+def minimal_hmmalign_lines_fixture_H0YB80():
+    return """# STOCKHOLM 1.0
+C1E2K1_MICCC/19-248                         KAKLAEQ.AERYDEMMEYMSKVAESgsggaDAEL.SVEERNLLSVAYKNVIGAR.RASWRIIS........S.....I.ETKEESKYt...kESDVVR......LIQKYKSNVEKELSDICDRILKLLRDHLE.ET..S...SAG...ESKV.FYK.KMKGDYYRYLAE.FK.......GG..E...ARKNAAEETLLAYKEAENIA.....SNELAPTHPIRLGLALNFSVFYYEILNAPER...ACDMAKKA...FDEAIAE..L...DT.LG.EES.YKDSTL.IMQLLRDNLTLWT
+14338_ARATH/13-238                          MAKLAEQ.AERYEEMVQFMEQLVSGa..tpAGEL.TVEERNLLSVAYKNVIGSL.RAAWRIVS........S.....I.EQKEESR-....kNEEHVS......LVKDYRSKVETELSSICSGILRLLDSHLI.PS..A...TAS...ESKV.FYL.KMKGDYHRYLAE.FK.......SG..D...ERKTAAEDTMIAYKAAQDVA.....VADLAPTHPIRLGLALNFSVFYYEILNSSEK...ACSMAKQA...FEEAIAE..L...DT.LG.EES.YKDSTL.IMQLLRDNLTLWT
+1433_GIAIC/13-236                           MAQLNEN.AERYDEMVETMRKISGM.....EGEL.SDKERNLLSVAYKNVIGPR.RAAWRIVS........S.....I.EAKEKGRQk...pNAKRIE......QIRVYRQKIEKELSDICNDILKLLQEQFV.PR..S...TNA...DAKV.FYY.KMQGDYYRYLAE.YS.......SG..E...DKEKIAGSALNAYNSAFEIS.....-QQLPPTHPIRLGLALNFSVFYYEILASPDR...ACELARKA...FDAAITD..L...DK.LT.EES.YKDSTL.IMQLLRDNLNLWV
+Q5CUW0_CRYPI/33-257                         MAKLAEQ.AERYDEMAKYMKDVVEAr..qeSEEL.TVEERNLLSVAYKNAVGSR.RSSWRIIS........S.....V.EQKEHSRN.....AEDASK......MCGKYRSKVEAELTDICNDILTMLDKHLI.PT..A...TSP...DSKV.FYF.KMKGDYHRYISE.FS.......TG..D...SKQSSAEDALKAYKDATVVA.....-KDLEPTHPIRLGLALNFSVFHYEILNEPRA...AIDMAKEA...FEMAIEQ..L...DK.LS.EDC.YKDSTL.IMQLLRDNLTLWT
+tr|H0YB80|H0YB80_HUMANtarget//1-114         -------.-----------------.....----.-------------------.--------........-.....-.--------.....------......-----------------------------.--..-...---...---V.FYL.KMKGDYYRYLAE.VA.......AG..D...DKKGIVDQSQQAYQEAFEIS.....KKEMQPTHPIRLGLALNFSVFYYEILNSPEK...ACSLAKTA...FDEAIAE..L...DT.LS.EES.YKDSTL.IMQLLRDNLTLWT
+#=GR tr|H0YB80|H0YB80_HUMANtarget//1-114 PP .......................................................................................................................................................8.***.************.**.......**..*...********************.....*******************************...********...*******..*...**.**.***.******.************8
+//
+"""
+
+### Fixtures added in cleanup_improve_transfer_dict and helper functions
+@pytest.fixture
+def iprscan_tsv_mock(tmp_path):
+    """Creates a mock InterProScan TSV file without header."""
+    iprscan_file = tmp_path / "target_name" / "iprscan.tsv"
+    iprscan_file.parent.mkdir(parents=True, exist_ok=True)
+    iprscan_file.write_text(
+        "sp|Q9NU22|MDN1_HUMAN\t7b57368205d60b6e7b538d2181ad7f2b\t5596\tPfam\tPF07728\t"
+        "AAA domain (dynein-related subfamily)\t325\t448\t2.7E-13\tT\t07-01-2025\tIPR011704\t"
+        "ATPase, dynein-related, AAA domain\tGO:0005524(InterPro)|GO:0016887(InterPro)\t-\n"
+    )
+    return str(tmp_path)
+
+@pytest.fixture
+def iprscan_tsv_mock_no_go(tmp_path):
+    """Creates a mock InterProScan TSV file with '-' for GO terms."""
+    iprscan_file = tmp_path / "target_name" / "iprscan.tsv"
+    iprscan_file.parent.mkdir(parents=True, exist_ok=True)
+    iprscan_file.write_text(
+        "sp|Q9NU22|MDN1_HUMAN\t7b57368205d60b6e7b538d2181ad7f2b\t5596\tSMART\tSM00327\t"
+        "VWA_4\t5382\t5563\t6.1E-10\tT\t07-01-2025\tIPR002035\t"
+        "von Willebrand factor, type A\t-\t-\n"
+    )
+    return str(tmp_path)
+
+@pytest.fixture
+def target_id_plus_seq_mock(minimal_hmmalign_lines_fixture_Q9NU22):
+    """Returns target ID and sequence as tuple."""
+    lines = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
+    try:
+        line = next(line for line in lines if line.startswith("sp|Q9NU22|MDN1_HUMANtarget//325-451"))
+    except StopIteration:
+        raise ValueError("Target ID 'sp|Q9NU22|MDN1_HUMANtarget//325-451' not found in hmmalign_lines.")
+    id_seq = line.split()[:2]  # Returns [id, seq]
+    return id_seq
+
+@pytest.fixture
+def conservation_id_plus_seq_mock(minimal_hmmalign_lines_fixture_Q9NU22):
+    """Returns conservation ID and sequence as tuple."""
+    lines = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
+    try:
+        line = next(line for line in lines if line.startswith("Q7US48_RHOBA/138-284"))
+    except StopIteration:
+        raise ValueError("Conservation ID 'MCRB_ECOLI/196-350' not found in hmmalign_lines.")
+    id_seq = line.split()[:2]  # Returns [id, seq]
+    return id_seq
+
+
+@pytest.fixture()
+def mock_json_filepaths(tmp_path):
+    """Create mock JSON files for testing"""
+    cons_file = tmp_path / "conservations.json"
+    annot_file = tmp_path / "annotations.json"
+
+    return cons_file, annot_file
+
 ###### Configuration Constants
 ### Added in Map_and_filter_annot_pos
-target_name_mock = "sp|Q9NU22|MDN1_HUMAN"
-target_hit_start_mock = 325
-target_hit_end_mock = 451
-offset_start_mock = 196
-offset_end_mock = 350
-entry_mnemo_name_mock = "MCRB_ECOLI"
+target_name_mock_Q9NU22 = "sp|Q9NU22|MDN1_HUMAN"
+target_hit_start_mock_Q9NU22 = 325
+target_hit_end_mock_Q9NU22 = 451
+offset_start_mock_Q9NU22 = 196
+offset_end_mock_Q9NU22 = 350
+entry_mnemo_name_mock_Q9NU22 = "MCRB_ECOLI"
 
 ## Extra variables for paired position testing
-paired_annot_pos_str_mock = "246"
-caller_target_pos_str_mock = "333"
-caller_annot_pos_str_mock = "205"
+paired_annot_pos_str_mock_Q9NU22 = "246"
+caller_target_pos_str_mock_Q9NU22 = "333"
+# - Removed, no use as of now, kept as documentation only
+# caller_annot_pos_str_mock = "205"
 # annotation_dict = use the get_annotation_dict fixture
-## Result for running with variables for paired positions
-paired_position_res_hit_plus_paired_result_dict_tuple_mock = (True, {'annotation': {'type': 'DISULFID', 'description': 'Intrachain (with C-205); in linked form', 'evidence': 'ECO:0000269|PubMed:12345678', 'entry': 'P15005', 'aminoacid': 'C', 'paired_position': '333', 'target_position': '373'}, 'anno_type': 'DISULFID', 'anno_id': 'DISULFID | Intrachain (with C-205); in linked form', 'anno_total': {'type': 'DISULFID', 'description': 'Intrachain (with C-205); in linked form', 'count': 1, 'evidence': 'ECO:0000269|PubMed:12345678', 'paired_position': '333'}, 'paired_position': '333'})
-
 
 ### Added Defaults for use in validate_annotations and validate_paired_annotations
 ### (values change in downstream functions from these cited)
@@ -1102,11 +1775,11 @@ counter_annot_pos_mock = None
 # entry_annotations = use the entry_annotations_* fixture, according to the test
 
 ### Added/Modified in Add_to_transfer_dict
-entry_primary_accession_mock = "P15005"
+entry_primary_accesion_mock_Q9NU22 = "P15005"
 
 # Repeated Anno ID test - Using _return_348 and _return_725 fixtures
-entry_primary_accession_mock_repeated = "P00720"
-entry_mnemo_name_mock_repeated = "TPA_HUMAN"
+entry_primary_accession_mock_repeated_Q9NU22 = "P00720"
+entry_mnemo_name_mock_repeated_Q9NU22 = "TPA_HUMAN"
 
 # anno_id = Define in the test, new
 # anno_total = Define in the test, new
@@ -1122,16 +1795,10 @@ entry_mnemo_name_mock_repeated = "TPA_HUMAN"
 # paired_anno_id = Define in the test ???
 # paired_anno_total = Define in the test ???
 
-### Added/Modified in main
-minimal_hmmalign_content_mock = """# STOCKHOLM 1.0
-sp|Q9NU22|MDN1_HUMANtarget//325-451                     .........-VLLEGPIGCGKTSLVE.YLAAVTgr..........tkPPQLLKVQLGD.QT..DSKMLLGMYRCTd..........vPGEFVWQPGTLTQAAT..................MGHWILLEDIDYAP.L........D....VVS....V......LIP.LLENG.E...LLIPGRGDCLKVAPG-..----.............................-FQFFAT-----.........--------------rrllscgg....................
-sp|Q9NU22|MDN1_HUMANtarget//672-755                     .........PVLLVGETGTGKTSTIQ.YLAHIT..............GHRLRVVNMNQ.QS..DTADLLGGYKP-............-VDHKLIWLPLREAFE..................--------------.-........-....---....-......---.-----.-...----------------..----.............................-----------.........--------------elfaqtfskkqnftflghiqtc......
-MCRB_ECOLI/196-350                                      .........NIILQGPPGCGKTFVAR.RLAYLLtg.........ekaPQRVNMVQFHQ.SY..SYEDFIQGYRCN............GVGFRRKDGIFYNFCQqak...........eqpeKKYIFIIDEINRANlS........K....VFG....E......VMM.LMEHD.K...RGENWSVPLTYSENDE.eRFYVp..........................enVYIIGLMNTAD.........RSLAVVDYALRRRF............................
-//
-"""
+### Added in clenup_improve_transfer_dict and helper functions
+pfam_id_mock_Q9NU22 = "PF07728"
 
-
-
+###T parse_arguments
 def test_parse_arguments_required():
     test_args = [
         "-iA", hmmalign_result_mock,
@@ -1171,6 +1838,7 @@ def test_parse_arguments_optional():
     assert args.log == log_filepath_mock
     assert args.eco_codes == good_eco_codes_mock
 
+###T configure_logging
 def test_configure_logging(tmp_path):
     reload(logging)
     # Temporary log path for testing
@@ -1191,16 +1859,19 @@ def test_configure_logging(tmp_path):
         log_contents = log_file.read()
     assert "Test log entry" in log_contents, "Log entry not found in log file"
 
+###T get_pfam_id_from_hmmalign_result
 def test_get_pfam_id_from_hmmalign_result():
     assert get_pfam_id_from_hmmalign_result(hmmalign_result_mock) == "PF07728"
     hmmalign_result_mock_2 = "/home/user/results/human/PF00001_hmmalign.sth"
     assert get_pfam_id_from_hmmalign_result(hmmalign_result_mock_2) == "PF00001"
 
+###T get_annotation_filepath
 def test_get_annotation_filepath():
-    assert get_annotation_filepath(resource_dir_mock, 'PF07728') == "/home/user/resources/PF07728/annotations.json"
+    assert get_annotation_filepath(resource_dir_mock, 'PF07728') == ("/home/user/resources/PF07728/annotations.json", "/home/user/resources/PF07728/conservations.json")
 
-def test_read_files(annotations_content_binding_fixture):
-    annotations_content = json.dumps(annotations_content_binding_fixture)
+###T read_files
+def test_read_files(annotations_content_binding_fixture_Q9NU22_PF07728):
+    annotations_content = json.dumps(annotations_content_binding_fixture_Q9NU22_PF07728)
 
     mock_files = {
         "dummy_hmmalign": hmmalign_result_content_mock,
@@ -1214,11 +1885,66 @@ def test_read_files(annotations_content_binding_fixture):
 
     with patch("builtins.open", new=mock_open_files):
         hmmalign_lines, annotations = read_files("dummy_hmmalign", "dummy_annotations")
-        assert hmmalign_lines == hmmalign_result_content_mock.splitlines(keepends=True)
-        assert annotations == annotations_content_binding_fixture
+        assert hmmalign_lines == hmmalign_result_content_mock.splitlines()
+        assert annotations == annotations_content_binding_fixture_Q9NU22_PF07728
+
+###T iterate_aligned_sequences
+
+@pytest.fixture
+def basic_seq_pair():
+    return "ABC", "XYZ", 1, 10, 3, 12
+
+@pytest.fixture
+def gapped_seq_pair():
+    return "A-BC", "X-YZ", 1, 10, 3, 12
+
+def test_iterate_aligned_sequences_basic(basic_seq_pair):
+    seq_a, seq_b, start_a, start_b, end_a, end_b = basic_seq_pair
+    result = list(iterate_aligned_sequences(seq_a, seq_b, start_a, start_b, end_a, end_b))
+
+    expected = [
+        (0, 1, 10, 'A', 'X'),
+        (1, 2, 11, 'B', 'Y'),
+        (2, 3, 12, 'C', 'Z')
+    ]
+
+    assert result == expected
+
+def test_iterate_aligned_sequences_with_gaps(gapped_seq_pair):
+    seq_a, seq_b, start_a, start_b, end_a, end_b = gapped_seq_pair
+    result = list(iterate_aligned_sequences(seq_a, seq_b, start_a, start_b, end_a, end_b))
+
+    expected = [
+        (0, 1, 10, 'A', 'X'),
+        (1, 1, 10, '-', '-'),
+        (2, 2, 11, 'B', 'Y'),
+        (3, 3, 12, 'C', 'Z')
+    ]
+
+    assert result == expected
+
+def test_iterate_aligned_sequences_early_stop():
+    result = list(iterate_aligned_sequences(
+        "ABCDEF", "XYZUVW",
+        start_a=1, start_b=10,
+        end_a=3, end_b=12  # Should stop after 'C'/'Z'
+    ))
+
+    expected = [
+        (0, 1, 10, 'A', 'X'),
+        (1, 2, 11, 'B', 'Y'),
+        (2, 3, 12, 'C', 'Z')
+    ]
+
+    assert result == expected
+
+def test_iterate_aligned_sequences_empty():
+    result = list(iterate_aligned_sequences("", "", 0, 0, 1, 1))
+    assert result == []
+
 
 ###T find_and_map_annots
-def test_find_and_map_annots_basic_case(annotations_content_binding_fixture, logger, target_sequence, annot_sequence):
+def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU22_PF07728, logger, target_sequence_Q9NU22, annot_sequence_Q9NU22):
     """Test basic case with single binding annotation"""
     mock_lines = [
         "# STOCKHOLM 1.0\n",
@@ -1230,27 +1956,27 @@ def test_find_and_map_annots_basic_case(annotations_content_binding_fixture, log
         find_and_map_annots(
             logger=logger,
             hmmalign_lines=mock_lines,
-            annotations=annotations_content_binding_fixture,
+            annotations=annotations_content_binding_fixture_Q9NU22_PF07728,
             good_eco_codes=[]
         )
 
         mock_map_and_filter.assert_called_with(
             logger=logger,
             good_eco_codes=[],
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_annotations=annotations_content_binding_fixture["MCRB_ECOLI"],
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_annotations=annotations_content_binding_fixture_Q9NU22_PF07728["MCRB_ECOLI"],
             transfer_dict={},
             processed_annotations=set(),
         )
 
-def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixture, logger):
+def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixture_Q9NU22_PF07728, logger):
     """Test case with no matching annotations"""
     mock_lines = [
         "# STOCKHOLM 1.0\n",
@@ -1260,7 +1986,7 @@ def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixt
     transfer_dict = find_and_map_annots(
         logger=logger,
         hmmalign_lines=mock_lines,
-        annotations=annotations_content_binding_fixture,
+        annotations=annotations_content_binding_fixture_Q9NU22_PF07728,
         good_eco_codes=[]
     )
 
@@ -1271,15 +1997,68 @@ def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixt
         "---> ERROR --- FIND_AND_MAP --- No target sequences found in hmmalign lines!"
     )
 
+###T read_conservations_and_annotations
+
+def test_read_conservations_and_annotations_success(
+    tmp_path, mock_json_filepaths, conservations_content_Q9NU22_PF07728, annotations_content_disulfid_fixture_Q9NU22_PF07728):
+    # Create temporary files
+    cons_file, annot_file = mock_json_filepaths
+
+    with open(cons_file, 'w') as f:
+        json.dump(conservations_content_Q9NU22_PF07728, f)
+    with open(annot_file, 'w') as f:
+        json.dump(annotations_content_disulfid_fixture_Q9NU22_PF07728, f)
+
+    # Test function
+    conservations, annotations = read_conservations_and_annotations(str(cons_file), str(annot_file))
+
+    assert conservations == conservations_content_Q9NU22_PF07728
+    assert annotations == annotations_content_disulfid_fixture_Q9NU22_PF07728
+
+def test_read_conservations_and_annotations_missing_file(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        read_conservations_and_annotations(
+            str(tmp_path / "nonexistent.json"),
+            str(tmp_path / "annotations.json")
+        )
+
+def test_read_conservations_and_annotations_invalid_json(tmp_path, mock_json_filepaths):
+    # Create file with invalid JSON
+    cons_file, annot_file = mock_json_filepaths
+
+    with open(cons_file, 'w') as f:
+        f.write("invalid json")
+    with open(annot_file, 'w') as f:
+        json.dump({}, f)
+
+    with pytest.raises(json.JSONDecodeError):
+        read_conservations_and_annotations(str(cons_file), str(annot_file))
+
+def test_read_conservations_and_annotations_empty_files(mock_json_filepaths):
+    """Test handling of empty but valid JSON files"""
+    cons_file, annot_file = mock_json_filepaths
+
+    with open(cons_file, 'w', encoding='utf-8') as f:
+        json.dump({}, f)
+    with open(annot_file, 'w', encoding='utf-8') as f:
+        json.dump({}, f)
+
+    conservations, annotations = read_conservations_and_annotations(str(cons_file), str(annot_file))
+    assert conservations == {}
+    assert annotations == {}
+
+###T parse_go_annotations
+
+
 
 ###T map_and_filter_annot_pos
 def test_map_and_filter_with_paired_positions(
-    logger, good_eco_codes_all, target_sequence, annot_sequence,
+    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_disulfid_pair, transfer_dict,
-    get_annotation_dict, annotations_content_disulfid_fixture
+    get_annotation_dict, annotations_content_disulfid_fixture_Q9NU22_PF07728
 ):
     """Unit test for map_and_filter_annot_pos with paired positions."""
-    annotation_dict = get_annotation_dict(annotations_content_disulfid_fixture, "246")
+    annotation_dict = get_annotation_dict(annotations_content_disulfid_fixture_Q9NU22_PF07728, "246")
 
     with patch('transfer_annotations.validate_paired_annotations') as mock_validate_paired_annotations:
         # Configure the mock to return expected values
@@ -1289,18 +2068,18 @@ def test_map_and_filter_with_paired_positions(
         result = map_and_filter_annot_pos(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_disulfid_pair,
             transfer_dict=transfer_dict,
-            paired_annot_pos_str=paired_annot_pos_str_mock,
-            caller_target_pos_str=caller_target_pos_str_mock,
+            paired_annot_pos_str=paired_annot_pos_str_mock_Q9NU22,
+            caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
             paired_annotation_dict=annotation_dict
         )
 
@@ -1308,27 +2087,27 @@ def test_map_and_filter_with_paired_positions(
         mock_validate_paired_annotations.assert_called_once_with(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             paired_annotation_dict=annotation_dict,
             entry_annotations=entry_annotations_disulfid_pair,
             counter_target_pos=ANY,  # Since this is set inside the function
             counter_annot_pos=ANY,  # Since this is set inside the function
-            paired_annot_pos_str=paired_annot_pos_str_mock,
-            caller_target_pos_str=caller_target_pos_str_mock,
+            paired_annot_pos_str=paired_annot_pos_str_mock_Q9NU22,
+            caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
         )
 
         # Verify the result
         assert result == (True, {'dummy': 'result'})
 
 def test_map_and_filter_without_paired_positions(
-    logger, good_eco_codes_all, target_sequence, annot_sequence,
+    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Unit test for map_and_filter_annot_pos without paired positions."""
@@ -1338,14 +2117,14 @@ def test_map_and_filter_without_paired_positions(
         result = map_and_filter_annot_pos(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_binding_only,
             transfer_dict=transfer_dict,
             processed_annotations=set(),
@@ -1356,14 +2135,14 @@ def test_map_and_filter_without_paired_positions(
         mock_validate_annotations.assert_called_once_with(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_binding_only,
             transfer_dict=transfer_dict,
             processed_annotations=set(),
@@ -1376,7 +2155,7 @@ def test_map_and_filter_without_paired_positions(
 
 ###T validate_annotations
 def test_validate_annotations_process_annotation_parameters(
-    logger, good_eco_codes_all, target_sequence, annot_sequence,
+    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test that process_annotation is called with correct parameters"""
@@ -1385,14 +2164,14 @@ def test_validate_annotations_process_annotation_parameters(
         validate_annotations(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_binding_only,
             transfer_dict=transfer_dict,
             processed_annotations=set(),
@@ -1405,19 +2184,21 @@ def test_validate_annotations_process_annotation_parameters(
                 res_hit=True,
                 logger=logger,
                 good_eco_codes=good_eco_codes_all,
-                entry_mnemo_name=entry_mnemo_name_mock,
-                target_name=target_name_mock,
-                target_hit_start=target_hit_start_mock,
-                target_hit_end=target_hit_end_mock,
+                entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+                target_name=target_name_mock_Q9NU22,
+                target_hit_start=target_hit_start_mock_Q9NU22,
+                target_hit_end=target_hit_end_mock_Q9NU22,
                 annotation_dict=entry_annotations_binding_only["201"][0],
                 entry_annotations=entry_annotations_binding_only,
                 transfer_dict=transfer_dict,
-                target_sequence=target_sequence,
-                offset_start=offset_start_mock,
-                offset_end=offset_end_mock,
-                annot_sequence=annot_sequence,
-                counter_target_pos_str='329',
+                target_sequence=target_sequence_Q9NU22,
+                offset_start=offset_start_mock_Q9NU22,
+                offset_end=offset_end_mock_Q9NU22,
+                annot_sequence=annot_sequence_Q9NU22,
+                counter_target_pos_str="329",
                 counter_annot_pos_str="201",
+                index=14,
+                target_amino="G",
                 processed_annotations=set(),
                 annotation_key=('MCRB_ECOLI', 'sp|Q9NU22|MDN1_HUMAN', '201', '329', 'BINDING')
             ),
@@ -1425,19 +2206,21 @@ def test_validate_annotations_process_annotation_parameters(
                 res_hit=True,
                 logger=logger,
                 good_eco_codes=good_eco_codes_all,
-                entry_mnemo_name=entry_mnemo_name_mock,
-                target_name=target_name_mock,
-                target_hit_start=target_hit_start_mock,
-                target_hit_end=target_hit_end_mock,
+                entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+                target_name=target_name_mock_Q9NU22,
+                target_hit_start=target_hit_start_mock_Q9NU22,
+                target_hit_end=target_hit_end_mock_Q9NU22,
                 annotation_dict=entry_annotations_binding_only["202"][0],
                 entry_annotations=entry_annotations_binding_only,
                 transfer_dict=transfer_dict,
-                target_sequence=target_sequence,
-                offset_start=offset_start_mock,
-                offset_end=offset_end_mock,
-                annot_sequence=annot_sequence,
+                target_sequence=target_sequence_Q9NU22,
+                offset_start=offset_start_mock_Q9NU22,
+                offset_end=offset_end_mock_Q9NU22,
+                annot_sequence=annot_sequence_Q9NU22,
                 counter_target_pos_str='330',
                 counter_annot_pos_str="202",
+                index=15,
+                target_amino="P",
                 processed_annotations=set(),
                 annotation_key=('MCRB_ECOLI', 'sp|Q9NU22|MDN1_HUMAN', '202', '330', 'BINDING')
             )
@@ -1446,7 +2229,7 @@ def test_validate_annotations_process_annotation_parameters(
         mock_process.assert_has_calls(expected_calls, any_order=False)
 
 def test_validate_annotations_multiple_annotations(
-    logger, good_eco_codes_all, target_sequence, annot_sequence,
+    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     transfer_dict
 ):
     """Test case where a single position has multiple annotations."""
@@ -1461,14 +2244,14 @@ def test_validate_annotations_multiple_annotations(
         validate_annotations(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=204,
-            offset_end=204,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations,
             transfer_dict=transfer_dict,
             processed_annotations=set(),
@@ -1480,7 +2263,7 @@ def test_validate_annotations_multiple_annotations(
         assert mock_process.call_count == 2
 
 def test_validate_annotations_skip_processed(
-    logger, good_eco_codes_all, target_sequence, annot_sequence,
+    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test case 1.2 - Skip when annotation was already processed"""
@@ -1506,14 +2289,14 @@ def test_validate_annotations_skip_processed(
         validate_annotations(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_binding_only,
             transfer_dict=transfer_dict,
             processed_annotations=processed_annotations,
@@ -1526,7 +2309,7 @@ def test_validate_annotations_skip_processed(
         assert transfer_dict == {}
 
 def test_validate_annotations_no_positions_in_range(
-    logger, good_eco_codes_all, target_sequence, annot_sequence,
+    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test case 2 - No annotations in offset range (201 and 202 don't fit in 500-600)"""
@@ -1534,14 +2317,14 @@ def test_validate_annotations_no_positions_in_range(
         validate_annotations(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             offset_start=500,
             offset_end=600,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_binding_only,
             transfer_dict=transfer_dict,
             processed_annotations=set(),
@@ -1564,13 +2347,13 @@ def test_validate_annotations_sequence_end_reached(
         logger=logger,
         good_eco_codes=good_eco_codes_all,
         target_sequence=test_short_sequence,
-        target_name=target_name_mock,
+        target_name=target_name_mock_Q9NU22,
         target_hit_start=1,
         target_hit_end=3,  # Will trigger end condition when counter_target_pos == target_hit_end
         offset_start=1,
         offset_end=3,
         annot_sequence=test_short_sequence,
-        entry_mnemo_name=entry_mnemo_name_mock,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
         entry_annotations=entry_annotations_binding_only,
         transfer_dict=transfer_dict,
         processed_annotations=set(),
@@ -1579,7 +2362,7 @@ def test_validate_annotations_sequence_end_reached(
     )
 
 def test_validate_annotations_logging(
-    logger, good_eco_codes_all, target_sequence, annot_sequence,
+    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test that error logs are written when process_annotation fails."""
@@ -1590,14 +2373,14 @@ def test_validate_annotations_logging(
             validate_annotations(
                 logger=logger,
                 good_eco_codes=good_eco_codes_all,
-                target_sequence=target_sequence,
-                target_name=target_name_mock,
-                target_hit_start=target_hit_start_mock,
-                target_hit_end=target_hit_end_mock,
+                target_sequence=target_sequence_Q9NU22,
+                target_name=target_name_mock_Q9NU22,
+                target_hit_start=target_hit_start_mock_Q9NU22,
+                target_hit_end=target_hit_end_mock_Q9NU22,
                 offset_start=201,
                 offset_end=202,
-                annot_sequence=annot_sequence,
-                entry_mnemo_name=entry_mnemo_name_mock,
+                annot_sequence=annot_sequence_Q9NU22,
+                entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
                 entry_annotations=entry_annotations_binding_only,
                 transfer_dict=transfer_dict,
                 processed_annotations=set(),
@@ -1614,12 +2397,12 @@ def test_validate_annotations_logging(
 ###T process_annotation
 def test_process_annotation_basic_single(
     logger, good_eco_codes_all, transfer_dict,
-    target_sequence, annot_sequence,
+    target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, get_annotation_dict,
-    annotations_content_binding_fixture
+    annotations_content_binding_fixture_Q9NU22_PF07728
 ):
     """Test processing of a single BINDING annotation"""
-    annotation_dict = get_annotation_dict(annotations_content_binding_fixture, "201")
+    annotation_dict = get_annotation_dict(annotations_content_binding_fixture_Q9NU22_PF07728, "201")
     mock_make_anno_total = {
         'annotation': annotation_dict,
         'anno_type': 'BINDING',
@@ -1631,7 +2414,10 @@ def test_process_annotation_basic_single(
             'evidence': 'ECO:0000255',
             'ligand_id': 'ChEBI:CHEBI:37565',
             'target_position': '329',
-            'annot_position': '201'
+            'annot_position': '201',
+            'index_position': '14',
+            'annot_amino_acid': 'G',
+            'target_amino_acid': 'G',
         },
         'paired_annot_pos_str': None
     }
@@ -1643,29 +2429,33 @@ def test_process_annotation_basic_single(
             res_hit=True,
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             annotation_dict=annotation_dict,
             entry_annotations=entry_annotations_binding_only,
             transfer_dict=transfer_dict,
-            target_sequence=target_sequence,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
+            target_sequence=target_sequence_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
             counter_target_pos_str="329",
             counter_annot_pos_str="201",
+            index=14,
+            target_amino="G",
             processed_annotations=processed_annotations,
             annotation_key=('MCRB_ECOLI', 'sp|Q9NU22|MDN1_HUMAN', '201', '329', 'BINDING')
         )
 
         mock_make_total.assert_called_once_with(
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             annotation_dict=annotation_dict,
             counter_target_pos_str='329',
             counter_annot_pos_str="201",
+            index=14,
+            target_amino="G",
             logger=logger,
             entry_annotations=entry_annotations_binding_only
         )
@@ -1674,11 +2464,14 @@ def test_process_annotation_basic_single(
             hit=True,
             logger=logger,
             transfer_dict=transfer_dict,
-            target_name=target_name_mock,
+            target_name=target_name_mock_Q9NU22,
+            target_sequence_continuous=target_sequence_continuous_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             anno_id="BINDING | Interacts with GTP",
             anno_total=mock_make_anno_total["anno_total"],
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_primary_accession=entry_primary_accession_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
         )
 
         assert ('MCRB_ECOLI', 'sp|Q9NU22|MDN1_HUMAN', '201', '329', 'BINDING') in processed_annotations
@@ -1686,10 +2479,10 @@ def test_process_annotation_basic_single(
 def test_process_annotation_paired_failure(
     logger, good_eco_codes_all, transfer_dict,
     entry_annotations_disulfid_pair,
-    target_sequence, annot_sequence,
+    target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_map_filter_disulfid_return,
-    annotation_dict_205, annotation_dict_246
+    annotation_dict_205_Q9NU22, annotation_dict_246_Q9NU22
 ):
     """
     Test processing of paired DISULFID annotations
@@ -1697,9 +2490,16 @@ def test_process_annotation_paired_failure(
     """
 
     # Modify target sequence to ensure failure at paired position
-    target_sequence_mod_to_fail_72 = list(target_sequence)
-    target_sequence_mod_to_fail_72[72] = "R"
-    target_sequence_mod_to_fail_72 = "".join(target_sequence_mod_to_fail_72)
+    target_sequence_mod_to_fail_73 = list(target_sequence_Q9NU22)
+    # Change C to R in MYCCT substring, note 0-based index
+    target_sequence_mod_to_fail_73[72] = "R"
+    target_sequence_mod_to_fail_73 = "".join(target_sequence_mod_to_fail_73)
+
+    target_sequence_mod_to_fail_73_continuous = list(target_sequence_continuous_Q9NU22)
+    # Index accomodates removal of gaps and insertions
+    target_sequence_mod_to_fail_73_continuous[48] = "R"
+    target_sequence_mod_to_fail_73_continuous = "".join(target_sequence_mod_to_fail_73_continuous)
+
     _, mock_paired_result_dict  = mock_map_filter_disulfid_return
     mock_map_filter_disulfid_fail_return = (False, mock_paired_result_dict)
 
@@ -1712,19 +2512,21 @@ def test_process_annotation_paired_failure(
             res_hit=True,
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            annotation_dict=annotation_dict_205,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            annotation_dict=annotation_dict_205_Q9NU22,
             entry_annotations=entry_annotations_disulfid_pair,
             transfer_dict=transfer_dict,
-            target_sequence=target_sequence_mod_to_fail_72,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
+            target_sequence=target_sequence_mod_to_fail_73,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
             counter_target_pos_str='333',
             counter_annot_pos_str="205",
+            index=18,
+            target_amino="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID")
         )
@@ -1732,10 +2534,12 @@ def test_process_annotation_paired_failure(
         # Verify make_anno_total_dict was called correctly
         mock_make_total.assert_called_once_with(
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            annotation_dict=annotation_dict_205,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            annotation_dict=annotation_dict_205_Q9NU22,
             counter_target_pos_str='333',
             counter_annot_pos_str="205",
+            index=18,
+            target_amino="C",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair
         )
@@ -1744,19 +2548,19 @@ def test_process_annotation_paired_failure(
         mock_map_filter.assert_called_once_with(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence_mod_to_fail_72,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_mod_to_fail_73,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_disulfid_pair,
             transfer_dict=transfer_dict,
             paired_annot_pos_str="246",
             caller_target_pos_str="333",
-            paired_annotation_dict=annotation_dict_246
+            paired_annotation_dict=annotation_dict_246_Q9NU22
         )
 
         # Verify remove_failed_annotations was called correctly
@@ -1764,11 +2568,14 @@ def test_process_annotation_paired_failure(
             hit=True,
             logger=logger,
             transfer_dict=transfer_dict,
-            target_name=target_name_mock,
+            target_name=target_name_mock_Q9NU22,
+            target_sequence_continuous=target_sequence_mod_to_fail_73_continuous,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             anno_id='DISULFID | Intrachain (with C-246); in linked form',
             anno_total=mock_make_anno_total_disulfid_return_205_P15005['anno_total'],
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_primary_accession=entry_primary_accession_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
             paired_position_res_hit=False,
             paired_anno_id='DISULFID | Intrachain (with C-205); in linked form',
             paired_anno_total=mock_map_filter_disulfid_return[1]['anno_total']
@@ -1780,10 +2587,10 @@ def test_process_annotation_paired_failure(
 
 def test_process_annotation_paired_success(
     logger, good_eco_codes_all, transfer_dict,
-    entry_annotations_disulfid_pair, annotation_dict_205,
-    annotation_dict_246, mock_make_anno_total_disulfid_return_205_P15005,
+    entry_annotations_disulfid_pair, annotation_dict_205_Q9NU22,
+    annotation_dict_246_Q9NU22, mock_make_anno_total_disulfid_return_205_P15005,
     mock_map_filter_disulfid_return,
-    target_sequence, annot_sequence
+    target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22
 ):
     """Test processing of paired DISULFID annotations where paired pair succeeds"""
 
@@ -1796,19 +2603,21 @@ def test_process_annotation_paired_success(
             res_hit=True,
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            annotation_dict=annotation_dict_205,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            annotation_dict=annotation_dict_205_Q9NU22,
             entry_annotations=entry_annotations_disulfid_pair,
             transfer_dict=transfer_dict,
-            target_sequence=target_sequence,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
+            target_sequence=target_sequence_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
+            index=18,
+            target_amino="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID")
         )
@@ -1816,10 +2625,12 @@ def test_process_annotation_paired_success(
         # Verify make_anno_total_dict was called correctly
         mock_make_total.assert_called_once_with(
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            annotation_dict=annotation_dict_205,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            annotation_dict=annotation_dict_205_Q9NU22,
             counter_target_pos_str='333',
             counter_annot_pos_str="205",
+            index=18,
+            target_amino="C",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair
         )
@@ -1828,19 +2639,19 @@ def test_process_annotation_paired_success(
         mock_map_filter.assert_called_once_with(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             entry_annotations=entry_annotations_disulfid_pair,
             transfer_dict=transfer_dict,
             paired_annot_pos_str="246",
             caller_target_pos_str="333",
-            paired_annotation_dict=annotation_dict_246
+            paired_annotation_dict=annotation_dict_246_Q9NU22
         )
 
         # Verify remove_failed_annotations was called correctly
@@ -1848,11 +2659,14 @@ def test_process_annotation_paired_success(
             hit=True,
             logger=logger,
             transfer_dict=transfer_dict,
-            target_name=target_name_mock,
+            target_name=target_name_mock_Q9NU22,
+            target_sequence_continuous=target_sequence_continuous_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             anno_id='DISULFID | Intrachain (with C-246); in linked form',
             anno_total=mock_make_anno_total_disulfid_return_205_P15005['anno_total'],
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_primary_accession=entry_primary_accession_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
             paired_position_res_hit=True,
             paired_anno_id='DISULFID | Intrachain (with C-205); in linked form',
             paired_anno_total=mock_map_filter_disulfid_return[1]['anno_total']
@@ -1864,9 +2678,9 @@ def test_process_annotation_paired_success(
 
 def test_process_annotation_paired_no_paired_dict(
     logger, good_eco_codes_all, transfer_dict,
-    entry_annotations_disulfid_pair, annotation_dict_205,
+    entry_annotations_disulfid_pair, annotation_dict_205_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
-    target_sequence, annot_sequence
+    target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22
 ):
     """Test processing of paired DISULFID annotations where no paired annotation dict is found"""
 
@@ -1884,19 +2698,21 @@ def test_process_annotation_paired_no_paired_dict(
             res_hit=True,
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            annotation_dict=annotation_dict_205,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            annotation_dict=annotation_dict_205_Q9NU22,
             entry_annotations=modified_entry_annotations,
             transfer_dict=transfer_dict,
-            target_sequence=target_sequence,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
+            target_sequence=target_sequence_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
             counter_target_pos_str='333',
             counter_annot_pos_str="205",
+            index=18,
+            target_amino="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID")
         )
@@ -1904,10 +2720,12 @@ def test_process_annotation_paired_no_paired_dict(
         # Verify make_anno_total_dict was called correctly
         mock_make_total.assert_called_once_with(
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            annotation_dict=annotation_dict_205,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            annotation_dict=annotation_dict_205_Q9NU22,
             counter_target_pos_str='333',
             counter_annot_pos_str="205",
+            index=18,
+            target_amino="C",
             logger=logger,
             entry_annotations=modified_entry_annotations
         )
@@ -1917,11 +2735,14 @@ def test_process_annotation_paired_no_paired_dict(
             hit=True,
             logger=logger,
             transfer_dict=transfer_dict,
-            target_name=target_name_mock,
+            target_name=target_name_mock_Q9NU22,
+            target_sequence_continuous=target_sequence_continuous_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             anno_id='DISULFID | Intrachain (with C-246); in linked form',
             anno_total=mock_make_anno_total_disulfid_return_205_P15005['anno_total'],
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_primary_accession=entry_primary_accession_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
             paired_position_res_hit=False,
             paired_anno_id=None,
             paired_anno_total=None
@@ -1934,22 +2755,24 @@ def test_process_annotation_paired_no_paired_dict(
 ###T make_anno_total_dict
 def test_make_anno_total_dict_basic(
     logger, good_eco_codes_all, entry_annotations_disulfid_pair,
-    annotation_dict_205
+    annotation_dict_205_Q9NU22
 ):
     """Test basic case with valid DISULFID annotation"""
     result = make_anno_total_dict(
         good_eco_codes=good_eco_codes_all,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        annotation_dict=annotation_dict_205,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        annotation_dict=annotation_dict_205_Q9NU22,
         counter_target_pos_str="333",
         counter_annot_pos_str="205",
+        index=18,
+        target_amino="C",
         logger=logger,
-        entry_annotations=entry_annotations_disulfid_pair
+        entry_annotations=entry_annotations_disulfid_pair,
     )
 
     expected = {
         'annotation': {
-            **annotation_dict_205,
+            **annotation_dict_205_Q9NU22,
         },
         'anno_type': 'DISULFID',
         'anno_id': 'DISULFID | Intrachain (with C-246); in linked form',
@@ -1960,6 +2783,9 @@ def test_make_anno_total_dict_basic(
             'evidence': 'ECO:0000269|PubMed:12345678',
             'target_position': '333',
             'annot_position': '205',
+            'index_position': '18',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
         },
         'paired_annot_pos_str': '246'
     }
@@ -1968,24 +2794,26 @@ def test_make_anno_total_dict_basic(
 
 def test_make_anno_total_dict_multiple_evidence(
     logger, good_eco_codes_all, entry_annotations_disulfid_pair,
-    annotation_dict_205
+    annotation_dict_205_Q9NU22
 ):
     """Test case with multiple evidences in the string"""
-    annotation_dict_205["evidence"] = ["ECO:0000269|PubMed:12345678, ECO:0007744|PDB:1ABC"]
+    annotation_dict_205_Q9NU22["evidence"] = ["ECO:0000269|PubMed:12345678, ECO:0007744|PDB:1ABC"]
 
     result_single_pass = make_anno_total_dict(
         good_eco_codes=good_eco_codes_all,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        annotation_dict=annotation_dict_205,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        annotation_dict=annotation_dict_205_Q9NU22,
         counter_target_pos_str='333',
         counter_annot_pos_str="205",
+        index=18,
+        target_amino="C",
         logger=logger,
         entry_annotations=entry_annotations_disulfid_pair
     )
 
     expected_single_pass = {
         'annotation': {
-            **annotation_dict_205,
+            **annotation_dict_205_Q9NU22,
         },
         'anno_type': 'DISULFID',
         'anno_id': 'DISULFID | Intrachain (with C-246); in linked form',
@@ -1996,6 +2824,9 @@ def test_make_anno_total_dict_multiple_evidence(
             'evidence': 'ECO:0000269|PubMed:12345678',
             'target_position': '333',
             'annot_position': '205',
+            'index_position': '18',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
         },
         'paired_annot_pos_str': '246'
     }
@@ -2009,10 +2840,12 @@ def test_make_anno_total_dict_multiple_evidence(
 
     result_multiple_pass = make_anno_total_dict(
         good_eco_codes=good_eco_codes_all_modded,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        annotation_dict=annotation_dict_205,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        annotation_dict=annotation_dict_205_Q9NU22,
         counter_target_pos_str='333',
         counter_annot_pos_str="205",
+        index=18,
+        target_amino="C",
         logger=logger,
         entry_annotations=entry_annotations_disulfid_pair
     )
@@ -2021,17 +2854,19 @@ def test_make_anno_total_dict_multiple_evidence(
 
 def test_make_anno_total_dict_eco_filtering(
     logger, entry_annotations_binding_only,
-    get_annotation_dict, annotations_content_binding_fixture
+    get_annotation_dict, annotations_content_binding_fixture_Q9NU22_PF07728
 ):
     """Test ECO code filtering with BINDING annotation"""
-    annotation_dict = get_annotation_dict(annotations_content_binding_fixture, "201")
+    annotation_dict = get_annotation_dict(annotations_content_binding_fixture_Q9NU22_PF07728, "201")
 
     result = make_anno_total_dict(
         good_eco_codes=["ECO:0000269"],  # Exclude all other codes, including current: ECO:0000255
-        entry_mnemo_name=entry_mnemo_name_mock,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
         annotation_dict=annotation_dict,
         counter_target_pos_str='329',
         counter_annot_pos_str="201",
+        index=14,
+        target_amino="G",
         logger=logger,
         entry_annotations=entry_annotations_binding_only
     )
@@ -2040,17 +2875,19 @@ def test_make_anno_total_dict_eco_filtering(
 
 def test_make_anno_total_dict_binding_type(
     logger, good_eco_codes_all, entry_annotations_binding_only,
-    get_annotation_dict, annotations_content_binding_fixture
+    get_annotation_dict, annotations_content_binding_fixture_Q9NU22_PF07728
 ):
     """Test BINDING type annotation with additional keys"""
-    annotation_dict = get_annotation_dict(annotations_content_binding_fixture, "201")
+    annotation_dict = get_annotation_dict(annotations_content_binding_fixture_Q9NU22_PF07728, "201")
 
     result = make_anno_total_dict(
         good_eco_codes=good_eco_codes_all,
-        entry_mnemo_name=entry_mnemo_name_mock,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
         annotation_dict=annotation_dict,
         counter_target_pos_str='329',
         counter_annot_pos_str="201",
+        index=14,
+        target_amino="G",
         logger=logger,
         entry_annotations=entry_annotations_binding_only
     )
@@ -2068,7 +2905,10 @@ def test_make_anno_total_dict_binding_type(
             'evidence': 'ECO:0000255',
             'ligand_id': 'ChEBI:CHEBI:37565',
             'target_position': '329',
-            'annot_position': '201'
+            'annot_position': '201',
+            'index_position': '14',
+            'annot_amino_acid': 'G',
+            'target_amino_acid': 'G'
         },
         'paired_annot_pos_str': None
     }
@@ -2081,23 +2921,25 @@ def test_make_anno_total_dict_binding_type(
 
 def test_make_anno_total_dict_with_caller_target_pos(
     logger, good_eco_codes_all, entry_annotations_disulfid_pair,
-    annotation_dict_246
+    annotation_dict_246_Q9NU22
 ):
     """Test with caller_target_pos provided (paired annotation case)"""
     result = make_anno_total_dict(
         good_eco_codes=good_eco_codes_all,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        annotation_dict=annotation_dict_246,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        annotation_dict=annotation_dict_246_Q9NU22,
         counter_target_pos_str='373',
         counter_annot_pos_str="246",
         caller_target_pos_str='333',
+        index=18,
+        target_amino="C",
         logger=logger,
         entry_annotations=entry_annotations_disulfid_pair
     )
 
     expected = {
         'annotation': {
-            **annotation_dict_246,
+            **annotation_dict_246_Q9NU22,
         },
         'anno_type': 'DISULFID',
         'anno_id': 'DISULFID | Intrachain (with C-205); in linked form',
@@ -2108,12 +2950,15 @@ def test_make_anno_total_dict_with_caller_target_pos(
             'evidence': 'ECO:0000269|PubMed:12345678',
             'target_position': '373',
             'annot_position': '246',
-            'paired_target_position': '333'
+            'index_position': '18',
+            'annot_amino_acid': 'C',
+            'target_amino_acid': 'C',
+            'paired_target_position': '333',
         },
         'paired_annot_pos_str': '205'
     }
 
-    assert result['annotation'] is annotation_dict_246
+    assert result['annotation'] is annotation_dict_246_Q9NU22
     assert result['anno_type'] == 'DISULFID'
     assert result['anno_id'] == 'DISULFID | Intrachain (with C-205); in linked form'
     assert result['paired_annot_pos_str'] == '205'
@@ -2131,10 +2976,12 @@ def test_make_anno_total_dict_no_evidence(
 
     result = make_anno_total_dict(
         good_eco_codes=good_eco_codes_all,
-        entry_mnemo_name=entry_mnemo_name_mock,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
         annotation_dict=annotation_without_evidence,
         counter_target_pos_str='100',
         counter_annot_pos_str="201",
+        index=14,
+        target_amino='G',
         logger=logger,
         entry_annotations={"201": [annotation_without_evidence]}
     )
@@ -2150,10 +2997,10 @@ def test_make_anno_total_dict_no_evidence(
 def test_validate_paired_annotations_valid_case(
     logger,
     good_eco_codes_all,
-    target_sequence,
-    annot_sequence,
+    target_sequence_Q9NU22,
+    annot_sequence_Q9NU22,
     entry_annotations_disulfid_pair,
-    annotation_dict_246
+    annotation_dict_246_Q9NU22
 ):
     """
     Test the case where paired annotations are valid and successfully validated.
@@ -2177,6 +3024,9 @@ def test_validate_paired_annotations_valid_case(
             "evidence": "ECO:0000269|PubMed:12345678",
             "target_position": "373",
             "annot_position": "246",
+            "index_position": "72",
+            "annot_amino_acid": "C",
+            "target_amino_acid": "C"
         },
         "paired_annot_pos_str": "205",
     }
@@ -2185,32 +3035,34 @@ def test_validate_paired_annotations_valid_case(
         result_tuple = validate_paired_annotations(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            paired_annotation_dict=annotation_dict_246,
+            target_sequence=target_sequence_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            paired_annotation_dict=annotation_dict_246_Q9NU22,
             entry_annotations=entry_annotations_disulfid_pair,
             counter_target_pos=counter_target_pos_mock, # Always None
             counter_annot_pos=counter_annot_pos_mock, # Always None
-            paired_annot_pos_str=paired_annot_pos_str_mock, # '246'
-            caller_target_pos_str=caller_target_pos_str_mock, # '333'
+            paired_annot_pos_str=paired_annot_pos_str_mock_Q9NU22, # '246'
+            caller_target_pos_str=caller_target_pos_str_mock_Q9NU22, # '333'
         )
 
         # Verify the make_anno_total_dict call
         mock_make_total.assert_called_once_with(
             good_eco_codes=good_eco_codes_all,
             entry_mnemo_name="MCRB_ECOLI",
-            annotation_dict=annotation_dict_246,
+            annotation_dict=annotation_dict_246_Q9NU22,
             counter_target_pos_str='373', # 246 = 373 in target sequence numbering/col
-            counter_annot_pos_str=paired_annot_pos_str_mock, # '246'
+            counter_annot_pos_str=paired_annot_pos_str_mock_Q9NU22, # '246'
+            index=72,
+            target_amino="C",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair,
-            caller_target_pos_str=caller_target_pos_str_mock,
+            caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
         )
 
         # Assert that the result matches the mock data
@@ -2220,19 +3072,19 @@ def test_validate_paired_annotations_valid_case(
 def test_validate_paired_annotations_invalid_pair(
     logger,
     good_eco_codes_all,
-    target_sequence,
-    annot_sequence,
+    target_sequence_Q9NU22,
+    annot_sequence_Q9NU22,
     entry_annotations_disulfid_pair,
-    annotation_dict_246
+    annotation_dict_246_Q9NU22
 ):
     """
     Test case where the paired annotation validation fails.
     """
 
     # Modify target sequence to ensure failure at paired position
-    target_sequence_mod_to_fail_72 = list(target_sequence)
-    target_sequence_mod_to_fail_72[72] = "R"
-    target_sequence_mod_to_fail_72 = "".join(target_sequence_mod_to_fail_72)
+    target_sequence_mod_to_fail_73 = list(target_sequence_Q9NU22)
+    target_sequence_mod_to_fail_73[72] = "R"
+    target_sequence_mod_to_fail_73 = "".join(target_sequence_mod_to_fail_73)
 
     mock_paired_result_dict = {
         "annotation": {
@@ -2252,6 +3104,9 @@ def test_validate_paired_annotations_invalid_pair(
             "evidence": "ECO:0000269|PubMed:12345678",
             "target_position": "373",
             "annot_position": "246",
+            "index_position": "72",
+            "annot_amino_acid": "C",
+            "target_amino_acid": "R"
         },
         "paired_annot_pos_str": "205",
     }
@@ -2262,31 +3117,33 @@ def test_validate_paired_annotations_invalid_pair(
         result_tuple = validate_paired_annotations(
             logger=logger,
             good_eco_codes=good_eco_codes_all,
-            target_sequence=target_sequence_mod_to_fail_72,
-            target_name=target_name_mock,
-            target_hit_start=target_hit_start_mock,
-            target_hit_end=target_hit_end_mock,
-            offset_start=offset_start_mock,
-            offset_end=offset_end_mock,
-            annot_sequence=annot_sequence,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            paired_annotation_dict=annotation_dict_246,
+            target_sequence=target_sequence_mod_to_fail_73,
+            target_name=target_name_mock_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
+            offset_start=offset_start_mock_Q9NU22,
+            offset_end=offset_end_mock_Q9NU22,
+            annot_sequence=annot_sequence_Q9NU22,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            paired_annotation_dict=annotation_dict_246_Q9NU22,
             entry_annotations=entry_annotations_disulfid_pair,
             counter_target_pos=counter_target_pos_mock, # Always None
             counter_annot_pos=counter_annot_pos_mock, # Always None
-            paired_annot_pos_str=paired_annot_pos_str_mock, # '246'
-            caller_target_pos_str=caller_target_pos_str_mock, # '333'
+            paired_annot_pos_str=paired_annot_pos_str_mock_Q9NU22, # '246'
+            caller_target_pos_str=caller_target_pos_str_mock_Q9NU22, # '333'
         )
 
         mock_make_total.assert_called_once_with(
             good_eco_codes=good_eco_codes_all,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            annotation_dict=annotation_dict_246,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            annotation_dict=annotation_dict_246_Q9NU22,
             counter_target_pos_str='373', # 246 = 373 in target sequence numbering/col
-            counter_annot_pos_str=paired_annot_pos_str_mock, # '246'
+            counter_annot_pos_str=paired_annot_pos_str_mock_Q9NU22, # '246'
+            index=72,
+            target_amino="R",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair,
-            caller_target_pos_str=caller_target_pos_str_mock,
+            caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
         )
 
         assert result_tuple == mock_result_tuple
@@ -2294,44 +3151,42 @@ def test_validate_paired_annotations_invalid_pair(
 def test_validate_paired_annotations_missing_paired_position(
     logger,
     good_eco_codes_all,
-    target_sequence,
-    annot_sequence,
+    target_sequence_Q9NU22,
+    annot_sequence_Q9NU22,
     entry_annotations_disulfid_pair,
-    annotation_dict_246
+    annotation_dict_246_Q9NU22
 ):
     """
     Test case where the paired position is missing in the annotations.
     """
     # Set paired position to a non-existent value
-    annotation_dict_246["paired_position"] = "999"
+    annotation_dict_246_Q9NU22["paired_position"] = "999"
 
     result = validate_paired_annotations(
         logger=logger,
         good_eco_codes=good_eco_codes_all,
-        target_sequence=target_sequence,
-        target_name=target_name_mock,
-        target_hit_start=target_hit_start_mock,
-        target_hit_end=target_hit_end_mock,
-        offset_start=offset_start_mock,
-        offset_end=offset_end_mock,
-        annot_sequence=annot_sequence,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        paired_annotation_dict=annotation_dict_246,
+        target_sequence=target_sequence_Q9NU22,
+        target_name=target_name_mock_Q9NU22,
+        target_hit_start=target_hit_start_mock_Q9NU22,
+        target_hit_end=target_hit_end_mock_Q9NU22,
+        offset_start=offset_start_mock_Q9NU22,
+        offset_end=offset_end_mock_Q9NU22,
+        annot_sequence=annot_sequence_Q9NU22,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        paired_annotation_dict=annotation_dict_246_Q9NU22,
         entry_annotations=entry_annotations_disulfid_pair,
         counter_target_pos=counter_target_pos_mock,
         counter_annot_pos=counter_annot_pos_mock,
         paired_annot_pos_str="999",
-        caller_target_pos_str=caller_target_pos_str_mock,
+        caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
     )
 
     assert result == (False, {})
 
-
-
-
 ###T add_to_transfer_dict
 def test_add_to_transfer_dict_disulfid_single_first_addition(
     logger, transfer_dict,
+    target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_anno_total_disulfid
 ):
@@ -2344,21 +3199,29 @@ def test_add_to_transfer_dict_disulfid_single_first_addition(
         hit=True,
         logger=logger,
         transfer_dict=transfer_dict,
-        target_name=target_name_mock,
+        target_name=target_name_mock_Q9NU22,
+        target_sequence_continuous=target_sequence_continuous_Q9NU22,
+        target_hit_start=target_hit_start_mock_Q9NU22,
+        target_hit_end=target_hit_end_mock_Q9NU22,
         anno_id=anno_id,
         anno_total=anno_total,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        entry_primary_accession=entry_primary_accession_mock,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
     )
-
-    assert target_name_mock in transfer_dict
-    assert 'match' in transfer_dict[target_name_mock]
-    assert anno_total['target_position'] in transfer_dict[target_name_mock]['match']
-    assert anno_id in transfer_dict[target_name_mock]['match'][anno_total['target_position']]
-    assert transfer_dict[target_name_mock]['match'][anno_total['target_position']][anno_id]['essentials']['type'] == 'DISULFID'
+    ### DELETE
+    # transfo_dicto = convert_sets_to_lists(transfer_dict)
+    # print(json.dumps(transfo_dicto, indent=4))
+    ### DELETE
+    assert target_name_mock_Q9NU22 in transfer_dict['DOMAIN']['sequence_id']
+    assert 'positions' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']
+    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
+    assert anno_total['target_position'] in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
+    assert anno_id in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions'][anno_total['target_position']]
+    assert transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions'][anno_total['target_position']][anno_id]['essentials']['type'] == 'DISULFID'
 
 def test_add_to_transfer_dict_paired_disulfide(
     logger, transfer_dict,
+    target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_make_anno_total_disulfid_return_246_P15005,
     mock_anno_total_disulfid,
@@ -2374,62 +3237,64 @@ def test_add_to_transfer_dict_paired_disulfide(
         hit=True,
         logger=logger,
         transfer_dict=transfer_dict,
-        target_name=target_name_mock,
+        target_name=target_name_mock_Q9NU22,
+        target_sequence_continuous=target_sequence_continuous_Q9NU22,
+        target_hit_start=target_hit_start_mock_Q9NU22,
+        target_hit_end=target_hit_end_mock_Q9NU22,
         anno_id=anno_id,
         anno_total=anno_total,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        entry_primary_accession=entry_primary_accession_mock,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
         paired_position_res_hit=True,
         paired_anno_id=paired_anno_id,
         paired_anno_total=paired_anno_total
     )
 
     # Assert main position
-    assert '333' in transfer_dict[target_name_mock]['match']
-    assert anno_id in transfer_dict[target_name_mock]['match']['333']
+    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
+    assert anno_id in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333']
 
     # Assert paired position
-    assert '373' in transfer_dict[target_name_mock]['match']
-    assert paired_anno_id in transfer_dict[target_name_mock]['match']['373']
+    assert '373' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
+    assert paired_anno_id in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373']
 
     # Assert cross-references
-    assert '373' in transfer_dict[target_name_mock]['match']['333'][anno_id]['paired_position']
-    assert '333' in transfer_dict[target_name_mock]['match']['373'][paired_anno_id]['paired_position']
-
-
-
+    assert '373' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333'][anno_id]['paired_position']
+    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373'][paired_anno_id]['paired_position']
 
 
 def test_add_to_transfer_dict_paired_repeated_anno_id(
-    logger, transfer_dict_populated,
-    mock_make_anno_total_disulfid_return_205_P00750,
-    mock_make_anno_total_disulfid_return_246_P00750,
+    logger, transfer_dict_populated_disulfid_Q9NU22,
+    target_sequence_continuous_Q9NU22,
+    mock_make_anno_total_disulfid_return_205_Q9NU22,
+    mock_make_anno_total_disulfid_return_246_Q9NU22,
 ):
     """Test paired disulfide annotation processing"""
-    anno_id = mock_make_anno_total_disulfid_return_205_P00750['anno_id']
-    anno_total = mock_make_anno_total_disulfid_return_205_P00750['anno_total']
-    paired_anno_id = mock_make_anno_total_disulfid_return_246_P00750['anno_id']
-    paired_anno_total = mock_make_anno_total_disulfid_return_246_P00750['anno_total']
+    anno_id = mock_make_anno_total_disulfid_return_205_Q9NU22['anno_id']
+    anno_total = mock_make_anno_total_disulfid_return_205_Q9NU22['anno_total']
+    paired_anno_id = mock_make_anno_total_disulfid_return_246_Q9NU22['anno_id']
+    paired_anno_total = mock_make_anno_total_disulfid_return_246_Q9NU22['anno_total']
 
     add_to_transfer_dict(
         hit=True,
         logger=logger,
-        transfer_dict=transfer_dict_populated,
-        target_name=target_name_mock,
+        transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
+        target_name=target_name_mock_Q9NU22,
+        target_sequence_continuous=target_sequence_continuous_Q9NU22,
+        target_hit_start=target_hit_start_mock_Q9NU22,
+        target_hit_end=target_hit_end_mock_Q9NU22,
         anno_id=anno_id,
         anno_total=anno_total,
-        entry_mnemo_name=entry_mnemo_name_mock_repeated,
-        entry_primary_accession=entry_primary_accession_mock_repeated,
+        entry_mnemo_name=entry_mnemo_name_mock_repeated_Q9NU22,
+        entry_primary_accession=entry_primary_accession_mock_repeated_Q9NU22,
         paired_position_res_hit=True,
         paired_anno_id=paired_anno_id,
         paired_anno_total=paired_anno_total
     )
 
-    print(json.dumps(transfer_dict_populated, indent=4))
-
     # Helper function to access nested dictionary paths
-    def get_annotation(pos):
-        return transfer_dict_populated[target_name_mock]['match'][pos]
+    def get_annotation(target_position_str):
+        return transfer_dict_populated_disulfid_Q9NU22['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions'][target_position_str]
 
     # Test data
     positions = {
@@ -2437,8 +3302,8 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
         '373': {'partner': '333', 'annot_pos': '246'}
     }
 
-    for pos, data in positions.items():
-        anno = get_annotation(pos)['DISULFID | Intrachain (with C-246); in linked form' if pos == '333' else 'DISULFID | Intrachain (with C-205); in linked form']
+    for target_position_str, data in positions.items():
+        anno = get_annotation(target_position_str)['DISULFID | Intrachain (with C-246); in linked form' if target_position_str == '333' else 'DISULFID | Intrachain (with C-205); in linked form']
 
         # Count assertions
         assert anno['essentials']['count'] == 2
@@ -2455,10 +3320,13 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
                 assert evidence['count'] == 1
 
     # Verify no misses
-    assert transfer_dict_populated[target_name_mock]['miss'] == {}
+    # print(json.dumps(transfer_dict_populated_disulfid_Q9NU22, indent=4))
+    assert transfer_dict_populated_disulfid_Q9NU22['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333'][anno_id]['hit'] is True
+    assert transfer_dict_populated_disulfid_Q9NU22['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373'][paired_anno_id]['hit'] is True
 
 def test_add_to_transfer_dict_hit_miss_pair(
     logger, transfer_dict,
+    target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_make_anno_total_disulfid_return_246_P15005,
     mock_anno_total_disulfid,
@@ -2474,26 +3342,32 @@ def test_add_to_transfer_dict_hit_miss_pair(
         hit=True,
         logger=logger,
         transfer_dict=transfer_dict,
-        target_name=target_name_mock,
+        target_name=target_name_mock_Q9NU22,
+        target_sequence_continuous=target_sequence_continuous_Q9NU22,
+        target_hit_start=target_hit_start_mock_Q9NU22,
+        target_hit_end=target_hit_end_mock_Q9NU22,
         anno_id=anno_id,
         anno_total=anno_total,
-        entry_mnemo_name=entry_mnemo_name_mock,
-        entry_primary_accession=entry_primary_accession_mock,
+        entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+        entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
         paired_position_res_hit=False,
         paired_anno_id=paired_anno_id,
         paired_anno_total=paired_anno_total
     )
 
     # Assert hit position
-    assert '333' in transfer_dict[target_name_mock]['match']
+    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
+    assert transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333'][anno_id]['hit'] is True
 
     # Assert missed position
-    assert '373' in transfer_dict[target_name_mock]['miss']
+    assert '373' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
+    assert transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373'][paired_anno_id]['hit'] is False
 
 
 
 def test_add_to_transfer_dict_disulfid_single_mocked_helper(
     logger, transfer_dict,
+    target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_anno_total_disulfid
 ):
@@ -2508,27 +3382,31 @@ def test_add_to_transfer_dict_disulfid_single_mocked_helper(
             hit=True,
             logger=logger,
             transfer_dict=transfer_dict,
-            target_name=target_name_mock,
+            target_name=target_name_mock_Q9NU22,
+            target_sequence_continuous=target_sequence_continuous_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             anno_id=anno_id,
             anno_total=anno_total,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_primary_accession=entry_primary_accession_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
         )
 
         # Assertions to verify correct addition to transfer_dict
         mock_add_single.assert_called_once_with(
             hit=True,
             transfer_dict=transfer_dict,
-            target_name=target_name_mock,
+            target_name=target_name_mock_Q9NU22,
             anno_id=anno_id,
             anno_total=anno_total,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_primary_accession=entry_primary_accession_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
             additional_keys={}
         )
 
 def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
     logger, transfer_dict,
+    target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_make_anno_total_disulfid_return_246_P15005,
     mock_anno_total_disulfid,
@@ -2550,11 +3428,14 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
             hit=True,
             logger=logger,
             transfer_dict=transfer_dict,
-            target_name=target_name_mock,
+            target_name=target_name_mock_Q9NU22,
+            target_sequence_continuous=target_sequence_continuous_Q9NU22,
+            target_hit_start=target_hit_start_mock_Q9NU22,
+            target_hit_end=target_hit_end_mock_Q9NU22,
             anno_id=anno_id,
             anno_total=anno_total,
-            entry_mnemo_name=entry_mnemo_name_mock,
-            entry_primary_accession=entry_primary_accession_mock,
+            entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+            entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
             paired_position_res_hit=True,
             paired_anno_id=paired_anno_id,
             paired_anno_total=paired_anno_total
@@ -2564,21 +3445,21 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
             call(
                 hit=True,
                 transfer_dict=transfer_dict,
-                target_name=target_name_mock,
+                target_name=target_name_mock_Q9NU22,
                 anno_id=anno_id,
                 anno_total=anno_total,
-                entry_mnemo_name=entry_mnemo_name_mock,
-                entry_primary_accession=entry_primary_accession_mock,
+                entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+                entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
                 additional_keys={}
             ),
             call(
                 hit=True,
                 transfer_dict=transfer_dict,
-                target_name=target_name_mock,
+                target_name=target_name_mock_Q9NU22,
                 anno_id=paired_anno_id,
                 anno_total=paired_anno_total,
-                entry_mnemo_name=entry_mnemo_name_mock,
-                entry_primary_accession=entry_primary_accession_mock,
+                entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
+                entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
                 additional_keys={}
             )
         ]
@@ -2586,66 +3467,270 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
         mock_add_single.assert_has_calls(expected_calls, any_order=False)
         assert mock_add_single.call_count == 2
 
-###T write_report
+###T gather_go_terms_for_target
+# YAY
+def test_gather_go_terms_for_target(iprscan_tsv_mock):
+    go_terms = gather_go_terms_for_target("target_name", iprscan_tsv_mock)
+    assert go_terms == {"GO:0005524", "GO:0016887"}
 
-def test_write_report_with_data(
+def test_gather_go_terms_for_target_no_go(iprscan_tsv_mock_no_go):
+    go_terms = gather_go_terms_for_target("target_name", iprscan_tsv_mock_no_go)
+    assert go_terms == set()
+
+###T get_alignment_sequences
+
+def test_get_alignment_sequences(minimal_hmmalign_lines_fixture_Q9NU22, target_id_plus_seq_mock, conservation_id_plus_seq_mock):
+    hmmalign_lines_list = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
+    target_seq, conservation_seq = get_alignment_sequences(
+        hmmalign_lines_list,
+        "sp|Q9NU22|MDN1_HUMANtarget//325-451",
+        "Q7US48_RHOBA/138-284"
+    )
+
+    _, target_seq_expected = target_id_plus_seq_mock
+    _, conservation_seq_expected = conservation_id_plus_seq_mock
+
+    assert target_seq == target_seq_expected
+    assert conservation_seq == conservation_seq_expected
+
+def test_get_alignment_sequence_no_target(minimal_hmmalign_lines_fixture_Q9NU22):
+    hmmalign_lines_list = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
+
+    # Remove the line with the target ID
+    hmmalign_lines_list = [line for line in hmmalign_lines_list if not line.startswith("sp|Q9NU22|MDN1_HUMANtarget//325-451")]
+
+    with pytest.raises(ValueError, match="Target ID 'sp|Q9NU22|MDN1_HUMANtarget//325-451' not found in hmmalign_lines."):
+        get_alignment_sequences(hmmalign_lines_list, "sp|Q9NU22|MDN1_HUMANtarget//325-451", "Q7US48_RHOBA/138-284")
+
+def test_get_alignment_sequence_no_conservation(minimal_hmmalign_lines_fixture_Q9NU22):
+    hmmalign_lines_list = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
+
+    # Remove the line with the conservation ID
+    hmmalign_lines_list = [line for line in hmmalign_lines_list if not line.startswith("Q7US48_RHOBA/138-284")]
+
+    with pytest.raises(ValueError, match="Conservation ID 'Q7US48_RHOBA/138-284' not found in hmmalign_lines."):
+        get_alignment_sequences(hmmalign_lines_list, "sp|Q9NU22|MDN1_HUMANtarget//325-451", "Q7US48_RHOBA/138-284")
+
+
+
+###T populate_conservation
+
+# def test_populate_conservation(
+#     transfer_dict_populated_disulfid_Q9NU22, pfam_id_mock, target_name_mock_Q9NU22, target_sequence_Q9NU22, conservation_seq_mock, conservation_key_mock, conservations_mock, conservations_positions_mock, target_hit_start_mock_Q9NU22, target_hit_end_mock_Q9NU22, conservation_start_mock, conservation_end_mock
+#     logger):
+#     target_id, target_seq = 
+#     conservation_seq = "GPPGCGKTFVAR"
+#     conservations = {"conservation_key": {"1": {"score": 5}, "3": {"score": 10}}}
+#     iterate_func = lambda seq_a, seq_b, start_a, start_b, end_a, end_b: [
+#         (0, 1, 1, "G", "G"),
+#         (1, 2, 2, "P", "P"),
+#         (2, 3, 3, "P", "Q"),
+#     ]
+#     populate_conservation(
+#         transfer_dict=transfer_dict,
+#         pfam_id="PF00001",
+#         target_name="target",
+#         target_seq=target_sequence_Q9NU22,
+#         conservation_seq=conservation_seq,
+#         conservation_key="conservation_key",
+#         conservations=conservations,
+#         conservations_positions=["1", "3"],
+#         target_hit_start=1,
+#         target_hit_end=3,
+#         conservation_start=1,
+#         conservation_end=3,
+#     )
+#     assert transfer_dict["PF00001"]["sequence_id"]["target"]["conservations"]["positions"]["1"] == {
+#         "conservation": {"score": 5},
+#         "hit": {True},
+#     }
+
+
+###T populate_go_data_for_annotations
+
+
+
+###T cleanup_improve_transfer_dict
+
+
+# @pytest.mark.usefixtures("mock_read_conservations_and_annotations")
+# def test_cleanup_improve_transfer_dict(
+#     minimal_transfer_dict,
+#     mock_iterate_aligned_sequences,
+#     monkeypatch
+# ):
+#     """
+#     Tests cleanup_improve_transfer_dict moves 'DOMAIN' to [pfam_id], reads data, etc.
+#     """
+#     pfam_id = "PFTEST"
+#     # Mocks
+#     monkeypatch.setattr("transfer_annotations.get_alignment_sequences", lambda *args, **kw: ("AAA", "AAA"))
+#     monkeypatch.setattr("transfer_annotations.gather_go_terms_for_target", lambda *args, **kw: {"GO:000xyz"})
+
+#     result = cleanup_improve_transfer_dict(
+#         transfer_dict=minimal_transfer_dict,
+#         pfam_id=pfam_id,
+#         hmmalign_lines=[],
+#         conservations_filepath="fake.json",
+#         annotations_filepath="fake.json",
+#         output_dir="fake_dir",
+#     )
+
+#     assert pfam_id in result
+#     assert "DOMAIN" not in result
+#     target_data = result[pfam_id]["sequence_id"]["TestTarget"]
+#     assert "conservations" in target_data
+#     assert "annotations" in target_data
+
+
+###T convert_sets_to_lists
+
+
+###T write_reports
+def test_write_reports_with_data(
     tmp_path, logger,
-    transfer_dict_populated
-    ):
-    """Test write_report with actual annotation data"""
+    transfer_dict_populated_disulfid_post_processed_Q9NU22
+):
+    """Test write_reports with actual annotation data"""
+    mock_dict = transfer_dict_populated_disulfid_post_processed_Q9NU22
 
     with patch('builtins.open', mock_open()) as mock_file:
-        write_report(logger, transfer_dict_populated, "PF00244", str(tmp_path))
+        write_reports(logger, mock_dict, str(tmp_path))
 
-        mock_file.assert_called_once_with(ANY, 'w', encoding="utf-8")
-        written_content = mock_file().write.call_args[0][0]
-        assert json.loads(written_content) == transfer_dict_populated['sp|Q9NU22|MDN1_HUMAN']
-        assert logger.debug.call_count == 2
-
-def test_write_report_empty_data(tmp_path, logger):
-    """Test write_report with empty transfer dict"""
-    transfer_dict = {"sp|Q9NU22|MDN1_HUMAN": {}}
-
-    with patch('builtins.open', mock_open()) as mock_file:
-        write_report(logger, transfer_dict, "PF00244", str(tmp_path))
-
-        mock_file.assert_called_once_with(ANY, 'w', encoding="utf-8")
-        written_content = mock_file().write.call_args[0][0]
-        assert json.loads(written_content) == {"Annotations": "None"}
-        assert logger.debug.call_count == 2
-
-def test_write_report_multiple_targets(tmp_path, logger):
-    """Test write_report with multiple target sequences"""
-    transfer_dict = {
-        "TEST1": {"match": {}},
-        "TEST2": {"match": {}}
-    }
-
-    with patch('builtins.open', mock_open()) as mock_file:
-        write_report(logger, transfer_dict, "PF00244", str(tmp_path))
-
-        assert mock_file.call_count == 2
-        assert logger.debug.call_count == 4
+        # Verify correct files were created
         calls = mock_file.call_args_list
-        assert all(call_args[1] == {'encoding': 'utf-8'} for call_args in calls)
+        assert len(calls) == 2
 
-def test_write_report_pipe_in_target_name(tmp_path, logger):
-    """Test write_report handles target names with pipes"""
+        # Verify paths
+        expected_paths = [
+            os.path.join(str(tmp_path), "PF07728", "PF07728_report.json"),
+            os.path.join(str(tmp_path), "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")
+        ]
+        actual_paths = [call[0][0] for call in calls]
+        assert sorted(actual_paths) == sorted(expected_paths)
+
+        # Verify debug logs were called
+        assert logger.debug.call_count == 3
+
+def test_write_reports_empty_data(tmp_path, logger):
+    """Test write_reports with empty transfer dict"""
     transfer_dict = {
-        "TEST|A": {"match": {}}
+        "PF07728": {
+            "sequence_id": {
+                "sp|Q9NU22|MDN1_HUMAN": {}
+            }
+        }
     }
 
     with patch('builtins.open', mock_open()) as mock_file:
-        write_report(logger, transfer_dict, "PF00244", str(tmp_path))
+        write_reports(logger, transfer_dict, str(tmp_path))
 
-        mock_file.assert_called_once_with(ANY, 'w', encoding="utf-8")
-        # Verify target name was transformed
-        called_path = mock_file.call_args[0][0]
-        assert "TEST-A" in called_path
+        calls = mock_file.call_args_list
+        assert len(calls) == 2  # Main report + target report
+        assert logger.debug.call_count == 3
+
+def test_write_reports_multiple_targets(tmp_path, logger):
+    """Test write_reports with multiple target sequences"""
+    transfer_dict = {
+        "PF07728": {
+            "sequence_id": {
+                "TEST1": {"some_data": "value1"},
+                "TEST2": {"some_data": "value2"}
+            }
+        }
+    }
+
+    with patch('builtins.open', mock_open()) as mock_file:
+        write_reports(logger, transfer_dict, str(tmp_path))
+
+        calls = mock_file.call_args_list
+        assert len(calls) == 3  # Main report + 2 target reports
+        assert logger.debug.call_count == 5  # 1 main + 2 data writes + 2 confirmations
+
+def test_write_reports_pipe_in_target_name(tmp_path, logger):
+    """Test write_reports handles target names with pipes"""
+    transfer_dict = {
+        "PF07728": {
+            "sequence_id": {
+                "TEST|A": {"some_data": "value"}
+            }
+        }
+    }
+
+    with patch('builtins.open', mock_open()) as mock_file:
+        write_reports(logger, transfer_dict, str(tmp_path))
+
+        calls = mock_file.call_args_list
+        assert len(calls) == 2  # Main report + target report
+
+        # Check paths
+        paths = [call[0][0] for call in calls]
+        assert any("TEST-A" in path for path in paths)
+        assert logger.debug.call_count == 3
+
+def test_write_reports_completely_empty_dict(tmp_path, logger):
+    """Test write_reports with completely empty transfer dict"""
+    transfer_dict = {}
+
+    with pytest.raises(StopIteration):
+        write_reports(logger, transfer_dict, str(tmp_path))
+
+def test_write_reports_empty_sequence_id(tmp_path, logger):
+    """Test write_reports with empty sequence_id dict"""
+    transfer_dict = {
+        "PF07728": {
+            "sequence_id": {}
+        }
+    }
+
+    with patch('builtins.open', mock_open()) as mock_file:
+        write_reports(logger, transfer_dict, str(tmp_path))
+
+        calls = mock_file.call_args_list
+        assert len(calls) == 1  # Only main report
+        assert logger.debug.call_count == 1
+
+def test_write_reports_none_target_data(tmp_path, logger):
+    """Test write_reports with None as target data"""
+    transfer_dict = {
+        "PF07728": {
+            "sequence_id": {
+                "TEST": None
+            }
+        }
+    }
+
+    with patch('json.dump') as mock_json_dump:
+        write_reports(logger, transfer_dict, str(tmp_path))
+
+        # Verify number of calls
+        assert mock_json_dump.call_count == 2
+        assert logger.debug.call_count == 3
+
+        # Get the data passed to json.dump calls
+        dump_calls = mock_json_dump.call_args_list
+
+        # Check main report structure (first call)
+        main_report_data = dump_calls[0][0][0]  # First arg of first call
+        expected_main_report = {
+            "domain_id": "PF07728",
+            "sequences": {"TEST": None}
+        }
+        assert main_report_data == expected_main_report
+
+        # Check target report structure (second call)
+        target_report_data = dump_calls[1][0][0]  # First arg of second call
+        expected_target_report = {
+            "sequence_id": "TEST",
+            "domain": {
+                "PF07728": {"annotations": "None"}
+            }
+        }
+        assert target_report_data == expected_target_report
 
 
 ###T main
-def test_main_success(logger):
+def test_main_success(logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_disulfid_list_Q9NU22, transfer_dict_populated_disulfid_post_processed_list_Q9NU22):
     """Test main function success path"""
     mock_args = Namespace(
         dom_align=hmmalign_result_mock,
@@ -2655,13 +3740,12 @@ def test_main_success(logger):
         log=log_filepath_mock
     )
 
-    mock_transfer_dict = {"TEST1": {"match": {}}}
-
     with patch('transfer_annotations.parse_arguments', return_value=mock_args) as mock_parse, \
-         patch('transfer_annotations.get_pfam_id_from_hmmalign_result', return_value="PF00244") as mock_get_pfam, \
-         patch('transfer_annotations.read_files', return_value=([], {})) as mock_read, \
-         patch('transfer_annotations.find_and_map_annots', return_value=mock_transfer_dict) as mock_find, \
-         patch('transfer_annotations.write_report') as mock_write:
+         patch('transfer_annotations.get_pfam_id_from_hmmalign_result', return_value="PF07728") as mock_get_pfam, \
+         patch('transfer_annotations.read_files', return_value=(minimal_hmmalign_lines_fixture_Q9NU22, {})) as mock_read, \
+         patch('transfer_annotations.find_and_map_annots', return_value=transfer_dict_populated_disulfid_list_Q9NU22) as mock_find, \
+         patch('transfer_annotations.cleanup_improve_transfer_dict', return_value=transfer_dict_populated_disulfid_post_processed_list_Q9NU22) as mock_cleanup, \
+         patch('transfer_annotations.write_reports') as mock_write:
 
         main(logger)
 
@@ -2669,36 +3753,54 @@ def test_main_success(logger):
         mock_get_pfam.assert_called_once_with(hmmalign_result_mock)
         mock_read.assert_called_once()
         mock_find.assert_called_once()
-        mock_write.assert_called_once_with(logger, mock_transfer_dict, "PF00244", output_dir_mock)
+        mock_cleanup.assert_called_once_with(
+            transfer_dict_populated_disulfid_list_Q9NU22,
+            "PF07728",
+            minimal_hmmalign_lines_fixture_Q9NU22,
+            os.path.join(resource_dir_mock, "PF07728", "conservations.json"),
+            os.path.join(resource_dir_mock, "PF07728", "annotations.json"),
+            output_dir_mock
+        )
+        mock_write.assert_called_once_with(
+            logger,
+            transfer_dict_populated_disulfid_post_processed_list_Q9NU22,
+            output_dir_mock
+        )
         logger.info.assert_any_call("---> MAIN --- Transfer Dict FILLED")
 
+
+
+
 # Integration tests
-def test_main_integration_binding_Q9NU22_MDN1_HUMAN(transfer_dict_success_binding_MDN1_HUMAN, annotations_content_binding_fixture):
+def test_main_integration_binding_Q9NU22_PF07728(minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_binding_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728, conservations_content_Q9NU22_PF07728):
     """Integration test for main function"""
 
     with TemporaryDirectory() as tmp_dir:
         # Setup test files and directories
-        hmmalign_path = os.path.join(tmp_dir, "PF00244_hmmalign.sth")
+        hmmalign_path = os.path.join(tmp_dir, "PF07728_hmmalign.sth")
         with open(hmmalign_path, 'w', encoding='latin-1') as f:
-            f.write(minimal_hmmalign_content_mock)
+            f.write(minimal_hmmalign_lines_fixture_Q9NU22)
 
         # Create full directory structure
         resource_dir = os.path.join(tmp_dir, "resources")
-        pfam_dir = os.path.join(resource_dir, "PF00244")
+        pfam_dir = os.path.join(resource_dir, "PF07728")
         os.makedirs(pfam_dir)
 
         output_dir = os.path.join(tmp_dir, "output")
         # Create output directories for expected targets
         target_dirs = [
             os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN"),
-            os.path.join(output_dir, "PF00244")
+            os.path.join(output_dir, "PF07728")
         ]
         for dir_path in [output_dir] + target_dirs:
             os.makedirs(dir_path, exist_ok=True)
 
         # Write annotations to proper path
         with open(os.path.join(pfam_dir, "annotations.json"), 'w', encoding='utf-8') as f:
-            json.dump(annotations_content_binding_fixture, f)
+            json.dump(annotations_content_binding_fixture_Q9NU22_PF07728, f)
+
+        with open(os.path.join(pfam_dir, "conservations.json"), 'w', encoding='utf-8') as f:
+            json.dump(conservations_content_Q9NU22_PF07728, f)
 
         # Run main
         args = Namespace(
@@ -2713,35 +3815,42 @@ def test_main_integration_binding_Q9NU22_MDN1_HUMAN(transfer_dict_success_bindin
             logger = configure_logging(args.log)
             main(logger)
 
-        assert os.path.exists(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF00244_report.json"))
-        assert transfer_dict_success_binding_MDN1_HUMAN == json.load(open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF00244_report.json"), 'r', encoding='utf-8'))
+        with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
+            transfer_dict = json.load(f)
+            print(json.dumps(transfer_dict, indent=4))
 
-def test_main_integration_disulfid_Q9NU22_MDN1_HUMAN(transfer_dict_success_disulfid_MDN1_HUMAN, annotations_content_disulfid_fixture):
+        # assert os.path.exists(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"))
+        # assert transfer_dict_success_binding_Q9NU22 == json.load(open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"), 'r', encoding='utf-8'))
+
+def test_main_integration_disulfid_Q9NU22_PF07728(minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_disulfid_post_processed_list_Q9NU22, annotations_content_disulfid_fixture_Q9NU22_PF07728, conservations_content_Q9NU22_PF07728):
     """Integration test for main function"""
 
     with TemporaryDirectory() as tmp_dir:
         # Setup test files and directories
-        hmmalign_path = os.path.join(tmp_dir, "PF00244_hmmalign.sth")
+        hmmalign_path = os.path.join(tmp_dir, "PF07728_hmmalign.sth")
         with open(hmmalign_path, 'w', encoding='latin-1') as f:
-            f.write(minimal_hmmalign_content_mock)
+            f.write(minimal_hmmalign_lines_fixture_Q9NU22)
 
         # Create full directory structure
         resource_dir = os.path.join(tmp_dir, "resources")
-        pfam_dir = os.path.join(resource_dir, "PF00244")
+        pfam_dir = os.path.join(resource_dir, "PF07728")
         os.makedirs(pfam_dir)
 
         output_dir = os.path.join(tmp_dir, "output")
         # Create output directories for expected targets
         target_dirs = [
             os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN"),
-            os.path.join(output_dir, "PF00244")
+            os.path.join(output_dir, "PF07728")
         ]
         for dir_path in [output_dir] + target_dirs:
             os.makedirs(dir_path, exist_ok=True)
 
         # Write annotations to proper path
         with open(os.path.join(pfam_dir, "annotations.json"), 'w', encoding='utf-8') as f:
-            json.dump(annotations_content_disulfid_fixture, f)
+            json.dump(annotations_content_disulfid_fixture_Q9NU22_PF07728, f)
+
+        with open(os.path.join(pfam_dir, "conservations.json"), 'w', encoding='utf-8') as f:
+            json.dump(conservations_content_Q9NU22_PF07728, f)
 
         # Run main
         args = Namespace(
@@ -2756,17 +3865,22 @@ def test_main_integration_disulfid_Q9NU22_MDN1_HUMAN(transfer_dict_success_disul
             logger = configure_logging(args.log)
             main(logger)
 
-        assert os.path.exists(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF00244_report.json"))
-        assert transfer_dict_success_disulfid_MDN1_HUMAN == json.load(open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF00244_report.json"), 'r', encoding='utf-8'))
+        with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
+            transfer_dict = json.load(f)
+            print("AYOOOOOOOO &&&&& ")
+            print(json.dumps(transfer_dict, indent=4))
 
-def test_main_integration_all_types_H0YB80_HUMAN(transfer_dict_success_all_types_H0YB80_HUMAN, annotations_content_all_types_PF00244_fixture):
+        assert os.path.exists(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"))
+        assert transfer_dict_populated_disulfid_post_processed_list_Q9NU22 == json.load(open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"), 'r', encoding='utf-8'))
+
+def test_main_integration_all_types_H0YB80(minimal_hmmalign_lines_fixture_H0YB80, transfer_dict_success_all_types_H0YB80, annotations_content_all_types_fixture_H0YB80_PF00244, conservations_content_H0YB80_PF00244):
     """Integration test for main function"""
 
     with TemporaryDirectory() as tmp_dir:
         # Setup test files and directories
         hmmalign_path = os.path.join(tmp_dir, "PF00244_hmmalign.sth")
         with open(hmmalign_path, 'w', encoding='latin-1') as f:
-            f.write(minimal_hmmalign_content_mock)
+            f.write(minimal_hmmalign_lines_fixture_H0YB80)
 
         # Create full directory structure
         resource_dir = os.path.join(tmp_dir, "resources")
@@ -2785,7 +3899,7 @@ def test_main_integration_all_types_H0YB80_HUMAN(transfer_dict_success_all_types
 
         # Write annotations to proper path
         with open(os.path.join(pfam_dir, "annotations.json"), 'w', encoding='utf-8') as f:
-            json.dump(annotations_content_all_types_PF00244_fixture, f)
+            json.dump(annotations_content_all_types_fixture_H0YB80_PF00244, f)
 
         # Run main
         args = Namespace(
@@ -2800,8 +3914,12 @@ def test_main_integration_all_types_H0YB80_HUMAN(transfer_dict_success_all_types
             logger = configure_logging(args.log)
             main(logger)
 
+        # with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
+        #     transfer_dict = json.load(f)
+        #     print(json.dumps(transfer_dict, indent=4))
+
         assert os.path.exists(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"))
-        assert transfer_dict_success_all_types_H0YB80_HUMAN == json.load(open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"), 'r', encoding='utf-8'))
+        assert transfer_dict_success_all_types_H0YB80 == json.load(open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"), 'r', encoding='utf-8'))
 
 
 

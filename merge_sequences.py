@@ -1,7 +1,7 @@
 """
 merge_sequences.py
 
-Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
+Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -62,9 +62,10 @@ def configure_logging(log_path: str) -> logging.Logger:
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     return logging.getLogger()
 
-def merge_sequences(output_dir: str, logger: logging.Logger) -> None:
-    """Merges every sequence's PF*_report.json into a single JSON, with structure:
+def merge_sequences(output_dir: str, logger: logging.Logger) -> str:
+    """Merges every sequence's PF*_report.json into a single aggregated_report JSON, with structure:
     report[sequence][domain] = {<pair's data>} in the output directory.
+    Only processes JSONs in sequence dirs, skips domain dirs.
     For debugging purposes, also stores a list of unique domains in reported_domains.txt.
     Returns the path to aggregated_report.json."""
     aggregated_report_path = os.path.join(output_dir, "aggregated_report.json")
@@ -76,13 +77,16 @@ def merge_sequences(output_dir: str, logger: logging.Logger) -> None:
         return
 
     aggregated_report = {}
+    unique_domains = set()
 
     # Clear the contents of reported_domains.txt before appending new data
     open(reported_domains_path, "w", encoding="utf-8").close()
 
-    unique_domains = set()
 
     for root, _, files in os.walk(output_dir):
+        base_dir = os.path.basename(root)
+        if base_dir.startswith("PF") or root == output_dir:
+            continue
         for file in files:
             if file.endswith("_report.json"):
                 domain = file.split("_")[0]
@@ -90,105 +94,147 @@ def merge_sequences(output_dir: str, logger: logging.Logger) -> None:
                     unique_domains.add(domain)
                     with open(reported_domains_path, 'a', encoding='utf-8') as domains_path:
                         domains_path.write(domain + "\n")
-                with open(os.path.join(root, file), 'r', encoding='utf-8') as report_file:
-                    report = json.load(report_file)
-                    sequence = os.path.basename(root)
-                    if sequence not in aggregated_report:
-                        aggregated_report[sequence] = {}
-                    if domain not in aggregated_report[sequence]:
-                        aggregated_report[sequence][domain] = report
+                report_path = os.path.join(root, file)
+                try:
+                    with open(report_path, 'r', encoding='utf-8') as report_file:
+                        sequence_report = json.load(report_file)
+                        sequence_name = sequence_report["sequence_id"]
+                        domain_data = sequence_report["domain"]
+                        aggregated_report.setdefault(sequence_name, {})
+                        aggregated_report[sequence_name].update(domain_data)
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to parse JSON from {report_path}")
+                except Exception as e:
+                    logger.error(f"Error processing {report_path}: {str(e)}")
 
-    with open(aggregated_report_path, "w", encoding="utf-8") as aggregated_report_file:
-        json.dump(aggregated_report, aggregated_report_file, indent=4)
-    logger.info(f"Wrote unique domains to {reported_domains_path}")
-    logger.info(f"Wrote an aggregated report to {aggregated_report_path}")
+    try:
+        with open(aggregated_report_path, "w", encoding="utf-8") as aggregated_report_file:
+            json.dump(aggregated_report, aggregated_report_file, indent=4)
+        logger.info(f"Successfully wrote {len(unique_domains)} unique domains to {reported_domains_path}")
+        logger.info(f"Successfully wrote aggregated report for {len(aggregated_report)} sequences to {aggregated_report_path}")
+    except Exception as e:
+        logger.error(f"Failed to write aggregated report to {aggregated_report_path} - Error: {str(e)}")
+
     return aggregated_report_path
 
-def write_tsv_representation(aggregated_report_path: str, output_tsv_path: str, logger: logging.Logger) -> None:
+def extract_structured_details(details: dict, key_name: str) -> tuple[list, list, list, list]:
     """
-    Converts the aggregated report into a TSV representation and writes it to a file.
-    Requires the path to the aggregated report JSON and the path to write the output TSV file.
+    Extracts common structured data (accession, name, count) for a given key.
+    Returns (values, accessions, names, counts).
     """
+    values = []
+    accessions = []
+    names = []
+    counts = []
 
-    # Initialize the TSV header
+    for value, details in details.get(key_name, {}).items():
+        values.append(value)
+        accessions.append(details.get('rep_primary_accession', ''))
+        names.append(details.get('rep_mnemo_name', ''))
+        counts.append(str(details.get('count', '')))
+
+    return values, accessions, names, counts
+
+def extract_additional_keys_details(additional_keys: dict) -> tuple[list, list, list, list, list]:
+    """Extracts details from additional_keys structure."""
+    all_keys = []
+    all_values = []
+    all_keys_acc = []
+    all_keys_rep = []
+    all_keys_count = []
+
+    for key, value_dict in additional_keys.items():
+        for value, details in value_dict.items():
+            all_keys.append(key)
+            all_values.append(value)
+            all_keys_acc.append(details.get('rep_primary_accession', ''))
+            all_keys_rep.append(details.get('rep_mnemo_name', ''))
+            all_keys_count.append(str(details.get('count', '')))
+
+    return all_keys, all_values, all_keys_acc, all_keys_rep, all_keys_count
+
+
+def write_tsv_representation(aggregated_report_path: str, output_tsv_path: str) -> None:
+    """Converts aggregated report to TSV."""
     tsv_header = [
-        "Sequence ID", "Domain", "Position", "Anno ID", "Count",
-        "Evidence - Key", "Evidence - Rep", "Evidence - Count",
-        "Type", "Description"
+        # Core identifiers
+        "Sequence ID", "Domain", "Position", "Anno ID", "Hit Status",
+        "Type", "Description", "Count",
+        # Evidence details
+        "Evidence Value", "Evidence Accession", "Evidence Name", "Evidence Count",
+        # Paired position details
+        "Paired Position", "Paired Accession", "Paired Name", "Paired Count",
+        # Additional keys details
+        "Additional Key Type", "Additional Value",
+        "Additional Accession", "Additional Name", "Additional Count",
+        # Conservation data
+        "Conservation Score", "Conservation Hit",
+        # GO terms
+        "GO Annot Names", "GO Terms", "GO Jaccard Index",
+        # Indices data
+        "Annotation Matches", "Annotation Misses",
+        "Conservation Matches", "Conservation Misses"
     ]
-    additional_keys_set = set()
 
-    # First pass to collect all unique additional keys
-    with open(aggregated_report_path, 'r', encoding='utf-8') as aggregated_report_file:
-        aggregated_report = json.load(aggregated_report_file)
-        for sequence, domains in aggregated_report.items():
-            for domain, positions in domains.items():
-                for position, annotations in positions.items():
-                    for anno_id, details in annotations.items():
-                        additional_keys = details.get("additional_keys", {})
-                        for key in additional_keys.keys():
-                            additional_keys_set.add(key)
+    tsv_lines = []
+    with open(aggregated_report_path, 'r', encoding="utf-8") as report_file:
+        report = json.load(report_file)
 
-    # Add additional keys to the TSV header
-    for key in additional_keys_set:
-        tsv_header.extend([
-            f'"{key}" - Rep', f'"{key}" - Count', f'"{key}" - Value'
-        ])
+        for sequence, domains in report.items():
+            for domain, sequence_data in domains.items():
+                # Get indices data
+                anno_matches = '; '.join(sequence_data.get('annotations', {}).get('indices', {}).get('matches', []))
+                anno_misses = '; '.join(sequence_data.get('annotations', {}).get('indices', {}).get('misses', []))
+                cons_matches = '; '.join(sequence_data.get('conservations', {}).get('indices', {}).get('matches', []))
+                cons_misses = '; '.join(sequence_data.get('conservations', {}).get('indices', {}).get('misses', []))
 
-    # Initialize the TSV representation with the header
-    tsv_rep = "\t".join(tsv_header) + "\n"
+                for pos, annots in sequence_data.get('annotations', {}).get('positions', {}).items():
+                    for anno_id, details in annots.items():
+                        # Basic data
+                        essentials = details.get('essentials', {})
+                        hit_status = "Hit" if details.get('hit', False) else "Miss"
 
-    # Second pass to generate the TSV rows
-    with open(aggregated_report_path, 'r', encoding='utf-8') as aggregated_report_file:
-        aggregated_report = json.load(aggregated_report_file)
-        for sequence, domains in aggregated_report.items():
-            for domain, positions in domains.items():
-                for position, annotations in positions.items():
-                    for anno_id, details in annotations.items():
-                        essentials = details.get("essentials", {})
-                        evidence = details.get("evidence", {})
-                        additional_keys = details.get("additional_keys", {})
+                        # Evidence data
+                        ev_values, ev_acc, ev_names, ev_counts = extract_structured_details(details, 'evidence')
 
-                        type_ = essentials.get("type", "")
-                        description = essentials.get("description", "")
-                        count = essentials.get("count", "")
+                        # Paired position data
+                        paired_pos, paired_acc, paired_names, paired_counts = extract_structured_details(details, 'paired_position')
 
-                        # Handle multiple evidence entries
-                        evidence_keys = []
-                        evidence_reps = []
-                        evidence_counts = []
+                        # Additional keys data
+                        add_types, add_values, add_acc, add_names, add_counts = extract_additional_keys_details(
+                            details.get('additional_keys', {})
+                        )
 
-                        for evidence_key, evidence_value in evidence.items():
-                            evidence_keys.append(evidence_key)
-                            evidence_reps.append(evidence_value.get("rep_entry_name", ""))
-                            evidence_counts.append(evidence_value.get("count", ""))
+                        # Conservation data
+                        cons_data = sequence_data.get('conservations', {}).get('positions', {}).get(pos, {})
 
-                        # Join multiple evidence entries with a delimiter
-                        evidence_key_str = "; ".join(evidence_keys)
-                        evidence_rep_str = "; ".join(evidence_reps)
-                        evidence_count_str = "; ".join(map(str, evidence_counts))
+                        # GO data
+                        go_names = []
+                        go_terms = []
+                        jaccard_indices = []
+                        for go_mnemo_name, go_details in details.get('GO', {}).items():
+                            go_names.append(go_mnemo_name)
+                            go_terms.extend(go_details.get('terms', {}).keys())
+                            jaccard_indices.append(str(go_details.get('jaccard_index', '')))
 
-                        # Prepare row with basic details
                         row = [
-                            sequence, domain, position, anno_id, count,
-                            evidence_key_str, evidence_rep_str, evidence_count_str,
-                            type_, description
+                            sequence, domain, pos, anno_id, hit_status,
+                            essentials.get('type', ''), essentials.get('description', ''),
+                            str(essentials.get('count', '')),
+                            '; '.join(ev_values), '; '.join(ev_acc), '; '.join(ev_names), '; '.join(ev_counts),
+                            '; '.join(paired_pos), '; '.join(paired_acc), '; '.join(paired_names), '; '.join(paired_counts),
+                            '; '.join(add_types), '; '.join(add_values),
+                            '; '.join(add_acc), '; '.join(add_names), '; '.join(add_counts),
+                            str(cons_data.get('conservation', '')), str(cons_data.get('hit', '')),
+                            '; '.join(go_names), '; '.join(go_terms), '; '.join(jaccard_indices),
+                            anno_matches, anno_misses, cons_matches, cons_misses
                         ]
+                        tsv_lines.append('\t'.join(row))
 
-                        # Add additional key values, such as ligand_id, ligand_label...
-                        for additional_key in additional_keys_set:
-                            key_details = additional_keys.get(additional_key, {})
-                            rep_entry_name = key_details.get("rep_entry_name", "")
-                            key_count = key_details.get("count", "")
-                            value = key_details.get("value", "")
-                            row.extend([rep_entry_name, key_count, value])
-
-                        # Append the row to the TSV representation
-                        tsv_rep += "\t".join(map(str, row)) + "\n"
-
-    with open(output_tsv_path, 'w', encoding='utf-8') as output_tsv_file:
-        output_tsv_file.write(tsv_rep)
-    logger.info(f"Wrote TSV representation to {output_tsv_path}")
+    # Write all lines at once after processing
+    with open(output_tsv_path, 'w', encoding='utf-8') as tsv_file:
+        tsv_file.write('\t'.join(tsv_header) + '\n')
+        tsv_file.write('\n'.join(tsv_lines))
 
 def main(logger: logging.Logger):
     """Main function, initializes this script"""
@@ -198,7 +244,7 @@ def main(logger: logging.Logger):
 
     aggregated_report_path = merge_sequences(output_dir, logger)
     output_tsv = os.path.join(output_dir, "initial_visualization.tsv")
-    write_tsv_representation(aggregated_report_path, output_tsv_path=output_tsv, logger=logger)
+    write_tsv_representation(aggregated_report_path, output_tsv_path=output_tsv)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()

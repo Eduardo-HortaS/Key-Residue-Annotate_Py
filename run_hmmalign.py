@@ -1,7 +1,7 @@
 """
 run_hmmalign.py
 
-Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
+Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ def parse_arguments():
 
 def configure_logging(log_path: str) -> logging.Logger:
     """Set up logging for the script."""
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    os.makedirs(os.path.dirname(log_path),exist_ok=True)
     logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     return logging.getLogger()

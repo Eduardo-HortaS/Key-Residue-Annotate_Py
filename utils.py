@@ -26,11 +26,14 @@ or by running Snakemake.
 import argparse
 import logging
 import os
+import pyhmmer.easel
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from multiprocessing import Pool
 from typing import Iterator
 from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
 from typing import TypeVar, List, Callable
+
 
 # T = input type (could be str, int, dict, etc.)
 # R = return type (could be different from input)
@@ -53,10 +56,34 @@ def make_dirs_and_write_fasta(sequences: Iterator[SeqRecord], base_dir: str) -> 
         os.makedirs(os.path.join(base_dir, used_queryname), exist_ok=True)
         SeqIO.write(record, os.path.join(base_dir, used_queryname, "sequence.fasta"), "fasta")
 
-def seqrecord_yielder(fasta: str) -> Iterator[SeqRecord]:
-    """Yields SeqRecord objects from a FASTA file."""
+def translate_sequence(seq_record: SeqRecord, logger: logging.Logger) -> SeqRecord:
+    """Translates a nucleotide sequence using pyHMMER's translation table."""
+    # Create digital sequence using pyHMMER
+    digital_seq = pyhmmer.easel.TextSequence(
+        name=seq_record.id.encode(),
+        sequence=str(seq_record.seq).encode()
+    ).digitize(pyhmmer.easel.Alphabet.dna())
+
+    # Translate using pyHMMER
+    translated = digital_seq.translate()
+    logger.info("Translated %s to amino acids.", seq_record.id)
+    logger.info("Original sequence: %s", seq_record.seq)
+    logger.info("Translated sequence: %s", translated.sequence.decode())
+
+    # Create new SeqRecord with translated sequence
+    return SeqRecord(
+        Seq(translated.sequence.decode()),
+        id=seq_record.id,
+        description=seq_record.description
+    )
+
+def seqrecord_yielder(fasta: str, is_nucleotide: bool = False, logger: logging.Logger = None) -> Iterator[SeqRecord]:
+    """Yields SeqRecord objects from a FASTA file, translating if nucleotide."""
     for record in SeqIO.parse(fasta, "fasta"):
-        yield record
+        if is_nucleotide:
+            yield translate_sequence(record, logger)
+        else:
+            yield record
 
 def parallelize(func: Callable[[T], R], inputs: List[T], num_workers: int | None = None) -> List[R]:
     """

@@ -1,7 +1,7 @@
 """
 executor.py
 
-Copyright 2024 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
+Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -43,8 +43,8 @@ def load_config(config_file=None):
             "fasta": config.get("Inputs", "fasta", fallback=None),
             "hmm": config.get("Inputs", "hmm", fallback=None),
             "iprscan_path": config.get("Paths", "iprscan_path", fallback=None),
-            "output_format_iprscan": config.get("Parameters", "iprscan_out_format", fallback="TSV"),
-            "databases": config.get("Parameters", "databases", fallback="panther,gene3d,smart,pfam,superfamily"),
+            "output_format_iprscan": config.get("Parameters", "output_format_iprscan", fallback="TSV, XML, GFF3"),
+            "databases": config.get("Parameters", "databases", fallback=""),
             "resource_dir": config.get("Paths", "resource_dir", fallback=None),
             "output_dir": config.get("Paths", "output_dir", fallback=None),
             "threads": config.getint("Parameters", "threads", fallback=1),
@@ -62,7 +62,7 @@ def parse_arguments():
     parser.add_argument("-iH", "--hmm", help="Input hmm file")
     parser.add_argument("-iP", "--iprscan-path", type=str, help="Path to interproscan.sh")
     parser.add_argument("-of", "--output-format-iprscan", type=str, help="Output format for interproscan")
-    parser.add_argument("-dB", "--databases", help="Databases to use for interproscan")
+    parser.add_argument("-dB", "--databases", help="Optional: Comma-separated databases to limit InterProScan search, if the single purpose is using GO terms inside the pipeline, pass the string panther,gene3d,smart,pfam,superfamily")
     parser.add_argument("-r", "--resource-dir", help="Resource directory")
     parser.add_argument("-o", "--output-dir", help="Output directory")
     parser.add_argument("-t", "--threads", type=int, help="Number of threads")
@@ -200,8 +200,6 @@ def main():
             f.write("")
         logger.info("TRANSFER_ANNOTATIONS.PY --- Executed")
 
-    # compare_go_terms.py
-
     # merge_sequences.py
     merge_sequences_done = os.path.join(output_dir, "merge_sequences.done")
     if os.path.exists(merge_sequences_done):
@@ -212,6 +210,9 @@ def main():
         with open(merge_sequences_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("MERGE_SEQUENCES --- Executed")
+
+    # make_view_jsons.py
+    make_view_jsons_done = os.path.join(output_dir, "make_view_jsons.done")
 
     logger.info("Pipeline finished successfully")
 
