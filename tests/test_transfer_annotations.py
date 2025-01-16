@@ -30,7 +30,7 @@ from transfer_annotations import (
     populate_conservation,
     populate_go_data_for_annotations,
     cleanup_improve_transfer_dict,
-    convert_sets_to_lists,
+    convert_sets_and_tuples_to_lists,
     write_reports,
     map_and_filter_annot_pos,
     add_to_transfer_dict,
@@ -691,125 +691,142 @@ def transfer_dict():
 
 @pytest.fixture
 def transfer_dict_populated_disulfid_Q9NU22():
+    """Populated transfer_dict with DISULFID annotations for a single pair, 333 and 373 in Q9NU22.
+    Note that sets and tuples will be converted to lists before JSON serialization."""
     return {
     "DOMAIN": {
         "sequence_id": {
             "sp|Q9NU22|MDN1_HUMAN": {
-                "sequence": "VLLEGPIGCGKTSLVEYLAAVTGRTKPPQLLKVQLGDQTDSKMLLGMYCCTDVPGEFVWQPGTLTQAATMGHWILLEDIDYAPLDVVSVLIPLLENGELLIPGRGDCLKVAPGFQFFATRRLLSCGG",
-                "length": 127,
-                "hit_start": 325,
-                "hit_end": 451,
-                "annotations": {
-                    "positions": {
-                        "333": {
-                            "DISULFID | Intrachain (with C-246); in linked form": {
-                                "essentials": {
-                                    "type": "DISULFID",
-                                    "description": "Intrachain (with C-246); in linked form",
-                                    "count": 1,
-                                    "annot_amino_acid": "C",
-                                    "target_amino_acid": "C"
-                                },
-                                "evidence": {
-                                    "ECO:0000269|PubMed:12345678": {
-                                        "rep_primary_accession": "P15005",
-                                        "rep_mnemo_name": "MCRB_ECOLI",
-                                        "count": 1
+                "hit_intervals": {
+                    "325-451": {
+                        "sequence": "VLLEGPIGCGKTSLVEYLAAVTGRTKPPQLLKVQLGDQTDSKMLLGMYCCTDVPGEFVWQPGTLTQAATMGHWILLEDIDYAPLDVVSVLIPLLENGELLIPGRGDCLKVAPGFQFFATRRLLSCGG",
+                        "length": 127,
+                        "hit_start": 325,
+                        "hit_end": 451,
+                        "annotations": {
+                            "positions": {
+                                "333": {
+                                    "DISULFID | Intrachain (with C-246); in linked form": {
+                                        "essentials": {
+                                            "type": "DISULFID",
+                                            "description": "Intrachain (with C-246); in linked form",
+                                            "count": 1,
+                                            "annot_amino_acid": "C",
+                                            "target_amino_acid": "C"
+                                        },
+                                        "evidence": {
+                                            "ECO:0000269|PubMed:12345678": {
+                                                "rep_primary_accession": "P15005",
+                                                "rep_mnemo_name": "MCRB_ECOLI",
+                                                "count": 1
+                                            }
+                                        },
+                                        "paired_position": {
+                                            "373": {
+                                                "rep_primary_accession": "P15005",
+                                                "rep_mnemo_name": "MCRB_ECOLI",
+                                                "count": 1
+                                            }
+                                        },
+                                        "hit" : True,
+                                        "additional_keys": {
+                                            "annot_position": {
+                                                "205": {
+                                                    "rep_primary_accession": "P15005",
+                                                    "rep_mnemo_name": "MCRB_ECOLI",
+                                                    "count": 1
+                                                }
+                                            }
+                                        }
                                     }
                                 },
-                                "paired_position": {
-                                    "373": {
-                                        "rep_primary_accession": "P15005",
-                                        "rep_mnemo_name": "MCRB_ECOLI",
-                                        "count": 1
-                                    }
-                                },
-                                "hit" : True,
-                                "additional_keys": {
-                                    "annot_position": {
-                                        "205": {
-                                            "rep_primary_accession": "P15005",
-                                            "rep_mnemo_name": "MCRB_ECOLI",
-                                            "count": 1
+                                "373": {
+                                    "DISULFID | Intrachain (with C-205); in linked form": {
+                                        "essentials": {
+                                            "type": "DISULFID",
+                                            "description": "Intrachain (with C-205); in linked form",
+                                            "count": 1,
+                                            "annot_amino_acid": "C",
+                                            "target_amino_acid": "C"
+                                        },
+                                        "evidence": {
+                                            "ECO:0000269|PubMed:12345678": {
+                                                "rep_primary_accession": "P15005",
+                                                "rep_mnemo_name": "MCRB_ECOLI",
+                                                "count": 1
+                                            }
+                                        },
+                                        "paired_position": {
+                                            "333": {
+                                                "rep_primary_accession": "P15005",
+                                                "rep_mnemo_name": "MCRB_ECOLI",
+                                                "count": 1
+                                            }
+                                        },
+                                        "hit" : True,
+                                        "additional_keys": {
+                                            "annot_position": {
+                                                "246": {
+                                                    "rep_primary_accession": "P15005",
+                                                    "rep_mnemo_name": "MCRB_ECOLI",
+                                                    "count": 1
+                                                }
+                                            }
                                         }
                                     }
                                 }
+                            },
+                            "indices": {
+                                "matches": {"333", "373"}, # set literal
+                                "misses": set()
                             }
                         },
-                        "373": {
-                            "DISULFID | Intrachain (with C-205); in linked form": {
-                                "essentials": {
-                                    "type": "DISULFID",
-                                    "description": "Intrachain (with C-205); in linked form",
-                                    "count": 1,
-                                    "annot_amino_acid": "C",
-                                    "target_amino_acid": "C"
+                        "conservations": {
+                            "positions": {},
+                            "indices": {
+                                "matches": set(),
+                                "misses": set()
+                            }
+                        },
+                        "position_conversion": {
+                            "target_to_aln": {
+                                "333": "18",
+                                "373": "72"
                                 },
-                                "evidence": {
-                                    "ECO:0000269|PubMed:12345678": {
-                                        "rep_primary_accession": "P15005",
-                                        "rep_mnemo_name": "MCRB_ECOLI",
-                                        "count": 1
-                                    }
+                            "aln_to_target": {
+                                # Used to be set literals, not needed since no target-ali mapping repetition within an interval
+                                "18": "333",
+                                "72": "373"
+                                }
+                            },
+                            "annotation_ranges": {
+                                "DISULFID | Intrachain (with C-246); in linked form": {
+                                    "positions": {333},
+                                    "ranges": [(333, 333)]
                                 },
-                                "paired_position": {
-                                    "333": {
-                                        "rep_primary_accession": "P15005",
-                                        "rep_mnemo_name": "MCRB_ECOLI",
-                                        "count": 1
-                                    }
-                                },
-                                "hit" : True,
-                                "additional_keys": {
-                                    "annot_position": {
-                                        "246": {
-                                            "rep_primary_accession": "P15005",
-                                            "rep_mnemo_name": "MCRB_ECOLI",
-                                            "count": 1
-                                        }
-                                    }
+                                "DISULFID | Intrachain (with C-205); in linked form": {
+                                    "positions": {373},
+                                    "ranges": [(373, 373)]
                                 }
                             }
                         }
-                    },
-                    "indices": {
-                        "matches": set(["333", "373"]),
-                        "misses": set()
                     }
-                },
-                "conservations": {
-                    "positions": {},
-                    "indices": {
-                        "matches": set(),
-                        "misses": set()
-                    }
-                },
-                "position_conversion": {
-                    "target_to_aln": {
-                        "333": "18",
-                        "373": "72"
-                        },
-                    "aln_to_target": {
-                        "18": "333",
-                        "72": "373"
-                        }
-                    }
+                }
             }
         }
     }
-}
 
 @pytest.fixture
 def transfer_dict_populated_disulfid_list_Q9NU22(transfer_dict_populated_disulfid_Q9NU22):
     """Same dictionary but with lists instead of sets"""
-    return convert_sets_to_lists(copy.deepcopy(transfer_dict_populated_disulfid_Q9NU22))
+    return convert_sets_and_tuples_to_lists(copy.deepcopy(transfer_dict_populated_disulfid_Q9NU22))
 
 @pytest.fixture
 def transfer_dict_populated_disulfid_post_processed_Q9NU22(transfer_dict_populated_disulfid_Q9NU22):
     """Creates an extended version of transfer_dict_populated_disulfid_Q9NU22 with GO and conservation data."""
     extended_dict = copy.deepcopy(transfer_dict_populated_disulfid_Q9NU22)
     extended_dict["PF07728"] = extended_dict.pop("DOMAIN")
-    extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["conservations"]["positions"].update({
+    extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["conservations"]["positions"].update({
         "137": {
             "conservation": 0.956244087038789,
             "hit": True
@@ -819,7 +836,7 @@ def transfer_dict_populated_disulfid_post_processed_Q9NU22(transfer_dict_populat
             "hit": True
         }
     })
-    extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["conservations"]["indices"]["matches"].update(["137", "179"])
+    extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["conservations"]["indices"]["matches"].update(["137", "179"])
     go_data = {
         "GO": {
             "MCRB_ECOLI": {
@@ -829,14 +846,14 @@ def transfer_dict_populated_disulfid_post_processed_Q9NU22(transfer_dict_populat
         }
     }
     for pos in ["333", "373"]:
-        anno_key = next(iter(extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["annotations"]["positions"][pos].keys()))
-        extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["annotations"]["positions"][pos][anno_key].update(go_data)
+        anno_key = next(iter(extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"][pos].keys()))
+        extended_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"][pos][anno_key].update(go_data)
     return extended_dict
 
 @pytest.fixture
 def transfer_dict_populated_disulfid_post_processed_list_Q9NU22(transfer_dict_populated_disulfid_post_processed_Q9NU22):
     """Post-processed version with lists"""
-    return convert_sets_to_lists(copy.deepcopy(transfer_dict_populated_disulfid_post_processed_Q9NU22))
+    return convert_sets_and_tuples_to_lists(copy.deepcopy(transfer_dict_populated_disulfid_post_processed_Q9NU22))
 
 # @pytest.fixture
 # def transfer_dict_success_disulfid_Q9NU22():
@@ -983,487 +1000,487 @@ def transfer_dict_populated_disulfid_post_processed_list_Q9NU22(transfer_dict_po
 #     }
 # }
 
-# @pytest.fixture
-# def transfer_dict_success_binding_Q9NU22():
-#     return {
-#     "match": {
-#         "329": {
-#             "BINDING | Interacts with GTP": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with GTP",
-#                     "count": 1,
-#                     "annot_amino_acid": "G",
-#                     "target_amino_acid": "G"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000255": {
-#                         "rep_primary_accession": "P15005",
-#                         "rep_mnemo_name": "MCRB_ECOLI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_id": {
-#                         "ChEBI:CHEBI:37565": {
-#                             "rep_primary_accession": "P15005",
-#                             "rep_mnemo_name": "MCRB_ECOLI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "330": {
-#             "BINDING | Interacts with GTP": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with GTP",
-#                     "count": 1,
-#                     "annot_amino_acid": "P",
-#                     "target_amino_acid": "P"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000255": {
-#                         "rep_primary_accession": "P15005",
-#                         "rep_mnemo_name": "MCRB_ECOLI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_id": {
-#                         "ChEBI:CHEBI:37565": {
-#                             "rep_primary_accession": "P15005",
-#                             "rep_mnemo_name": "MCRB_ECOLI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "677": {
-#             "BINDING | Interacts with GTP": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with GTP",
-#                     "count": 1,
-#                     "annot_amino_acid": "G",
-#                     "target_amino_acid": "G"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000255": {
-#                         "rep_primary_accession": "P15005",
-#                         "rep_mnemo_name": "MCRB_ECOLI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_id": {
-#                         "ChEBI:CHEBI:37565": {
-#                             "rep_primary_accession": "P15005",
-#                             "rep_mnemo_name": "MCRB_ECOLI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     },
-#     "miss": {
-#         "678": {
-#             "BINDING | Interacts with GTP": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with GTP",
-#                     "count": 1,
-#                     "annot_amino_acid": "P",
-#                     "target_amino_acid": "E"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000255": {
-#                         "rep_primary_accession": "P15005",
-#                         "rep_mnemo_name": "MCRB_ECOLI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_id": {
-#                         "ChEBI:CHEBI:37565": {
-#                             "rep_primary_accession": "P15005",
-#                             "rep_mnemo_name": "MCRB_ECOLI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     }
-# }
+@pytest.fixture
+def transfer_dict_success_binding_Q9NU22():
+    return {
+    "match": {
+        "329": {
+            "BINDING | Interacts with GTP": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with GTP",
+                    "count": 1,
+                    "annot_amino_acid": "G",
+                    "target_amino_acid": "G"
+                },
+                "evidence": {
+                    "ECO:0000255": {
+                        "rep_primary_accession": "P15005",
+                        "rep_mnemo_name": "MCRB_ECOLI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_id": {
+                        "ChEBI:CHEBI:37565": {
+                            "rep_primary_accession": "P15005",
+                            "rep_mnemo_name": "MCRB_ECOLI",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        },
+        "330": {
+            "BINDING | Interacts with GTP": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with GTP",
+                    "count": 1,
+                    "annot_amino_acid": "P",
+                    "target_amino_acid": "P"
+                },
+                "evidence": {
+                    "ECO:0000255": {
+                        "rep_primary_accession": "P15005",
+                        "rep_mnemo_name": "MCRB_ECOLI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_id": {
+                        "ChEBI:CHEBI:37565": {
+                            "rep_primary_accession": "P15005",
+                            "rep_mnemo_name": "MCRB_ECOLI",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        },
+        "677": {
+            "BINDING | Interacts with GTP": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with GTP",
+                    "count": 1,
+                    "annot_amino_acid": "G",
+                    "target_amino_acid": "G"
+                },
+                "evidence": {
+                    "ECO:0000255": {
+                        "rep_primary_accession": "P15005",
+                        "rep_mnemo_name": "MCRB_ECOLI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_id": {
+                        "ChEBI:CHEBI:37565": {
+                            "rep_primary_accession": "P15005",
+                            "rep_mnemo_name": "MCRB_ECOLI",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "miss": {
+        "678": {
+            "BINDING | Interacts with GTP": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with GTP",
+                    "count": 1,
+                    "annot_amino_acid": "P",
+                    "target_amino_acid": "E"
+                },
+                "evidence": {
+                    "ECO:0000255": {
+                        "rep_primary_accession": "P15005",
+                        "rep_mnemo_name": "MCRB_ECOLI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_id": {
+                        "ChEBI:CHEBI:37565": {
+                            "rep_primary_accession": "P15005",
+                            "rep_mnemo_name": "MCRB_ECOLI",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
-# @pytest.fixture
-# def transfer_dict_success_all_types_H0YB80():
-#     return {
-#     "match": {
-#         "12": {
-#             "BINDING | Interacts with peptide": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with peptide",
-#                     "count": 1,
-#                     "annot_amino_acid": "R",
-#                     "target_amino_acid": "R"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:21853016": {
-#                         "rep_primary_accession": "Q5CUW0",
-#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_ccd_id": {
-#                         "peptide": {
-#                             "rep_primary_accession": "Q5CUW0",
-#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             },
-#             "BINDING | Interacts with O-phospho-L-serine": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with O-phospho-L-serine",
-#                     "count": 1,
-#                     "annot_amino_acid": "R",
-#                     "target_amino_acid": "R"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:26551337": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 },
-#                 "paired_position": {
-#                     "13": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_id": {
-#                         "ChEBI:CHEBI:57524": {
-#                             "rep_primary_accession": "E2RU97",
-#                             "rep_mnemo_name": "1433_GIAIC",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "13": {
-#             "BINDING | Interacts with peptide": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with peptide",
-#                     "count": 1,
-#                     "annot_amino_acid": "Y",
-#                     "target_amino_acid": "Y"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:21853016": {
-#                         "rep_primary_accession": "Q5CUW0",
-#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_ccd_id": {
-#                         "peptide": {
-#                             "rep_primary_accession": "Q5CUW0",
-#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             },
-#             "BINDING | Interacts with O-phospho-L-serine": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with O-phospho-L-serine",
-#                     "count": 1,
-#                     "annot_amino_acid": "Y",
-#                     "target_amino_acid": "Y"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:26551337": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 },
-#                 "paired_position": {
-#                     "12": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_id": {
-#                         "ChEBI:CHEBI:57524": {
-#                             "rep_primary_accession": "E2RU97",
-#                             "rep_mnemo_name": "1433_GIAIC",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "57": {
-#             "BINDING | Interacts with peptide": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with peptide",
-#                     "count": 2,
-#                     "annot_amino_acid": "L",
-#                     "target_amino_acid": "L"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:21853016": {
-#                         "rep_primary_accession": "Q5CUW0",
-#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                         "count": 1
-#                     },
-#                     "ECO:0000269|PubMed:26551337": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_ccd_id": {
-#                         "peptide": {
-#                             "rep_primary_accession": "Q5CUW0",
-#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                             "count": 2
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "58": {
-#             "BINDING | Interacts with peptide": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with peptide",
-#                     "count": 2,
-#                     "annot_amino_acid": "N",
-#                     "target_amino_acid": "N"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:21853016": {
-#                         "rep_primary_accession": "Q5CUW0",
-#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                         "count": 1
-#                     },
-#                     "ECO:0000269|PubMed:26551337": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_ccd_id": {
-#                         "peptide": {
-#                             "rep_primary_accession": "Q5CUW0",
-#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                             "count": 2
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "65": {
-#             "BINDING | Interacts with peptide": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with peptide",
-#                     "count": 1,
-#                     "annot_amino_acid": "E",
-#                     "target_amino_acid": "E"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:21853016": {
-#                         "rep_primary_accession": "Q5CUW0",
-#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_ccd_id": {
-#                         "peptide": {
-#                             "rep_primary_accession": "Q5CUW0",
-#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "109": {
-#             "BINDING | Interacts with peptide": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with peptide",
-#                     "count": 2,
-#                     "annot_amino_acid": "N",
-#                     "target_amino_acid": "N"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:21853016": {
-#                         "rep_primary_accession": "Q5CUW0",
-#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                         "count": 1
-#                     },
-#                     "ECO:0000269|PubMed:26551337": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_ccd_id": {
-#                         "peptide": {
-#                             "rep_primary_accession": "Q5CUW0",
-#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                             "count": 2
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "113": {
-#             "BINDING | Interacts with peptide": {
-#                 "essentials": {
-#                     "type": "BINDING",
-#                     "description": "Interacts with peptide",
-#                     "count": 1,
-#                     "annot_amino_acid": "W",
-#                     "target_amino_acid": "W"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:21853016": {
-#                         "rep_primary_accession": "Q5CUW0",
-#                         "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                         "count": 1
-#                     }
-#                 },
-#                 "additional_keys": {
-#                     "ligand_ccd_id": {
-#                         "peptide": {
-#                             "rep_primary_accession": "Q5CUW0",
-#                             "rep_mnemo_name": "Q5CUW0_CRYPI",
-#                             "count": 1
-#                         }
-#                     }
-#                 }
-#             }
-#         },
-#         "61": {
-#             "MUTAGEN | V->D: Loss of binding to difopein.": {
-#                 "essentials": {
-#                     "type": "MUTAGEN",
-#                     "description": "V->D: Loss of binding to difopein.",
-#                     "count": 1,
-#                     "annot_amino_acid": "V",
-#                     "target_amino_acid": "V"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:19733174": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 }
-#             }
-#         }
-#     },
-#     "miss": {
-#         "78": {
-#             "MUTAGEN | R->K: Increased oligomerization.": {
-#                 "essentials": {
-#                     "type": "MUTAGEN",
-#                     "description": "R->K: Increased oligomerization.",
-#                     "count": 1,
-#                     "annot_amino_acid": "R",
-#                     "target_amino_acid": "K"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:24658679": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 }
-#             }
-#         },
-#         "86": {
-#             "MUTAGEN | T->A: Slightly decreased oligomerization.": {
-#                 "essentials": {
-#                     "type": "MUTAGEN",
-#                     "description": "T->A: Slightly decreased oligomerization.",
-#                     "count": 1,
-#                     "annot_amino_acid": "T",
-#                     "target_amino_acid": "A"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:24658679": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 }
-#             }
-#         },
-#         "92": {
-#             "MOD_RES | Phosphothreonine": {
-#                 "essentials": {
-#                     "type": "MOD_RES",
-#                     "description": "Phosphothreonine",
-#                     "count": 1,
-#                     "annot_amino_acid": "T",
-#                     "target_amino_acid": "S"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:16368691, ECO:0000269|PubMed:19733174, ECO:0000269|PubMed:24147113, ECO:0000269|PubMed:24658679": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 }
-#             },
-#             "MUTAGEN | T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides.": {
-#                 "essentials": {
-#                     "type": "MUTAGEN",
-#                     "description": "T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides.",
-#                     "count": 1,
-#                     "annot_amino_acid": "T",
-#                     "target_amino_acid": "S"
-#                 },
-#                 "evidence": {
-#                     "ECO:0000269|PubMed:16368691, ECO:0000269|PubMed:19733174": {
-#                         "rep_primary_accession": "E2RU97",
-#                         "rep_mnemo_name": "1433_GIAIC",
-#                         "count": 1
-#                     }
-#                 }
-#             }
-#         }
-#     }
-# }
+@pytest.fixture
+def transfer_dict_success_all_types_H0YB80():
+    return {
+    "match": {
+        "12": {
+            "BINDING | Interacts with peptide": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with peptide",
+                    "count": 1,
+                    "annot_amino_acid": "R",
+                    "target_amino_acid": "R"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:21853016": {
+                        "rep_primary_accession": "Q5CUW0",
+                        "rep_mnemo_name": "Q5CUW0_CRYPI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_ccd_id": {
+                        "peptide": {
+                            "rep_primary_accession": "Q5CUW0",
+                            "rep_mnemo_name": "Q5CUW0_CRYPI",
+                            "count": 1
+                        }
+                    }
+                }
+            },
+            "BINDING | Interacts with O-phospho-L-serine": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with O-phospho-L-serine",
+                    "count": 1,
+                    "annot_amino_acid": "R",
+                    "target_amino_acid": "R"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:26551337": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                },
+                "paired_position": {
+                    "13": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_id": {
+                        "ChEBI:CHEBI:57524": {
+                            "rep_primary_accession": "E2RU97",
+                            "rep_mnemo_name": "1433_GIAIC",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        },
+        "13": {
+            "BINDING | Interacts with peptide": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with peptide",
+                    "count": 1,
+                    "annot_amino_acid": "Y",
+                    "target_amino_acid": "Y"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:21853016": {
+                        "rep_primary_accession": "Q5CUW0",
+                        "rep_mnemo_name": "Q5CUW0_CRYPI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_ccd_id": {
+                        "peptide": {
+                            "rep_primary_accession": "Q5CUW0",
+                            "rep_mnemo_name": "Q5CUW0_CRYPI",
+                            "count": 1
+                        }
+                    }
+                }
+            },
+            "BINDING | Interacts with O-phospho-L-serine": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with O-phospho-L-serine",
+                    "count": 1,
+                    "annot_amino_acid": "Y",
+                    "target_amino_acid": "Y"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:26551337": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                },
+                "paired_position": {
+                    "12": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_id": {
+                        "ChEBI:CHEBI:57524": {
+                            "rep_primary_accession": "E2RU97",
+                            "rep_mnemo_name": "1433_GIAIC",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        },
+        "57": {
+            "BINDING | Interacts with peptide": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with peptide",
+                    "count": 2,
+                    "annot_amino_acid": "L",
+                    "target_amino_acid": "L"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:21853016": {
+                        "rep_primary_accession": "Q5CUW0",
+                        "rep_mnemo_name": "Q5CUW0_CRYPI",
+                        "count": 1
+                    },
+                    "ECO:0000269|PubMed:26551337": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_ccd_id": {
+                        "peptide": {
+                            "rep_primary_accession": "Q5CUW0",
+                            "rep_mnemo_name": "Q5CUW0_CRYPI",
+                            "count": 2
+                        }
+                    }
+                }
+            }
+        },
+        "58": {
+            "BINDING | Interacts with peptide": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with peptide",
+                    "count": 2,
+                    "annot_amino_acid": "N",
+                    "target_amino_acid": "N"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:21853016": {
+                        "rep_primary_accession": "Q5CUW0",
+                        "rep_mnemo_name": "Q5CUW0_CRYPI",
+                        "count": 1
+                    },
+                    "ECO:0000269|PubMed:26551337": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_ccd_id": {
+                        "peptide": {
+                            "rep_primary_accession": "Q5CUW0",
+                            "rep_mnemo_name": "Q5CUW0_CRYPI",
+                            "count": 2
+                        }
+                    }
+                }
+            }
+        },
+        "65": {
+            "BINDING | Interacts with peptide": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with peptide",
+                    "count": 1,
+                    "annot_amino_acid": "E",
+                    "target_amino_acid": "E"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:21853016": {
+                        "rep_primary_accession": "Q5CUW0",
+                        "rep_mnemo_name": "Q5CUW0_CRYPI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_ccd_id": {
+                        "peptide": {
+                            "rep_primary_accession": "Q5CUW0",
+                            "rep_mnemo_name": "Q5CUW0_CRYPI",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        },
+        "109": {
+            "BINDING | Interacts with peptide": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with peptide",
+                    "count": 2,
+                    "annot_amino_acid": "N",
+                    "target_amino_acid": "N"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:21853016": {
+                        "rep_primary_accession": "Q5CUW0",
+                        "rep_mnemo_name": "Q5CUW0_CRYPI",
+                        "count": 1
+                    },
+                    "ECO:0000269|PubMed:26551337": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_ccd_id": {
+                        "peptide": {
+                            "rep_primary_accession": "Q5CUW0",
+                            "rep_mnemo_name": "Q5CUW0_CRYPI",
+                            "count": 2
+                        }
+                    }
+                }
+            }
+        },
+        "113": {
+            "BINDING | Interacts with peptide": {
+                "essentials": {
+                    "type": "BINDING",
+                    "description": "Interacts with peptide",
+                    "count": 1,
+                    "annot_amino_acid": "W",
+                    "target_amino_acid": "W"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:21853016": {
+                        "rep_primary_accession": "Q5CUW0",
+                        "rep_mnemo_name": "Q5CUW0_CRYPI",
+                        "count": 1
+                    }
+                },
+                "additional_keys": {
+                    "ligand_ccd_id": {
+                        "peptide": {
+                            "rep_primary_accession": "Q5CUW0",
+                            "rep_mnemo_name": "Q5CUW0_CRYPI",
+                            "count": 1
+                        }
+                    }
+                }
+            }
+        },
+        "61": {
+            "MUTAGEN | V->D: Loss of binding to difopein.": {
+                "essentials": {
+                    "type": "MUTAGEN",
+                    "description": "V->D: Loss of binding to difopein.",
+                    "count": 1,
+                    "annot_amino_acid": "V",
+                    "target_amino_acid": "V"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:19733174": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                }
+            }
+        }
+    },
+    "miss": {
+        "78": {
+            "MUTAGEN | R->K: Increased oligomerization.": {
+                "essentials": {
+                    "type": "MUTAGEN",
+                    "description": "R->K: Increased oligomerization.",
+                    "count": 1,
+                    "annot_amino_acid": "R",
+                    "target_amino_acid": "K"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:24658679": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                }
+            }
+        },
+        "86": {
+            "MUTAGEN | T->A: Slightly decreased oligomerization.": {
+                "essentials": {
+                    "type": "MUTAGEN",
+                    "description": "T->A: Slightly decreased oligomerization.",
+                    "count": 1,
+                    "annot_amino_acid": "T",
+                    "target_amino_acid": "A"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:24658679": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                }
+            }
+        },
+        "92": {
+            "MOD_RES | Phosphothreonine": {
+                "essentials": {
+                    "type": "MOD_RES",
+                    "description": "Phosphothreonine",
+                    "count": 1,
+                    "annot_amino_acid": "T",
+                    "target_amino_acid": "S"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:16368691, ECO:0000269|PubMed:19733174, ECO:0000269|PubMed:24147113, ECO:0000269|PubMed:24658679": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                }
+            },
+            "MUTAGEN | T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides.": {
+                "essentials": {
+                    "type": "MUTAGEN",
+                    "description": "T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides.",
+                    "count": 1,
+                    "annot_amino_acid": "T",
+                    "target_amino_acid": "S"
+                },
+                "evidence": {
+                    "ECO:0000269|PubMed:16368691, ECO:0000269|PubMed:19733174": {
+                        "rep_primary_accession": "E2RU97",
+                        "rep_mnemo_name": "1433_GIAIC",
+                        "count": 1
+                    }
+                }
+            }
+        }
+    }
+}
 
 ## Added in Process_annotation
 @pytest.fixture
@@ -1644,7 +1661,10 @@ def mock_anno_total_disulfid():
         "evidence": "ECO:0000269|PubMed:12345678",
         "target_position": "333",
         "annot_position": "205",
-        "paired_target_position": "373"
+        "paired_target_position": "373",
+        "index_position": "18",
+        "annot_amino_acid": "C",
+        "target_amino_acid": "C"
     }
 
 @pytest.fixture
@@ -1657,7 +1677,10 @@ def mock_paired_anno_total_disulfid():
         "evidence": "ECO:0000269|PubMed:12345678",
         "target_position": "373",
         "annot_position": "246",
-        "paired_target_position": "333"
+        "paired_target_position": "333",
+        "index_position": "72",
+        "annot_amino_acid": "C",
+        "target_amino_acid": "C"
     }
 
 @pytest.fixture
@@ -2044,8 +2067,8 @@ def test_read_conservations_and_annotations_empty_files(mock_json_filepaths):
         json.dump({}, f)
 
     conservations, annotations = read_conservations_and_annotations(str(cons_file), str(annot_file))
-    assert conservations == {}
-    assert annotations == {}
+    assert conservations == {"sequence_id/range": {}}
+    assert annotations == {"sequence_id": {}}
 
 ###T parse_go_annotations
 
@@ -3194,6 +3217,7 @@ def test_add_to_transfer_dict_disulfid_single_first_addition(
 
     anno_id = mock_make_anno_total_disulfid_return_205_P15005['anno_id']
     anno_total = mock_anno_total_disulfid
+    hit_interval = f"{target_hit_start_mock_Q9NU22}-{target_hit_end_mock_Q9NU22}"
 
     add_to_transfer_dict(
         hit=True,
@@ -3209,15 +3233,14 @@ def test_add_to_transfer_dict_disulfid_single_first_addition(
         entry_primary_accession=entry_primary_accesion_mock_Q9NU22,
     )
     ### DELETE
-    # transfo_dicto = convert_sets_to_lists(transfer_dict)
-    # print(json.dumps(transfo_dicto, indent=4))
+    # print(" \n Transfer dict: \n ", json.dumps(convert_sets_and_tuples_to_lists(transfer_dict), indent=4))
     ### DELETE
+    positions_dict = transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['hit_intervals'][hit_interval]['annotations']['positions']
     assert target_name_mock_Q9NU22 in transfer_dict['DOMAIN']['sequence_id']
-    assert 'positions' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']
-    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
-    assert anno_total['target_position'] in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
-    assert anno_id in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions'][anno_total['target_position']]
-    assert transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions'][anno_total['target_position']][anno_id]['essentials']['type'] == 'DISULFID'
+    assert '333' in positions_dict
+    assert anno_total['index_position'] in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['hit_intervals'][hit_interval]['position_conversion']['target_to_aln']['333']
+    assert anno_id in positions_dict[anno_total['target_position']]
+    assert positions_dict[anno_total['target_position']][anno_id]['essentials']['type'] == 'DISULFID'
 
 def test_add_to_transfer_dict_paired_disulfide(
     logger, transfer_dict,
@@ -3232,6 +3255,7 @@ def test_add_to_transfer_dict_paired_disulfide(
     anno_total = mock_anno_total_disulfid.copy()
     paired_anno_total = mock_paired_anno_total_disulfid.copy()
     paired_anno_id = mock_make_anno_total_disulfid_return_246_P15005['anno_id']
+    hit_interval = f"{target_hit_start_mock_Q9NU22}-{target_hit_end_mock_Q9NU22}"
 
     add_to_transfer_dict(
         hit=True,
@@ -3250,17 +3274,20 @@ def test_add_to_transfer_dict_paired_disulfide(
         paired_anno_total=paired_anno_total
     )
 
+    # print(" \n Transfer dict: \n ", json.dumps(convert_sets_and_tuples_to_lists(transfer_dict), indent=4))
+    positions_dict = transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['hit_intervals'][hit_interval]['annotations']['positions']
+
     # Assert main position
-    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
-    assert anno_id in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333']
+    assert '333' in positions_dict
+    assert anno_id in positions_dict['333']
 
     # Assert paired position
-    assert '373' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
-    assert paired_anno_id in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373']
+    assert '373' in positions_dict
+    assert paired_anno_id in positions_dict['373']
 
     # Assert cross-references
-    assert '373' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333'][anno_id]['paired_position']
-    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373'][paired_anno_id]['paired_position']
+    assert '373' in positions_dict['333'][anno_id]['paired_position']
+    assert '333' in positions_dict['373'][paired_anno_id]['paired_position']
 
 
 def test_add_to_transfer_dict_paired_repeated_anno_id(
@@ -3274,6 +3301,9 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
     anno_total = mock_make_anno_total_disulfid_return_205_Q9NU22['anno_total']
     paired_anno_id = mock_make_anno_total_disulfid_return_246_Q9NU22['anno_id']
     paired_anno_total = mock_make_anno_total_disulfid_return_246_Q9NU22['anno_total']
+
+    interval_key = f"{target_hit_start_mock_Q9NU22}-{target_hit_end_mock_Q9NU22}"
+    positions_dict = transfer_dict_populated_disulfid_Q9NU22['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['hit_intervals'][interval_key]['annotations']['positions']
 
     add_to_transfer_dict(
         hit=True,
@@ -3293,8 +3323,8 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
     )
 
     # Helper function to access nested dictionary paths
-    def get_annotation(target_position_str):
-        return transfer_dict_populated_disulfid_Q9NU22['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions'][target_position_str]
+    def get_annotation(target_position_str, positions_dict):
+        return positions_dict[target_position_str]
 
     # Test data
     positions = {
@@ -3303,7 +3333,7 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
     }
 
     for target_position_str, data in positions.items():
-        anno = get_annotation(target_position_str)['DISULFID | Intrachain (with C-246); in linked form' if target_position_str == '333' else 'DISULFID | Intrachain (with C-205); in linked form']
+        anno = get_annotation(target_position_str, positions_dict)['DISULFID | Intrachain (with C-246); in linked form' if target_position_str == '333' else 'DISULFID | Intrachain (with C-205); in linked form']
 
         # Count assertions
         assert anno['essentials']['count'] == 2
@@ -3321,8 +3351,8 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
 
     # Verify no misses
     # print(json.dumps(transfer_dict_populated_disulfid_Q9NU22, indent=4))
-    assert transfer_dict_populated_disulfid_Q9NU22['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333'][anno_id]['hit'] is True
-    assert transfer_dict_populated_disulfid_Q9NU22['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373'][paired_anno_id]['hit'] is True
+    assert positions_dict['333'][anno_id]['hit'] is True
+    assert positions_dict['373'][paired_anno_id]['hit'] is True
 
 def test_add_to_transfer_dict_hit_miss_pair(
     logger, transfer_dict,
@@ -3337,6 +3367,7 @@ def test_add_to_transfer_dict_hit_miss_pair(
     anno_total = mock_anno_total_disulfid.copy()
     paired_anno_total = mock_paired_anno_total_disulfid.copy()
     paired_anno_id = mock_make_anno_total_disulfid_return_246_P15005['anno_id']
+    hit_interval = f"{target_hit_start_mock_Q9NU22}-{target_hit_end_mock_Q9NU22}"
 
     add_to_transfer_dict(
         hit=True,
@@ -3355,13 +3386,15 @@ def test_add_to_transfer_dict_hit_miss_pair(
         paired_anno_total=paired_anno_total
     )
 
+    positions_dict = transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['hit_intervals'][hit_interval]['annotations']['positions']
+
     # Assert hit position
-    assert '333' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
-    assert transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['333'][anno_id]['hit'] is True
+    assert '333' in positions_dict
+    assert positions_dict['333'][anno_id]['hit'] is True
 
     # Assert missed position
-    assert '373' in transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']
-    assert transfer_dict['DOMAIN']['sequence_id'][target_name_mock_Q9NU22]['annotations']['positions']['373'][paired_anno_id]['hit'] is False
+    assert '373' in positions_dict
+    assert positions_dict['373'][paired_anno_id]['hit'] is False
 
 
 
@@ -3375,6 +3408,7 @@ def test_add_to_transfer_dict_disulfid_single_mocked_helper(
 
     anno_id = mock_make_anno_total_disulfid_return_205_P15005['anno_id']
     anno_total = mock_anno_total_disulfid
+    interval_key = f"{target_hit_start_mock_Q9NU22}-{target_hit_end_mock_Q9NU22}"
 
     # Call the function
     with patch('transfer_annotations._add_single_annotation') as mock_add_single:
@@ -3397,6 +3431,7 @@ def test_add_to_transfer_dict_disulfid_single_mocked_helper(
             hit=True,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
+            interval_key=interval_key,
             anno_id=anno_id,
             anno_total=anno_total,
             entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
@@ -3421,6 +3456,7 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
     anno_total = mock_anno_total_disulfid.copy()
     paired_anno_total = mock_paired_anno_total_disulfid.copy()
     paired_anno_id = mock_make_anno_total_disulfid_return_246_P15005['anno_id']
+    interval_key = f"{target_hit_start_mock_Q9NU22}-{target_hit_end_mock_Q9NU22}"
 
     # Call the function
     with patch('transfer_annotations._add_single_annotation') as mock_add_single:
@@ -3446,6 +3482,7 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
                 hit=True,
                 transfer_dict=transfer_dict,
                 target_name=target_name_mock_Q9NU22,
+                interval_key=interval_key,
                 anno_id=anno_id,
                 anno_total=anno_total,
                 entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
@@ -3456,6 +3493,7 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
                 hit=True,
                 transfer_dict=transfer_dict,
                 target_name=target_name_mock_Q9NU22,
+                interval_key=interval_key,
                 anno_id=paired_anno_id,
                 anno_total=paired_anno_total,
                 entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
@@ -3772,7 +3810,7 @@ def test_main_success(logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_di
 
 
 # Integration tests
-def test_main_integration_binding_Q9NU22_PF07728(minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_binding_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728, conservations_content_Q9NU22_PF07728):
+def test_main_integration_binding_Q9NU22_PF07728(minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_success_binding_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728, conservations_content_Q9NU22_PF07728):
     """Integration test for main function"""
 
     with TemporaryDirectory() as tmp_dir:

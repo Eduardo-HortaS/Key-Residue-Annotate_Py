@@ -226,7 +226,7 @@ def read_conservations_and_annotations(conservations_filepath: str, annotations_
     Returns:
         tuple[dict, dict]: (conservations, annotations) where:
             - conservations: {"sequence_id/start-end": {"position": conservation_score, ...}}
-            - annotations: {"entry_name": {"position": [{"type": str, ...}]}}
+            - annotations: {"sequence_id": {"position": [{"type": str, ...}]}}
     """
     with open(conservations_filepath, 'r', encoding="utf-8") as conservations_file:
         conservations = json.load(conservations_file)
@@ -236,7 +236,7 @@ def read_conservations_and_annotations(conservations_filepath: str, annotations_
     with open(annotations_filepath, 'r', encoding="utf-8") as annotations_file:
         annotations = json.load(annotations_file)
         if not annotations:
-            annotations = {"entry_name": {}}
+            annotations = {"sequence_id": {}}
 
     return conservations, annotations
 
@@ -318,6 +318,7 @@ def populate_conservation(
     conserved_positions: list,
     target_hit_start: int,
     target_hit_end: int,
+    interval_key: str,
     conservation_start: int,
     conservation_end: int,
     logger: Optional[logging.Logger] = None
@@ -350,16 +351,15 @@ def populate_conservation(
                 "conservation": score_data,
                 "hit": is_match
             }
-
-            transfer_dict[pfam_id]['sequence_id'][target_name]["conservations"]["positions"][counter_target_pos_str] = counter_target_pos_info
-            transfer_dict[pfam_id]['sequence_id'][target_name]["conservations"]["indices"][cons_type].add(counter_target_pos_str)
+            conservations_dict = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["conservations"]
+            conservations_dict["positions"][counter_target_pos_str] = counter_target_pos_info
+            conservations_dict["indices"][cons_type].add(counter_target_pos_str)
 
             # Add position conversion info
-            transfer_dict[pfam_id]['sequence_id'][target_name]['position_conversion']['target_to_aln'][counter_target_pos_str] = index_str
-            aln_dict = transfer_dict[pfam_id]['sequence_id'][target_name]['position_conversion']['aln_to_target']
+            transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["position_conversion"]["target_to_aln"][counter_target_pos_str] = index_str
+            aln_dict = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["position_conversion"]["aln_to_target"]
             if index_str not in aln_dict:
-                aln_dict[index_str] = set()
-            aln_dict[index_str].add(counter_target_pos_str)
+                aln_dict[index_str] = counter_target_pos_str
 
         missing = set(conserved_positions) - processed_conserved_pos
         if missing and logger:
@@ -380,38 +380,40 @@ def populate_go_data_for_annotations(
     Fills GO data into the transfer_dict for each annotation found, using any overlapping GO terms.
     """
     go_info_cache = {}
-    for pos, position_data in transfer_dict[pfam_id]['sequence_id'][target_name]['annotations']['positions'].items():
-        for anno_id, anno_data in position_data.items():
-            go_data_for_annotation = {}
-            for _, evidence_data in anno_data.get("evidence", {}).items():
-                annot_name = evidence_data.get("rep_mnemo_name")
-                if annot_name and annot_name in annotations and go_terms_annot_key in annotations[annot_name]:
-                    cache_key = (target_name, annot_name)
-                    if cache_key not in go_info_cache:
-                        matched_go_info = {}
-                        annotation_go_set = set()
+    for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
+        interval_data = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]
 
-                        for subontology, go_terms_with_meanings in annotations[annot_name][go_terms_annot_key].items():
-                            for go_term, meaning in go_terms_with_meanings.items():
-                                annotation_go_set.add(go_term)
-                                if go_term in target_gos:
-                                    matched_go_info[go_term] = meaning
+        for pos, position_data in interval_data['annotations']['positions'].items():
+            for anno_id, anno_data in position_data.items():
+                go_data_for_annotation = {}
+                for _, evidence_data in anno_data.get("evidence", {}).items():
+                    annot_name = evidence_data.get("rep_mnemo_name")
+                    if annot_name and annot_name in annotations and go_terms_annot_key in annotations[annot_name]:
+                        cache_key = (target_name, annot_name)
+                        if cache_key not in go_info_cache:
+                            matched_go_info = {}
+                            annotation_go_set = set()
 
-                        target_go_set = set(target_gos)
-                        intersection = len(target_go_set.intersection(annotation_go_set))
-                        union = len(target_go_set.union(annotation_go_set))
-                        jaccard_index = intersection / union if union > 0 else 0
+                            for subontology, go_terms_with_meanings in annotations[annot_name][go_terms_annot_key].items():
+                                for go_term, meaning in go_terms_with_meanings.items():
+                                    annotation_go_set.add(go_term)
+                                    if go_term in target_gos:
+                                        matched_go_info[go_term] = meaning
 
-                        go_info_cache[cache_key] = {
-                            annot_name: {
-                                "terms": matched_go_info,
-                                "jaccard_index": jaccard_index
+                            target_go_set = set(target_gos)
+                            intersection = len(target_go_set.intersection(annotation_go_set))
+                            union = len(target_go_set.union(annotation_go_set))
+                            jaccard_index = intersection / union if union > 0 else 0
+
+                            go_info_cache[cache_key] = {
+                                annot_name: {
+                                    "terms": matched_go_info,
+                                    "jaccard_index": jaccard_index
+                                }
                             }
-                        }
-                    go_data_for_annotation.setdefault("GO", {}).update(go_info_cache[cache_key])
-            if go_data_for_annotation:
-                anno_data.update(go_data_for_annotation)
-
+                        go_data_for_annotation.setdefault("GO", {}).update(go_info_cache[cache_key])
+                if go_data_for_annotation:
+                    anno_data.update(go_data_for_annotation)
 
 def cleanup_improve_transfer_dict(
     transfer_dict: dict,
@@ -429,9 +431,6 @@ def cleanup_improve_transfer_dict(
     """
 
     go_terms_annot_key = "0"
-    # print("Ayooooooo - Transfer dict")
-    # debug_dict = convert_sets_to_lists(transfer_dict)
-    # print(json.dumps(debug_dict, indent=4))
     transfer_dict[pfam_id] = transfer_dict.pop("DOMAIN")
 
     # Read external JSON files
@@ -439,63 +438,85 @@ def cleanup_improve_transfer_dict(
 
     # For each target in the dictionary, gather GO terms, get aligned sequences and fill conservation and GO data
     for target_name in transfer_dict[pfam_id]['sequence_id']:
-        target_gos = gather_go_terms_for_target(target_name, output_dir)
-        target_hit_start = int(transfer_dict[pfam_id]['sequence_id'][target_name]['hit_start'])
-        target_hit_end = int(transfer_dict[pfam_id]['sequence_id'][target_name]['hit_end'])
-        target_id = f"{target_name}target//{target_hit_start}-{target_hit_end}"
+        for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
+            target_hit_start = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]['hit_start']
+            target_hit_end = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]['hit_end']
+            target_gos = gather_go_terms_for_target(target_name, output_dir)
+            target_id = f"{target_name}target//{target_hit_start}-{target_hit_end}"
 
-        # There's only one key in conservations, a sequence from the
-        # original alignment used as a reference for the
-        # conserved positions between the original and query/new alignments.
-        conservation_key = list(conservations.keys())[0]
-        conserved_positions = list(conservations[conservation_key].keys())
+            # There's only one key in conservations, a sequence from the
+            # original alignment used as a reference for the
+            # conserved positions between the original and query/new alignments.
+            conservation_key = list(conservations.keys())[0]
+            conserved_positions = list(conservations[conservation_key].keys())
 
-        # Parse the numeric range from the conservation key
-        conservation_range = conservation_key.split("/")[1]
-        conservation_start, conservation_end = map(int, conservation_range.split("-"))
+            # Extract sequences from hmmalign
+            target_seq, conservation_seq = get_alignment_sequences(hmmalign_lines, target_id, conservation_key)
 
-        # Extract sequences from hmmalign
-        target_seq, conservation_seq = get_alignment_sequences(hmmalign_lines, target_id, conservation_key)
+            # Populate the conservation data if sequences were found
+            if target_seq and conservation_seq:
+                conservation_start = int(conservation_key.split("/")[1].split("-")[0])
+                conservation_end = int(conservation_key.split("/")[1].split("-")[1])
+                populate_conservation(
+                    transfer_dict=transfer_dict,
+                    pfam_id=pfam_id,
+                    target_name=target_name,
+                    target_seq=target_seq,
+                    conservation_seq=conservation_seq,
+                    conservation_key=conservation_key,
+                    conservations=conservations,
+                    conserved_positions=conserved_positions,
+                    target_hit_start=target_hit_start,
+                    target_hit_end=target_hit_end,
+                    interval_key=interval_key,
+                    conservation_start=conservation_start,
+                    conservation_end=conservation_end,
+                )
 
-        # Populate the conservation data if sequences were found
-        if target_seq and conservation_seq:
-            populate_conservation(
+            # Populate GO data for each annotation
+            populate_go_data_for_annotations(
                 transfer_dict=transfer_dict,
                 pfam_id=pfam_id,
                 target_name=target_name,
-                target_seq=target_seq,
-                conservation_seq=conservation_seq,
-                conservation_key=conservation_key,
-                conservations=conservations,
-                conserved_positions=conserved_positions,
-                target_hit_start=target_hit_start,
-                target_hit_end=target_hit_end,
-                conservation_start=conservation_start,
-                conservation_end=conservation_end,
+                annotations=annotations,
+                go_terms_annot_key=go_terms_annot_key,
+                target_gos=target_gos
             )
-
-        # Populate GO data for each annotation
-        populate_go_data_for_annotations(
-            transfer_dict=transfer_dict,
-            pfam_id=pfam_id,
-            target_name=target_name,
-            annotations=annotations,
-            go_terms_annot_key=go_terms_annot_key,
-            target_gos=target_gos
-        )
-
     return transfer_dict
 
-def convert_sets_to_lists(data):
+def convert_sets_and_tuples_to_lists(data):
+    """Converts sets and tuples to lists for JSON serialization"""
     if isinstance(data, dict):
-        return {k: convert_sets_to_lists(v) for k, v in data.items()}
+        # Special handling for annotation_ranges structure
+        if 'positions' in data and 'ranges' in data:
+            return {
+                'positions': sorted(list(data['positions'])),
+                'ranges': [list(r) for r in data['ranges']]
+            }
+        return {k: convert_sets_and_tuples_to_lists(v) for k, v in data.items()}
+    elif isinstance(data, tuple):
+        return list(convert_sets_and_tuples_to_lists(elem) for elem in data)
     elif isinstance(data, list):
-        return [convert_sets_to_lists(elem) for elem in data]
+        return [convert_sets_and_tuples_to_lists(elem) for elem in data]
     elif isinstance(data, set):
         return sorted(list(data))
     else:
         return data
 
+def convert_lists_to_original(data):
+    """Converts lists back to sets and tuples where needed"""
+    if isinstance(data, dict):
+        # Special handling for annotation_ranges structure
+        if 'positions' in data and 'ranges' in data:
+            return {
+                'positions': set(data['positions']),
+                'ranges': [tuple(r) for r in data['ranges']]
+            }
+        return {k: convert_lists_to_original(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return data  # Keep as list by default
+    else:
+        return data
 
 def write_reports(
     logger: logging.Logger,
@@ -508,7 +529,7 @@ def write_reports(
     2. Writes each target_name's data under:
        output_dir/target_name/pfam_id_report.json, preserving pfam_id structure
     """
-    transfer_dict = convert_sets_to_lists(transfer_dict)
+    transfer_dict = convert_sets_and_tuples_to_lists(transfer_dict)
     pfam_id = next(iter(transfer_dict.keys()))
 
     # Write the entire transfer_dict to the pfam_id subdir
@@ -708,6 +729,12 @@ def add_to_transfer_dict(
 
     if target_name not in transfer_dict["DOMAIN"]["sequence_id"]:
         transfer_dict["DOMAIN"]["sequence_id"][target_name] = {
+            "hit_intervals": {}
+        }
+    interval_key = f"{target_hit_start}-{target_hit_end}"
+
+    if interval_key not in transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"]:
+        transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval_key] = {
             "sequence": target_sequence_continuous,
             "length": len(target_sequence_continuous),
             "hit_start": target_hit_start,
@@ -717,7 +744,8 @@ def add_to_transfer_dict(
             "position_conversion": {
                 "target_to_aln": {},
                 "aln_to_target": {}
-            }
+            },
+            "annotation_ranges": {} # New field for tracking same anno_id ranges of positions
         }
 
     # Process main annotation
@@ -725,6 +753,7 @@ def add_to_transfer_dict(
         hit=hit,
         transfer_dict=transfer_dict,
         target_name=target_name,
+        interval_key=interval_key,
         anno_id=anno_id,
         anno_total=anno_total,
         entry_mnemo_name=entry_mnemo_name,
@@ -747,6 +776,7 @@ def add_to_transfer_dict(
             hit=paired_position_res_hit,
             transfer_dict=transfer_dict,
             target_name=target_name,
+            interval_key=interval_key,
             anno_id=paired_anno_id,
             anno_total=paired_anno_total,
             entry_mnemo_name=entry_mnemo_name,
@@ -769,6 +799,7 @@ def _add_single_annotation(
     hit: bool,
     transfer_dict: dict,
     target_name: str,
+    interval_key: str,
     anno_id: str,
     anno_total: dict,
     entry_mnemo_name: str,
@@ -790,18 +821,22 @@ def _add_single_annotation(
     annot_amino_value = anno_total.get('annot_amino_acid', None)
     target_amino_value = anno_total.get('target_amino_acid', None)
 
-    if target_position_str not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions']:
-        transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str] = {}
-        # NEW, Add target position to one of the indices according to hit type
-        index_type = 'matches' if hit else 'misses'
-        transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['indices'][index_type].add(target_position_str)
-        # NEW, Add target position and index to position_conversion
-        transfer_dict['DOMAIN']['sequence_id'][target_name]['position_conversion']['target_to_aln'][target_position_str] = index_position_str
-        if index_position_str not in transfer_dict['DOMAIN']['sequence_id'][target_name]['position_conversion']['aln_to_target']:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['position_conversion']['aln_to_target'][index_position_str] = set()
-        transfer_dict['DOMAIN']['sequence_id'][target_name]['position_conversion']['aln_to_target'][index_position_str].add(target_position_str)
+    interval_dict = transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval_key]
 
-    if anno_id not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str]:
+    # Initial setup for target position, including all references to it (annotations-positions,
+    # annotations-indices-index_type, position_conversion-target_to_aln, position_conversion-aln_to_target)
+    if target_position_str not in interval_dict['annotations']['positions']:
+        interval_dict['annotations']['positions'][target_position_str] = {}
+        index_type = 'matches' if hit else 'misses'
+        interval_dict['annotations']['indices'][index_type].add(target_position_str)
+        interval_dict['position_conversion']['target_to_aln'][target_position_str] = index_position_str
+        if index_position_str not in interval_dict['position_conversion']['aln_to_target']:
+            interval_dict['position_conversion']['aln_to_target'][index_position_str] = target_position_str
+
+    positions_dict = interval_dict['annotations']['positions'][target_position_str]
+
+    # Populate essentials under anno_id for the position
+    if anno_id not in positions_dict:
         essentials = {
             'type': type_value,
             'description': description_value,
@@ -809,59 +844,119 @@ def _add_single_annotation(
             'annot_amino_acid': annot_amino_value,
             'target_amino_acid': target_amino_value
         }
-        transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id] = {}
-        transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id].setdefault('essentials', essentials)
+        positions_dict[anno_id] = {}
+        positions_dict[anno_id].setdefault('essentials', essentials)
     else:
-        transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['essentials']['count'] += 1
+        positions_dict[anno_id]['essentials']['count'] += 1
 
-    # Was the comparison between the two sequences a hit or a miss? Keep at {} level
-    transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id].setdefault('hit', hit)
+    positions_dict[anno_id].setdefault('hit', hit)
+
+    _update_annotation_ranges(interval_dict, target_position_str, anno_id)
 
     if evidence_value:
-        if 'evidence' not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id].setdefault('evidence', {})
-        if evidence_value not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['evidence']:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['evidence'][evidence_value] = {
+        if 'evidence' not in positions_dict[anno_id]:
+            positions_dict[anno_id].setdefault('evidence', {})
+        if evidence_value not in positions_dict[anno_id]['evidence']:
+            positions_dict[anno_id]['evidence'][evidence_value] = {
                 "rep_primary_accession": entry_primary_accession,
                 "rep_mnemo_name": entry_mnemo_name,
                 "count": 1
             }
         else:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['evidence'][evidence_value]["count"] += 1
+            positions_dict[anno_id]['evidence'][evidence_value]["count"] += 1
 
     if paired_target_position_str:
-        if 'paired_position' not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id].setdefault('paired_position', {})
-        if paired_target_position_str not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['paired_position']:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['paired_position'][paired_target_position_str] = {
+        if 'paired_position' not in positions_dict[anno_id]:
+            positions_dict[anno_id].setdefault('paired_position', {})
+        if paired_target_position_str not in positions_dict[anno_id]['paired_position']:
+            positions_dict[anno_id]['paired_position'][paired_target_position_str] = {
                 "rep_primary_accession": entry_primary_accession,
                 "rep_mnemo_name": entry_mnemo_name,
                 "count": 1
             }
         else:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['paired_position'][paired_target_position_str]["count"] += 1
+            positions_dict[anno_id]['paired_position'][paired_target_position_str]["count"] += 1
 
-    # New, helps analyze annotations that, in their description,
+    # Helps analyze annotations that, in their description,
     # relate positions in annotated sequence uniprot numbering.
     # Note that those with sequence ranges are a bit tricky yet, but I'll leave it as is for now
     if type_value in ['CROSSLNK', 'DISULFID', 'MUTAGEN'] and description_value and re.search(r'\b[A-Z]-\d+', description_value):
         additional_keys['annot_position'] = annot_position_str
 
     if additional_keys and type_value in ['BINDING', 'ACT_SITE', 'CROSSLNK', 'DISULFID', 'MUTAGEN']:
-        if 'additional_keys' not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]:
-            transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id].setdefault('additional_keys', {})
+        if 'additional_keys' not in positions_dict[anno_id]:
+            positions_dict[anno_id].setdefault('additional_keys', {})
         for key, value in additional_keys.items():
-            if key not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['additional_keys']:
-                transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['additional_keys'][key] = {}
-            if value not in transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['additional_keys'][key]:
-                transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['additional_keys'][key][value] = {
+            if key not in positions_dict[anno_id]['additional_keys']:
+                positions_dict[anno_id]['additional_keys'][key] = {}
+            if value not in positions_dict[anno_id]['additional_keys'][key]:
+                positions_dict[anno_id]['additional_keys'][key][value] = {
                     "rep_primary_accession": entry_primary_accession,
                     "rep_mnemo_name": entry_mnemo_name,
                     "count": 1
                 }
             else:
-                transfer_dict['DOMAIN']['sequence_id'][target_name]['annotations']['positions'][target_position_str][anno_id]['additional_keys'][key][value]["count"] += 1
+                positions_dict[anno_id]['additional_keys'][key][value]["count"] += 1
 
+def _update_annotation_ranges(interval_dict: dict, target_position_str: str, anno_id: str) -> None:
+    """Updates continuous ranges for a given annotation ID when a new position is added."""
+    position = int(target_position_str)
+    ranges_dict = interval_dict["annotation_ranges"]
+
+    if anno_id not in ranges_dict:
+        ranges_dict[anno_id] = {
+            "ranges": [(position, position)],
+            "positions": {position}
+        }
+        return
+
+    ranges = ranges_dict[anno_id]["ranges"]
+    positions = ranges_dict[anno_id]["positions"]
+
+    if position in positions:
+        return
+
+    positions.add(position)
+
+    # Find appropriate range to merge with or create new
+    for i, (start, end) in enumerate(ranges):
+        if position == start - 1:
+            ranges[i] = (position, end)
+            _merge_adjacent_ranges(ranges)
+            return
+        if position == end + 1:
+            ranges[i] = (start, position)
+            _merge_adjacent_ranges(ranges)
+            return
+        if start <= position <= end:
+            return
+
+    # Position doesn't fit in existing ranges
+    ranges.append((position, position))
+    ranges.sort(key=lambda x: x[0])
+
+def _merge_adjacent_ranges(ranges: list) -> None:
+    """Merges adjacent or overlapping ranges in-place."""
+    if not ranges:
+        return
+
+    ranges.sort(key=lambda x: x[0])
+    i = 0
+    while i < len(ranges) - 1:
+        current_end = ranges[i][1]
+        next_start = ranges[i + 1][0]
+
+        if current_end + 1 >= next_start:
+            ranges[i] = (ranges[i][0], max(ranges[i][1], ranges[i + 1][1]))
+            ranges.pop(i + 1)
+        else:
+            i += 1
+
+def get_continuous_ranges(interval_dict: dict, anno_id: str) -> list:
+    """Returns list of continuous ranges for given annotation ID."""
+    ranges_dict = interval_dict.get("annotation_ranges", {})
+    anno_ranges = ranges_dict.get(anno_id, {}).get("ranges", [])
+    return [(start, end) for start, end in anno_ranges]
 
 #@measure_time_and_memory
 #@profile
