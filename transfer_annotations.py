@@ -111,28 +111,37 @@ def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[st
 
 ### New Helper Functions
 def iterate_aligned_sequences(
-    seq_a: str,
-    seq_b: str,
-    start_a: int,
-    start_b: int,
-    end_a: int,
-    end_b: int
+    source_sequence: str,
+    target_sequence: str,
+    source_start: int,
+    target_start: int,
+    source_end: int,
+    target_end: int
 ) -> Generator[Tuple[int, Optional[int], Optional[int], str, str], None, None]:
     """
-    Yields index, current positions (pos_a, pos_b), and characters (char_a, char_b).
+    Yields index, current positions (source_pos, target_pos), and characters (source_char, target_char).
     Positions are incremented only when the respective character is alphabetic.
+    For sequence b (target), positions are None when encountering deletion relative to consensus ('-') or insertion gap markers ('.').
     """
-    pos_a = None
-    pos_b = None
-    for index, (char_a, char_b) in enumerate(zip(seq_a, seq_b)):
-        if char_a.isalpha():
-            pos_a = start_a if pos_a is None else pos_a + 1
-        if char_b.isalpha():
-            pos_b = start_b if pos_b is None else pos_b + 1
+    source_pos = None
+    target_pos = None
+    last_valid_target_pos = None
 
-        yield index, pos_a, pos_b, char_a, char_b
+    for index, (source_char, target_char) in enumerate(zip(source_sequence, target_sequence)):
+        # Handle conservation or annotated sequence
+        if source_char.isalpha():
+            source_pos = source_start if source_pos is None else source_pos + 1
 
-        if (pos_a is not None and pos_a == end_a) or (pos_b is not None and pos_b == end_b):
+        if target_char.isalpha():
+            target_pos = target_start if last_valid_target_pos is None else last_valid_target_pos + 1
+            last_valid_target_pos = target_pos
+        # Deletion ("-") or Insertion (".") gap, don't increment position
+        else:
+            target_pos = None
+
+        yield index, source_pos, target_pos, source_char, target_char
+
+        if (source_pos is not None and source_pos == source_end) or (last_valid_target_pos is not None and last_valid_target_pos == target_end):
             break
 
 #@measure_time_and_memory
@@ -242,7 +251,7 @@ def read_conservations_and_annotations(conservations_filepath: str, annotations_
 
 def parse_go_annotations(go_column: str) -> list:
     """
-    Parses the GO Annotations column from the InterProScan TSV output.
+    Parses GO Annotations column data from the InterProScan TSV output.
 
     Args:
         go_column (str): The GO Annotations column value (e.g., "GO:0005515|GO:0006302").
@@ -254,27 +263,86 @@ def parse_go_annotations(go_column: str) -> list:
         return []
     return [term.split("(")[0].strip() for term in go_column.split("|") if term]
 
-def gather_go_terms_for_target(target_name: str, go_terms_dir: str) -> set:
+# NOTE: May be adjusted to improve matching accuracy later, based on empirical testing.
+def check_interval_overlap(iprscan_start: int, iprscan_end: int,
+                         hit_start: int, hit_end: int,
+                         margin_percent: float = 0.1) -> bool:
     """
-    Gathers GO terms for a single target from iprscan.tsv if present.
+    Checks if iprscan interval substantially overlaps with hit interval.
+    Uses percentage-based margins for flexibility in interval matching,
+    considering the different algorithms used by iprscan to find domains.
+
+    Args:
+        iprscan_start: Start position from InterProScan
+        iprscan_end: End position from InterProScan
+        hit_start: Start position from HMMER hit
+        hit_end: End position from HMMER hit
+        margin_percent: Allowed margin as fraction of hit length (default 10%)
+    """
+    if not all(isinstance(x, (int, float)) and x >= 0
+              for x in [iprscan_start, iprscan_end, hit_start, hit_end, margin_percent]):
+        raise ValueError("All positions must be non-negative numbers")
+
+    if not isinstance(margin_percent, float) or margin_percent <= 0 or margin_percent > 1:
+        raise ValueError("margin_percent must be a float between 0 and 1 (exclusive, inclusive)")
+
+    hit_length = hit_end - hit_start + 1
+    margin = int(hit_length * margin_percent)
+
+    # Check if iprscan interval substantially overlaps with hit interval
+    return (iprscan_start >= hit_start - margin and
+            iprscan_end <= hit_end + margin)
+
+def gather_go_terms_for_target(
+    logger: logging.Logger, target_name: str, pfam_id: str,
+    go_terms_dir: str, interpro_conv_id: str, hit_start: int, hit_end: int) -> set:
+    """
+    Gathers GO terms for a single target sequence from iprscan.tsv if
+    adequate (meet at least one of 3 conditions) lines are present.
     Note: GO terms are kept as a string of GO terms separated by "|".
     The GO terms base dir is expected to be the same as the output dir,
-    since this function requires the previous scripts to have been run.
+    since this function requires the previous scripts to have been run.\
+    Checks for:
+    - Matching InterProScan lines with the PFAM ID or InterPro ID.
+    - Matching intervals with the hit start and end.
     """
-    go_term_filepath = os.path.join(go_terms_dir, target_name, "iprscan.tsv")
+    sanitized_target_name = target_name.replace("|", "-")
+    go_term_filepath = os.path.join(go_terms_dir, sanitized_target_name, "iprscan.tsv")
     target_gos = set()
-    if os.path.exists(go_term_filepath):
-        with open(go_term_filepath, 'r', encoding="utf-8") as go_term_file:
-            iprscan_df = pd.read_csv(go_term_file, sep='\t', header=None)
-            iprscan_df.columns = [
-                "Protein Accession", "Sequence MD5 digest", "Sequence Length", "Analysis",
-                "Signature Accession", "Signature Description", "Start Location", "Stop Location",
-                "Score", "Status", "Date", "InterPro Accession", "InterPro Description",
-                "GO Annotations", "Pathways Annotations"
-            ]
-            target_go_annots = iprscan_df["GO Annotations"].dropna().tolist()
-            for go_entry in target_go_annots:
-                target_gos.update(parse_go_annotations(go_entry))
+    if not os.path.exists(go_term_filepath):
+        logger.warning(f"For {pfam_id}-{target_name} there was no iprscan.tsv file found - filepath\n\n {go_term_filepath} \n\n")
+        return target_gos
+
+    found_matching_accession = False
+    found_matching_interval = False
+
+    with open(go_term_filepath, 'r', encoding="utf-8") as go_term_file:
+        iprscan_df = pd.read_csv(go_term_file, sep='\t', header=None)
+        iprscan_df.columns = [
+            "Protein Accession", "Sequence MD5 digest", "Sequence Length", "Analysis",
+            "Signature Accession", "Signature Description", "Start Location", "Stop Location",
+            "Score", "Status", "Date", "InterPro Accession", "InterPro Description",
+            "GO Annotations", "Pathways Annotations"
+        ]
+
+        for _, row in iprscan_df.iterrows():
+            matches_accession = (row["Signature Accession"] == pfam_id or
+                               row["InterPro Accession"] == interpro_conv_id)
+            matches_interval = check_interval_overlap(
+                row["Start Location"], row["Stop Location"], hit_start, hit_end
+            )
+            # Track if we found any matches
+            found_matching_accession = found_matching_accession or matches_accession
+            found_matching_interval = found_matching_interval or matches_interval
+
+            if matches_accession or matches_interval:
+                if not pd.isna(row["GO Annotations"]) and not row["GO Annotations"].strip() == "-":
+                    target_gos.update(parse_go_annotations(row["GO Annotations"]))
+
+    if not (found_matching_accession or found_matching_interval):
+        logger.warning(f"For {pfam_id}-{target_name} there were no usable InterProScan lines in iprscan.tsv")
+        return set()
+
     return target_gos
 
 
@@ -328,16 +396,15 @@ def populate_conservation(
     """
     processed_conserved_pos = set()
     for index, counter_cons_pos, counter_target_pos, char_cons, char_target in iterate_aligned_sequences(
-        seq_a=conservation_seq,
-        seq_b=target_seq,
-        start_a=conservation_start,
-        start_b=target_hit_start,
-        end_a=conservation_end,
-        end_b=target_hit_end
+        source_sequence=conservation_seq,
+        target_sequence=target_seq,
+        source_start=conservation_start,
+        target_start=target_hit_start,
+        source_end=conservation_end,
+        target_end=target_hit_end
     ):
         if counter_target_pos is None or counter_cons_pos is None:
             continue
-
         counter_cons_pos_str = str(counter_cons_pos)
         if counter_cons_pos_str in conserved_positions:
             processed_conserved_pos.add(counter_cons_pos_str)
@@ -346,26 +413,25 @@ def populate_conservation(
             is_match = char_cons == char_target and char_cons not in '.-' and char_target not in '.-'
             cons_type = "matches" if is_match else "misses"
 
-            score_data = conservations[conservation_key][counter_cons_pos_str]
+            score_data = round(conservations[conservation_key][counter_cons_pos_str], 4)
             counter_target_pos_info = {
                 "conservation": score_data,
                 "hit": is_match
             }
-            conservations_dict = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["conservations"]
+            interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
+            conservations_dict = interval_data["conservations"]
             conservations_dict["positions"][counter_target_pos_str] = counter_target_pos_info
             conservations_dict["indices"][cons_type].add(counter_target_pos_str)
-
             # Add position conversion info
-            transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["position_conversion"]["target_to_aln"][counter_target_pos_str] = index_str
-            aln_dict = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["position_conversion"]["aln_to_target"]
+            interval_data["position_conversion"]["target_to_aln"][counter_target_pos_str] = index_str
+            aln_dict = interval_data["position_conversion"]["aln_to_target"]
             if index_str not in aln_dict:
                 aln_dict[index_str] = counter_target_pos_str
-
-        missing = set(conserved_positions) - processed_conserved_pos
-        if missing and logger:
-            logger.warning(f"Missing conserved positions: {missing}")
         if counter_target_pos == target_hit_end or counter_cons_pos == conservation_end:
             break
+    missing = set(conserved_positions) - processed_conserved_pos
+    if missing and logger:
+        logger.warning(f"Missing conserved positions: {missing}")
 
 
 def populate_go_data_for_annotations(
@@ -382,7 +448,6 @@ def populate_go_data_for_annotations(
     go_info_cache = {}
     for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
         interval_data = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]
-
         for pos, position_data in interval_data['annotations']['positions'].items():
             for anno_id, anno_data in position_data.items():
                 go_data_for_annotation = {}
@@ -393,18 +458,15 @@ def populate_go_data_for_annotations(
                         if cache_key not in go_info_cache:
                             matched_go_info = {}
                             annotation_go_set = set()
-
                             for subontology, go_terms_with_meanings in annotations[annot_name][go_terms_annot_key].items():
                                 for go_term, meaning in go_terms_with_meanings.items():
                                     annotation_go_set.add(go_term)
                                     if go_term in target_gos:
                                         matched_go_info[go_term] = meaning
-
                             target_go_set = set(target_gos)
                             intersection = len(target_go_set.intersection(annotation_go_set))
                             union = len(target_go_set.union(annotation_go_set))
-                            jaccard_index = intersection / union if union > 0 else 0
-
+                            jaccard_index = round(intersection / union, 4) if union > 0 else 0
                             go_info_cache[cache_key] = {
                                 annot_name: {
                                     "terms": matched_go_info,
@@ -416,12 +478,14 @@ def populate_go_data_for_annotations(
                     anno_data.update(go_data_for_annotation)
 
 def cleanup_improve_transfer_dict(
+    logger: logging.Logger,
     transfer_dict: dict,
     pfam_id: str,
     hmmalign_lines: list,
     conservations_filepath: str,
     annotations_filepath: str,
     output_dir: str,
+    pfam_interpro_map_filepath: str
 ) -> dict:
     """
     Cleans up and improves the transfer dictionary by:
@@ -434,55 +498,70 @@ def cleanup_improve_transfer_dict(
     transfer_dict[pfam_id] = transfer_dict.pop("DOMAIN")
 
     # Read external JSON files
-    conservations, annotations = read_conservations_and_annotations(conservations_filepath, annotations_filepath)
+    conservations, annotations = read_conservations_and_annotations(conservations_filepath, annotations_filepath) # Mock
+
+    has_valid_conservations = bool(conservations) and conservations != {"sequence_id/range": {}} and any("/" in key for key in conservations.keys())
+    has_valid_annotations = bool(annotations) and annotations != {"sequence_id": {}} and any(isinstance(annotations.get(key, {}).get("0", {}), dict) for key in annotations)
+    if not has_valid_conservations and not has_valid_annotations:
+        logger.warning("Both conservations and annotations data are empty or invalid - skipping data population")
+        pfam_data = transfer_dict[pfam_id]
+        return {"domain": {pfam_id: pfam_data}}
+
+    mapping = pd.read_csv(pfam_interpro_map_filepath, sep='\t', header=0) # Mock
+    interpro_conv_id = mapping.loc[mapping['Pfam_ID'] == pfam_id, 'InterPro_ID'].values[0]
 
     # For each target in the dictionary, gather GO terms, get aligned sequences and fill conservation and GO data
     for target_name in transfer_dict[pfam_id]['sequence_id']:
         for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
             target_hit_start = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]['hit_start']
             target_hit_end = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]['hit_end']
-            target_gos = gather_go_terms_for_target(target_name, output_dir)
             target_id = f"{target_name}target//{target_hit_start}-{target_hit_end}"
 
-            # There's only one key in conservations, a sequence from the
-            # original alignment used as a reference for the
-            # conserved positions between the original and query/new alignments.
-            conservation_key = list(conservations.keys())[0]
-            conserved_positions = list(conservations[conservation_key].keys())
+            if has_valid_conservations:
+                # Will always have 1 key in conservations,
+                # a sequence from the original alignment used as a reference for the
+                # conserved positions between the original and query/new alignments.
+                conservation_key = list(conservations.keys())[0]
+                conserved_positions = list(conservations[conservation_key].keys())
 
-            # Extract sequences from hmmalign
-            target_seq, conservation_seq = get_alignment_sequences(hmmalign_lines, target_id, conservation_key)
-
-            # Populate the conservation data if sequences were found
-            if target_seq and conservation_seq:
-                conservation_start = int(conservation_key.split("/")[1].split("-")[0])
-                conservation_end = int(conservation_key.split("/")[1].split("-")[1])
-                populate_conservation(
+                # Extract sequences from hmmalign alignment
+                target_seq, conservation_seq = get_alignment_sequences(hmmalign_lines, target_id, conservation_key)
+                # Populate conservation data if sequences were found
+                if target_seq and conservation_seq:
+                    conservation_start = int(conservation_key.split("/")[1].split("-")[0])
+                    conservation_end = int(conservation_key.split("/")[1].split("-")[1])
+                    populate_conservation(
+                        transfer_dict=transfer_dict,
+                        pfam_id=pfam_id,
+                        target_name=target_name,
+                        target_seq=target_seq,
+                        conservation_seq=conservation_seq,
+                        conservation_key=conservation_key,
+                        conservations=conservations,
+                        conserved_positions=conserved_positions,
+                        target_hit_start=target_hit_start,
+                        target_hit_end=target_hit_end,
+                        interval_key=interval_key,
+                        conservation_start=conservation_start,
+                        conservation_end=conservation_end,
+                    )
+            if has_valid_annotations:
+                target_gos = gather_go_terms_for_target(
+                    logger, target_name, pfam_id,
+                    output_dir, interpro_conv_id, target_hit_start, target_hit_end
+                    )
+                # Populate GO data for each annotation
+                populate_go_data_for_annotations(
                     transfer_dict=transfer_dict,
                     pfam_id=pfam_id,
                     target_name=target_name,
-                    target_seq=target_seq,
-                    conservation_seq=conservation_seq,
-                    conservation_key=conservation_key,
-                    conservations=conservations,
-                    conserved_positions=conserved_positions,
-                    target_hit_start=target_hit_start,
-                    target_hit_end=target_hit_end,
-                    interval_key=interval_key,
-                    conservation_start=conservation_start,
-                    conservation_end=conservation_end,
+                    annotations=annotations,
+                    go_terms_annot_key=go_terms_annot_key,
+                    target_gos=target_gos
                 )
 
-            # Populate GO data for each annotation
-            populate_go_data_for_annotations(
-                transfer_dict=transfer_dict,
-                pfam_id=pfam_id,
-                target_name=target_name,
-                annotations=annotations,
-                go_terms_annot_key=go_terms_annot_key,
-                target_gos=target_gos
-            )
-    return transfer_dict
+    pfam_data = transfer_dict[pfam_id]
+    return {"domain": {pfam_id: pfam_data}}
 
 def convert_sets_and_tuples_to_lists(data):
     """Converts sets and tuples to lists for JSON serialization"""
@@ -503,7 +582,7 @@ def convert_sets_and_tuples_to_lists(data):
     else:
         return data
 
-def convert_lists_to_original(data):
+def convert_lists_to_original_types(data):
     """Converts lists back to sets and tuples where needed"""
     if isinstance(data, dict):
         # Special handling for annotation_ranges structure
@@ -512,7 +591,7 @@ def convert_lists_to_original(data):
                 'positions': set(data['positions']),
                 'ranges': [tuple(r) for r in data['ranges']]
             }
-        return {k: convert_lists_to_original(v) for k, v in data.items()}
+        return {k: convert_lists_to_original_types(v) for k, v in data.items()}
     elif isinstance(data, list):
         return data  # Keep as list by default
     else:
@@ -529,17 +608,21 @@ def write_reports(
     2. Writes each target_name's data under:
        output_dir/target_name/pfam_id_report.json, preserving pfam_id structure
     """
+    # NOTE --- GOTTA CONVERT WITHOUT CHANGING THE ORIGINAL DICT
+    # WILL USE ORIGINAL FOR VERSION WITH ANNO_ID-RANGES UNDER ANNOTATIONS
     transfer_dict = convert_sets_and_tuples_to_lists(transfer_dict)
-    pfam_id = next(iter(transfer_dict.keys()))
+    pfam_id = next(iter(transfer_dict['domain'].keys()))
+    sequence_data = transfer_dict['domain'][pfam_id]['sequence_id']
 
     # Write the entire transfer_dict to the pfam_id subdir
     pfam_dir = os.path.join(output_dir, pfam_id)
     os.makedirs(pfam_dir, exist_ok=True)
     entire_report_path = os.path.join(pfam_dir, pfam_id + "_report.json")
 
+    transfer_dict0 = convert_sets_and_tuples_to_lists(transfer_dict)
     structured_report = {
         "domain_id": pfam_id,
-        "sequences": transfer_dict[pfam_id]['sequence_id']
+        "sequences": sequence_data
     }
 
     with open(entire_report_path, 'w', encoding="utf-8") as report_file:
@@ -547,7 +630,7 @@ def write_reports(
     logger.debug(f"---> DEBUG --- WRITE_REPORT --- Wrote entire Transfer Report: {entire_report_path}")
 
     # Write individual files for each target_name, preserving pfam_id structure
-    for target_name, target_data in transfer_dict[pfam_id]['sequence_id'].items():
+    for target_name, target_data in sequence_data.items():
         if target_data:
             sequence_dict = {
                 "sequence_id": target_name,
@@ -573,47 +656,6 @@ def write_reports(
             json.dump(sequence_dict, report_file, indent=4)
 
         logger.debug(f"---> DEBUG --- WRITE_REPORT --- Wrote Transfer Report for {target_name}-{pfam_id}: {target_report_filepath}")
-
-
-# def write_reports(
-#     logger: logging.Logger,
-#     transfer_dict: dict,
-#     output_dir: str,
-# ) -> None:
-#     """
-#     1. Writes the entire transfer_dict to a single JSON file under:
-#        output_dir/pfam_id/pfam_id_report.json
-#     2. Optionally writes each target_name's data under:
-#        output_dir/target_name/pfam_id_report.json
-#     """
-#     transfer_dict = convert_sets_to_lists(transfer_dict)
-#     pfam_id = next(iter(transfer_dict.keys()))
-
-#     # Write the entire transfer_dict to the pfam_id subdir
-#     pfam_dir = os.path.join(output_dir, pfam_id)
-#     os.makedirs(pfam_dir, exist_ok=True)
-#     entire_report_path = os.path.join(pfam_dir, pfam_id + "_report.json")
-#     with open(entire_report_path, 'w', encoding="utf-8") as report_file:
-#         json.dump(transfer_dict, report_file, indent=4)
-#     logger.debug(f"---> DEBUG --- WRITE_REPORT --- Wrote entire Transfer Report: {entire_report_path}")
-
-#     # Then we may write individual files for each target_name under sequence_id
-#     for target_name, target_data in transfer_dict[pfam_id]['sequence_id'].items():
-#         if target_data:
-#             json_data = json.dumps(target_data, indent=4)
-#             logger.debug(f"---> DEBUG --- WRITE_REPORT --- Data to write for {target_name}!")
-#         else:
-#             json_data = json.dumps({"Annotations": "None"}, indent=4)
-#             logger.debug(f"---> DEBUG --- WRITE_REPORT --- No data to write for {target_name}!")
-
-#         safe_target_name = target_name.replace("|", "-")
-#         target_report_filepath = os.path.join(output_dir, safe_target_name, pfam_id + "_report.json")
-#         os.makedirs(os.path.join(output_dir, safe_target_name), exist_ok=True)
-
-#         with open(target_report_filepath, 'w', encoding="utf-8") as report_file:
-#             report_file.write(json_data)
-
-#         logger.debug(f"---> DEBUG --- WRITE_REPORT --- Wrote Transfer Report for {target_name}-{pfam_id}: {target_report_filepath}")
 
 #@measure_time_and_memory
 ##@profile
@@ -783,17 +825,6 @@ def add_to_transfer_dict(
             entry_primary_accession=entry_primary_accession,
             additional_keys=paired_additional_keys
         )
-
-        ### DELETE AFTER TESTS
-        # print("Paired Target Position String:")
-        # print(json.dumps(paired_target_position_str, indent=4))
-
-        # print("Additional Keys:")
-        # print(json.dumps(additional_keys, indent=4))
-
-        # print("Transfer Dictionary for Target Name:")
-        # print(json.dumps(transfer_dict[target_name], indent=4))
-
 
 def _add_single_annotation(
     hit: bool,
@@ -1180,7 +1211,6 @@ def process_annotation(
             )
     else:
         logger.debug(f"---> DEBUG --- PROCESS_ANNOT --- NO ANNOTATION FOR SINGLE --- Anno Total was None for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos_str} and annotated {counter_annot_pos_str} --- ORIGIN: No evidence of desired type")
-        # PENDING - Conservation: Add code to deal with conserved positions with no annotations
         processed_annotations.add(annotation_key)
 
 #@measure_time_and_memory
@@ -1216,51 +1246,50 @@ def validate_paired_annotations(
 
     logger.debug(f"---> DEBUG --- VAL_PAIRED --- Running for target {target_name}/{target_hit_start}-{target_hit_end} and annotated {entry_mnemo_name}/{offset_start}-{offset_end}")
 
-    while not last_target_pos:
-        for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
-            seq_a=annot_sequence,
-            seq_b=target_sequence,
-            start_a=offset_start,
-            start_b=target_hit_start,
-            end_a=offset_end,
-            end_b=target_hit_end
-            ):
-                if counter_annot_pos is None or counter_target_pos is None:
-                    continue
+    for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
+        source_sequence=annot_sequence,
+        target_sequence=target_sequence,
+        source_start=offset_start,
+        target_start=target_hit_start,
+        source_end=offset_end,
+        target_end=target_hit_end
+        ):
+            if counter_annot_pos is None or counter_target_pos is None:
+                continue
 
-                if counter_annot_pos == paired_annot_pos_int:
-                    counter_target_pos_str = str(counter_target_pos)
+            if counter_annot_pos == paired_annot_pos_int:
+                counter_target_pos_str = str(counter_target_pos)
+                # DEBUGGING INFO
+                logger.debug("\n --- DEBUG --- VAL_PAIRED --- Helpful Info for paired match | miss \n")
+                start_index = max(0, index - 3)
+                end_index = min(len(annot_sequence), index + 4)
+                annot_window = annot_sequence[start_index:end_index]
+                target_window = target_sequence[start_index:end_index]
+                logger.debug(f"---> DEBUG --- VAL_PAIRED --- Counter Tar Pos {counter_target_pos_str} and amino acid {target_sequence[index]} + Counter annot Pos (annotated) {str(counter_annot_pos)} and amino acid {annot_sequence[index]}")
+                logger.debug(f"---> DEBUG --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
 
-                    # DEBUGGING INFO
-                    logger.debug("\n --- DEBUG --- VAL_PAIRED --- Helpful Info for paired match | miss \n")
-                    start_index = max(0, index - 3)
-                    end_index = min(len(annot_sequence), index + 4)
-                    annot_window = annot_sequence[start_index:end_index]
-                    target_window = target_sequence[start_index:end_index]
-                    logger.debug(f"---> DEBUG --- VAL_PAIRED --- Counter Tar Pos {counter_target_pos_str} and amino acid {target_sequence[index]} + Counter annot Pos (annotated) {str(counter_annot_pos)} and amino acid {annot_sequence[index]}")
-                    logger.debug(f"---> DEBUG --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
+                paired_target_amino = target_sequence[index]
+                # paired_position_res_hit = bool(target_sequence[index] == annot_sequence[index])
+                paired_position_res_hit = bool(char_target == char_annot)
 
-                    paired_target_amino = target_sequence[index]
-                    paired_position_res_hit = bool(target_sequence[index] == annot_sequence[index])
+                paired_result_dict = make_anno_total_dict(
+                    good_eco_codes=good_eco_codes,
+                    entry_mnemo_name=entry_mnemo_name,
+                    annotation_dict=paired_annotation_dict,
+                    counter_target_pos_str=counter_target_pos_str, # kinda paired_target_pos_str
+                    counter_annot_pos_str=paired_annot_pos_str,
+                    index=index,
+                    target_amino=paired_target_amino,
+                    logger=logger, # Delete in production
+                    entry_annotations=entry_annotations,
+                    caller_target_pos_str=caller_target_pos_str,
+                )
 
-                    paired_result_dict = make_anno_total_dict(
-                        good_eco_codes=good_eco_codes,
-                        entry_mnemo_name=entry_mnemo_name,
-                        annotation_dict=paired_annotation_dict,
-                        counter_target_pos_str=counter_target_pos_str, # kinda paired_target_pos_str
-                        counter_annot_pos_str=paired_annot_pos_str,
-                        index=index,
-                        target_amino=paired_target_amino,
-                        logger=logger, # Delete in production
-                        entry_annotations=entry_annotations,
-                        caller_target_pos_str=caller_target_pos_str,
-                    )
+                return paired_position_res_hit, paired_result_dict
 
-                    return paired_position_res_hit, paired_result_dict
-
-                if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
-                    last_target_pos = True
-                    break
+            if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
+                last_target_pos = True
+                break
 
     return paired_position_res_hit, paired_result_dict
 
@@ -1292,77 +1321,72 @@ def validate_annotations(
         return
     last_target_pos = False
 
-    while not last_target_pos:
-        for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
-            seq_a=annot_sequence,
-            seq_b=target_sequence,
-            start_a=offset_start,
-            start_b=target_hit_start,
-            end_a=offset_end,
-            end_b=target_hit_end):
+    for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
+        source_sequence=annot_sequence,
+        target_sequence=target_sequence,
+        source_start=offset_start,
+        target_start=target_hit_start,
+        source_end=offset_end,
+        target_end=target_hit_end):
 
-            if counter_annot_pos is None or counter_target_pos is None:
-                continue
-            counter_annot_pos_str = str(counter_annot_pos)
+        if counter_annot_pos is None or counter_target_pos is None:
+            continue
+        counter_annot_pos_str = str(counter_annot_pos)
 
-            if counter_annot_pos_str in entry_annotations:
-                counter_target_pos_str = str(counter_target_pos)
+        if counter_annot_pos_str in entry_annotations:
+            counter_target_pos_str = str(counter_target_pos)
 
-                # DEBUGGING INFO
-                logger.debug(f"\n --- DEBUG --- VAL_ANNOTS --- Helpful Info for Single/Caller Annotation Match \n NAMES: target {target_name} and annot {entry_mnemo_name} \n POSITIONS: target {counter_target_pos_str} and annot {counter_annot_pos_str} \n")
-                start_index = max(0, index - 3)
-                end_index = min(len(annot_sequence), index + 4)
-                annot_window = annot_sequence[start_index:end_index]
-                target_window = target_sequence[start_index:end_index]
-                logger.debug(f"---> DEBUG --- VAL_ANNOTS --- Counter annot Pos {counter_annot_pos_str} and amino acid {annot_sequence[index]} + Counter Tar Pos {str(counter_target_pos)} and amino acid {target_sequence[index]}")
-                logger.debug(f"---> DEBUG --- VAL_ANNOTS --- Annot Window: {annot_window} + Target Window: {target_window}")
+            # DEBUGGING INFO
+            logger.debug(f"\n --- DEBUG --- VAL_ANNOTS --- Helpful Info for Single/Caller Annotation Match \n NAMES: target {target_name} and annot {entry_mnemo_name} \n POSITIONS: target {counter_target_pos_str} and annot {counter_annot_pos_str} \n")
+            start_index = max(0, index - 3)
+            end_index = min(len(annot_sequence), index + 4)
+            annot_window = annot_sequence[start_index:end_index]
+            target_window = target_sequence[start_index:end_index]
+            logger.debug(f"---> DEBUG --- VAL_ANNOTS --- Counter annot Pos {counter_annot_pos_str} and amino acid {annot_sequence[index]} + Counter Tar Pos {str(counter_target_pos)} and amino acid {target_sequence[index]}")
+            logger.debug(f"---> DEBUG --- VAL_ANNOTS --- Annot Window: {annot_window} + Target Window: {target_window}")
 
-                target_amino = target_sequence[index]
-                res_hit = bool(target_sequence[index] == annot_sequence[index])
-                for annotation_dict in entry_annotations[counter_annot_pos_str]:
-                    anno_type = annotation_dict.get('type', None)
-                    annotation_key = (
-                        entry_mnemo_name,
-                        target_name,
-                        counter_annot_pos_str,
-                        counter_target_pos_str,
-                        anno_type
+            target_amino = target_sequence[index]
+            # res_hit = bool(target_sequence[index] == annot_sequence[index])
+            res_hit = bool(char_target == char_annot)
+            for annotation_dict in entry_annotations[counter_annot_pos_str]:
+                anno_type = annotation_dict.get('type', None)
+                annotation_key = (
+                    entry_mnemo_name,
+                    target_name,
+                    counter_annot_pos_str,
+                    counter_target_pos_str,
+                    anno_type
+                )
+                if annotation_key in processed_annotations:
+                    continue
+                try:
+                    process_annotation(
+                        res_hit=res_hit,
+                        logger=logger,
+                        good_eco_codes=good_eco_codes,
+                        entry_mnemo_name=entry_mnemo_name,
+                        target_name=target_name,
+                        target_hit_start=target_hit_start,
+                        target_hit_end=target_hit_end,
+                        annotation_dict=annotation_dict,
+                        entry_annotations=entry_annotations,
+                        transfer_dict=transfer_dict,
+                        target_sequence=target_sequence,
+                        offset_start=offset_start,
+                        offset_end=offset_end,
+                        annot_sequence=annot_sequence,
+                        counter_target_pos_str=counter_target_pos_str,
+                        counter_annot_pos_str=counter_annot_pos_str,
+                        index=index,
+                        target_amino=target_amino,
+                        processed_annotations=processed_annotations,
+                        annotation_key=annotation_key
                     )
-                    # print(f"Annotation Key: {annotation_key}")
-                    # print(f"Index: {index}")
-                    if annotation_key in processed_annotations:
-                        continue
-                    try:
-                        process_annotation(
-                            res_hit=res_hit,
-                            logger=logger,
-                            good_eco_codes=good_eco_codes,
-                            entry_mnemo_name=entry_mnemo_name,
-                            target_name=target_name,
-                            target_hit_start=target_hit_start,
-                            target_hit_end=target_hit_end,
-                            annotation_dict=annotation_dict,
-                            entry_annotations=entry_annotations,
-                            transfer_dict=transfer_dict,
-                            target_sequence=target_sequence,
-                            offset_start=offset_start,
-                            offset_end=offset_end,
-                            annot_sequence=annot_sequence,
-                            counter_target_pos_str=counter_target_pos_str,
-                            counter_annot_pos_str=counter_annot_pos_str,
-                            index=index,
-                            target_amino=target_amino,
-                            processed_annotations=processed_annotations,
-                            annotation_key=annotation_key
-                        )
-                    except Exception as e:
-                        logger.error(f"---> ERROR --- VAL_ANNOTS --- Error in validate_annotations: {e}")
-                        traceback.print_exc()
-                        raise
+                except Exception as e:
+                    logger.error(f"---> ERROR --- VAL_ANNOTS --- Error in validate_annotations: {e}")
+                    traceback.print_exc()
+                    raise
 
-            if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
-                last_target_pos = True
-                break
 
 
 def main(logger: logging.Logger):
@@ -1372,6 +1396,7 @@ def main(logger: logging.Logger):
     resource_dir = args.resource_dir
     output_dir = args.output_dir
     good_eco_codes = args.eco_codes
+    pfam_interpro_map_filepath = os.path.join(resource_dir, "mappings/interpro_pfam_accession_mapping.tsv")
     logger.info("---> MAIN --- Running transfer_annotations.py for %s --- ", dom_align)
 
     pfam_id = get_pfam_id_from_hmmalign_result(dom_align)
@@ -1394,9 +1419,8 @@ def main(logger: logging.Logger):
         error_info = traceback.format_exc()
         logger.error("---> MAIN --- ERROR transferring annotations for Pfam ID %s: %s\n%s", pfam_id, e, error_info)
         raise
-    improved_transfer_dict = cleanup_improve_transfer_dict(transfer_dict, pfam_id, hmmalign_lines, conservations_filepath, annotations_filepath, output_dir)
+    improved_transfer_dict = cleanup_improve_transfer_dict(logger, transfer_dict, pfam_id, hmmalign_lines, conservations_filepath, annotations_filepath, output_dir, pfam_interpro_map_filepath)
     write_reports(logger, improved_transfer_dict, output_dir)
-    # write_reports(logger, transfer_dict, output_dir)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
