@@ -33,7 +33,6 @@ from transfer_annotations import (
     populate_go_data_for_annotations,
     cleanup_improve_transfer_dict,
     convert_sets_and_tuples_to_lists,
-    convert_lists_to_original_types,
     write_reports,
     map_and_filter_annot_pos,
     add_to_transfer_dict,
@@ -2545,12 +2544,8 @@ def mock_json_filepaths(tmp_path):
     return cons_file, annot_file
 
 ### Added for testing miscellaneous/utility functions (convert_sets_and_tuples_to_list, convert_lists_to_original_types)
-
-@pytest.fixture
-def transfer_dict_populated_disulfid_list_original_structure_Q9NU22(transfer_dict_populated_disulfid_Q9NU22):
-    """Convert fixture to list version to test conversion back, using original structure.
-    transfer_dict[DOMAIN][sequence_id][sequence_name][hit_intervals][interval]..."""
-    return convert_sets_and_tuples_to_lists(transfer_dict_populated_disulfid_Q9NU22)
+## Sent transfer_dict_populated_disulfid_list_original_structure_Q9NU22 to test_utils.py
+## since only convert_lists_to_original_types made use of it and it went to utils, not transfer_annotations.
 
 ### Added for testing add_to_transfer_dict and helper functions
 @pytest.fixture
@@ -2922,12 +2917,31 @@ def test_read_conservations_and_annotations_success(
     assert conservations == conservations_content_Q9NU22_PF07728
     assert annotations == annotations_content_disulfid_fixture_Q9NU22_PF07728
 
-def test_read_conservations_and_annotations_missing_file(tmp_path):
-    with pytest.raises(FileNotFoundError):
-        read_conservations_and_annotations(
-            str(tmp_path / "nonexistent.json"),
-            str(tmp_path / "annotations.json")
-        )
+def test_read_conservations_and_annotations_missing_files(tmp_path):
+    """Test handling of missing files - should return empty dicts."""
+    conservations, annotations = read_conservations_and_annotations(
+        str(tmp_path / "nonexistent_cons.json"),
+        str(tmp_path / "nonexistent_annot.json")
+    )
+
+    assert conservations == {"sequence_id/range": {}}
+    assert annotations == {"sequence_id": {}}
+
+def test_read_conservations_and_annotations_one_file_missing(tmp_path, mock_json_filepaths):
+    """Test handling when only one file exists."""
+    cons_file, _ = mock_json_filepaths
+
+    # Create only conservations file
+    with open(cons_file, 'w') as f:
+        json.dump({"some": "data"}, f)
+
+    conservations, annotations = read_conservations_and_annotations(
+        str(cons_file),
+        str(tmp_path / "nonexistent_annot.json")
+    )
+
+    assert conservations == {"some": "data"}
+    assert annotations == {"sequence_id": {}}
 
 def test_read_conservations_and_annotations_invalid_json(tmp_path, mock_json_filepaths):
     # Create file with invalid JSON
@@ -3739,52 +3753,6 @@ def test_convert_sets_and_tuples_to_lists_annotation_ranges():
     assert isinstance(result["ranges"][0], list)
     assert isinstance(result["ranges"][1], list)
     assert result["ranges"] == [[1, 2], [3, 4]]
-
-###T convert_lists_to_original_types
-
-def test_convert_lists_to_original_types_annotation_ranges():
-    """Test conversion of annotation_ranges structure back to sets and tuples"""
-    test_data = {
-        "positions": [333],
-        "ranges": [[333, 333]]
-    }
-
-    result = convert_lists_to_original_types(test_data)
-
-    assert isinstance(result["positions"], set)
-    assert result["positions"] == {333}
-    assert isinstance(result["ranges"][0], tuple)
-    assert result["ranges"] == [(333, 333)]
-
-def test_convert_lists_to_original_types_indices():
-    """Test conversion of indices matches/misses back to sets"""
-    test_data = {
-        "indices": {
-            "matches": ["333", "373"],
-            "misses": []
-        }
-    }
-
-    result = convert_lists_to_original_types(test_data)
-
-    # Lists should stay as lists since they're not in annotation_ranges structure
-    assert isinstance(result["indices"]["matches"], list)
-    assert isinstance(result["indices"]["misses"], list)
-
-def test_convert_lists_to_original_types_real_data(transfer_dict_populated_disulfid_list_original_structure_Q9NU22):
-    """Test conversion of real transfer dict data back to original types"""
-    result = convert_lists_to_original_types(transfer_dict_populated_disulfid_list_original_structure_Q9NU22)
-
-    # Check annotation_ranges conversion
-    anno_ranges = result["DOMAIN"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotation_ranges"]
-    for key in anno_ranges:
-        assert isinstance(anno_ranges[key]["positions"], set)
-        assert isinstance(anno_ranges[key]["ranges"][0], tuple)
-
-    # Check indices remain as lists
-    indices = result["DOMAIN"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["indices"]
-    assert isinstance(indices["matches"], list)
-    assert isinstance(indices["misses"], list)
 
 ###T write_reports
 

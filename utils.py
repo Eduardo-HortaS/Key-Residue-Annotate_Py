@@ -32,7 +32,7 @@ from Bio.SeqRecord import SeqRecord
 from multiprocessing import Pool
 from typing import Iterator
 from Bio import SeqIO
-from typing import TypeVar, List, Callable
+from typing import TypeVar, List, Callable, Optional
 
 
 # T = input type (could be str, int, dict, etc.)
@@ -103,6 +103,102 @@ def parallelize(func: Callable[[T], R], inputs: List[T], num_workers: int | None
     with Pool(processes=num_workers) as pool:
         results = pool.map(func, inputs)
     return results
+
+def convert_lists_to_original_types(data):
+    """Reverses convert_sets_and_tuples_to_lists operation.
+
+    Note: This function is intended for downstream scripts.
+    Consider moving to a shared utilities module.
+
+    Special handling for annotation_ranges structure where:
+        - positions (list) -> set
+        - ranges (list of lists) -> list of tuples
+
+    Args:
+        data: Input data structure containing lists
+
+    Returns:
+        Converted data structure with appropriate sets/tuples
+    """
+    if isinstance(data, dict):
+        # Special handling for annotation_ranges structure
+        if 'positions' in data and 'ranges' in data:
+            return {
+                'positions': set(data['positions']),
+                'ranges': [tuple(r) for r in data['ranges']]
+            }
+        return {k: convert_lists_to_original_types(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return data  # Keep as list by default
+    else:
+        return data
+
+def convert_sets_and_tuples_to_lists(data):
+    """Recursively converts sets and tuples to lists for JSON serialization.
+
+    Special handling for annotation_ranges structure where:
+        - positions (set) -> sorted list
+        - ranges (list of tuples) -> list of lists
+
+    Args:
+        data: Input data structure containing sets/tuples
+
+    Returns:
+        Converted data structure with lists instead of sets/tuples
+    """
+    if isinstance(data, dict):
+        # Special handling for annotation_ranges structure
+        if 'positions' in data and 'ranges' in data:
+            return {
+                'positions': sorted(list(data['positions'])),
+                'ranges': [list(r) for r in data['ranges']]
+            }
+        return {k: convert_sets_and_tuples_to_lists(v) for k, v in data.items()}
+    elif isinstance(data, tuple):
+        return list(convert_sets_and_tuples_to_lists(elem) for elem in data)
+    elif isinstance(data, list):
+        return [convert_sets_and_tuples_to_lists(elem) for elem in data]
+    elif isinstance(data, set):
+        return sorted(list(data))
+    else:
+        return data
+
+def get_continuous_ranges(interval_dict: dict, anno_id: str, logger: Optional[logging.Logger] = None) -> list:
+    """Returns list of continuous ranges for given annotation ID,
+    or empty list if no ranges are found. Meant to extract ranges from
+    the annotation_ranges field in transfer_dict. MUST have proper list of tuples format.
+
+    Args:
+        interval_dict: Dictionary containing annotation_ranges field
+        anno_id: Annotation identifier to look up
+        logger: Optional logger for warnings
+
+    Returns:
+        list: List of (start, end) tuples representing continuous ranges,
+              or empty list if no ranges found
+
+    Expected structure:
+        interval_dict = {"annotation_ranges": {"anno_id": {"ranges": [(start1, end1), (start2, end2), ...]}}}
+    """
+    ranges_dict = interval_dict.get("annotation_ranges", {})
+    anno_ranges = ranges_dict.get(anno_id, {}).get("ranges", [])
+
+    if not isinstance(anno_ranges, list):
+        if logger:
+            logger.warning(
+                f"Annotation_Ranges-Ranges structure must be a list, "
+                f"currently is of type: {type(anno_ranges)}"
+            )
+        return []
+
+    try:
+        return [(start, end) for start, end in anno_ranges]
+    except (TypeError, ValueError) as e:
+        if logger:
+            logger.warning(
+                f"Failed to process ranges, expected list of (start, end) tuples. Error: {e}, Anno_Ranges: {anno_ranges}"
+            )
+        return []
 
 def parse_arguments():
     """

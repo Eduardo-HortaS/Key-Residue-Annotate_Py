@@ -20,7 +20,7 @@ MA 02110-1301, USA.
 
 This script contains 2 functions:
 
-1 - merge_sequences.py - merges every sequence's PF*_report.json into a single JSON, with structure:
+1 - merge_sequences - merges every sequence's PF*_report.json into a single JSON, with structure:
     report[sequence][domain] = {<pair's data>} and stores in the output directory. Also, makes a reported_domains.txt
     for debugging purposes, this will be removed later. Rquired argument: output dir path.
 

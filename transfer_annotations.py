@@ -104,9 +104,13 @@ def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[st
     """
     with open(hmmalign_result, 'r', encoding="utf-8") as hmmaligned_file:
         hmmalign_lines = [line.rstrip('\n') for line in hmmaligned_file]
-        # # # # hmmalign_lines = hmmaligned_file.readlines()
-    with open(annotations_filepath, 'r', encoding="utf-8") as annotations_file:
-        annotations = json.load(annotations_file)
+
+    try:
+        with open(annotations_filepath, 'r', encoding="utf-8") as annotations_file:
+            annotations = json.load(annotations_file)
+    except (FileNotFoundError, IOError):
+        annotations = {"sequence_id": {}}
+
     return hmmalign_lines, annotations
 
 ### New Helper Functions
@@ -144,6 +148,84 @@ def iterate_aligned_sequences(
         if (source_pos is not None and source_pos == source_end) or (last_valid_target_pos is not None and last_valid_target_pos == target_end):
             break
 
+def extract_target_info_from_hmmalign(hmmalign_lines: list, logger: logging.Logger) -> dict:
+    """Extracts target sequence information from hmmalign lines for both annotations and conservations.
+    Args:
+        hmmalign_lines (list): List of lines from the hmmalign alignment file.
+        logger (logging.Logger): Logger object for logging.
+    Returns:
+        dict: Format {target_name: {target_hit_interval: [(target_hit_start, target_hit_end, target_hit_sequence),...]}}
+        where target_hit_interval is "start-end"
+    """
+    target_info = {}
+    for line in hmmalign_lines:
+        if "target/" in line and not line.startswith("#"):
+            logger.debug(f"---> DEBUG --- Target Line: {line}")
+            parts = line.split("target/")
+            target_name = parts[0].strip()
+            target_relevant = parts[1].strip()
+            target_parts = target_relevant.split()
+            if len(target_parts) >= 2:
+                target_hit_interval = target_parts[0].split("/")[1]
+                target_hit_start = int(target_hit_interval.split("-")[0])
+                target_hit_end = int(target_hit_interval.split("-")[1])
+                target_hit_sequence = target_parts[1]
+                if target_name not in target_info:
+                    target_info[target_name] = {}
+                if target_hit_interval not in target_info[target_name]:
+                    target_info[target_name][target_hit_interval] = []
+                target_info[target_name][target_hit_interval].append(
+                    (target_hit_start, target_hit_end, target_hit_sequence)
+                )
+    return target_info
+
+def setup_for_conservations_only(logger: logging.Logger, hmmalign_lines: list, pfam_id: str) -> dict:
+    """Creates transfer dictionary structure for cases where only conservation data is available.
+    Args:
+        logger (logging.Logger): Logger object for logging.
+        hmmalign_lines (list): List of lines from the hmmalign alignment file.
+        pfam_id (str): Pfam domain accession being processed.
+    Returns:
+        dict: Transfer dict with necessary keys for conservations: sequence_id, hit_intervals,
+        sequence, length, hit_start/end, annotations (stays empty later),
+        conservations, position_conversion, annotation_ranges.
+    """
+
+    transfer_dict = { pfam_id: {"sequence_id": {}}}
+    target_info = extract_target_info_from_hmmalign(hmmalign_lines, logger)
+
+    if not target_info:
+        logger.error("---> ERROR --- No target sequences found in hmmalign lines!")
+        transfer_dict = {}
+        return transfer_dict
+
+    for target_name, target_hit_interval in target_info.items():
+        if target_name not in transfer_dict[pfam_id]["sequence_id"]:
+            transfer_dict[pfam_id]["sequence_id"][target_name] = {"hit_intervals": {}}
+
+        for interval_key, target_info_list in target_hit_interval.items():
+            for target_hit_start, target_hit_end, target_sequence in target_info_list:
+                target_sequence_continuous = ''.join([char.upper() for char in target_sequence if char.isalpha()])
+                interval_dict = {
+                    "sequence": target_sequence_continuous,
+                    "length": len(target_sequence_continuous),
+                    "hit_start": target_hit_start,
+                    "hit_end": target_hit_end,
+                    "annotations": {},
+                    "conservations": {
+                        "positions": {},
+                        "indices": {"matches": set(), "misses": set()}
+                    },
+                    "position_conversion": {
+                        "target_to_aln": {},
+                        "aln_to_target": {}
+                    },
+                    "annotation_ranges": {}
+                }
+                transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key] = interval_dict
+
+    return transfer_dict
+
 #@measure_time_and_memory
 #@profile
 def find_and_map_annots(
@@ -168,26 +250,9 @@ def find_and_map_annots(
         dict: Transfer dictionary containing annotations for each sequence-domain pair.
     """
     transfer_dict = {}
-    target_info = {}
     processed_annotations = set()
 
-    for line in hmmalign_lines:
-        if "target/" in line and not line.startswith("#"):
-            logger.debug(f"---> DEBUG --- FIND_AND_MAP --- Target Line: {line}")
-            parts = line.split("target/")
-            target_name = parts[0].strip()
-            target_relevant = parts[1].strip()
-            target_parts = target_relevant.split()
-            if len(target_parts) >= 2:
-                target_hit_interval = target_parts[0].split("/")[1]
-                target_hit_start = int(target_hit_interval.split("-")[0])
-                target_hit_end = int(target_hit_interval.split("-")[1])
-                target_hit_sequence = target_parts[1]
-                if target_name not in target_info:
-                    target_info[target_name] = {}
-                if target_hit_interval not in target_info[target_name]:
-                    target_info[target_name][target_hit_interval] = []
-                target_info[target_name][target_hit_interval].append((target_hit_start, target_hit_end, target_hit_sequence))
+    target_info = extract_target_info_from_hmmalign(hmmalign_lines, logger)
 
     if not target_info:
         logger.error("---> ERROR --- FIND_AND_MAP --- No target sequences found in hmmalign lines!")
@@ -207,8 +272,6 @@ def find_and_map_annots(
                     for target_hit_interval, target_info_list in target_per_interval.items():
                         for target_hit_start, target_hit_end, target_hit_sequence in target_info_list:
                             entry_annotations_copy = copy.deepcopy(entry_annotations)
-                            # # DEBUG, Delete Later
-                            # if entry_mnemo_name == "Q5CUW0_CRYPI":
                             map_and_filter_annot_pos(
                                 logger=logger,
                                 good_eco_codes=good_eco_codes,
@@ -228,36 +291,46 @@ def find_and_map_annots(
     return transfer_dict
 
 def read_conservations_and_annotations(conservations_filepath: str, annotations_filepath: str) -> tuple[dict, dict]:
-    """
-    Reads the conservations and annotations JSON files.
-    Returns appropriate empty structures if files are empty.
+    """Reads conservations and annotations JSON files.
+
+    Args:
+        conservations_filepath: Path to conservations JSON
+        annotations_filepath: Path to annotations JSON
 
     Returns:
-        tuple[dict, dict]: (conservations, annotations) where:
-            - conservations: {"sequence_id/start-end": {"position": conservation_score, ...}}
-            - annotations: {"sequence_id": {"position": [{"type": str, ...}]}}
-    """
-    with open(conservations_filepath, 'r', encoding="utf-8") as conservations_file:
-        conservations = json.load(conservations_file)
-        if not conservations:
-            conservations = {"sequence_id/range": {}}
+        tuple: (conservations, annotations) where:
+            conservations: {"sequence_id/start-end": {"position": score}}
+            annotations: {"sequence_id": {"position": [{"type": str}]}}
 
-    with open(annotations_filepath, 'r', encoding="utf-8") as annotations_file:
-        annotations = json.load(annotations_file)
-        if not annotations:
-            annotations = {"sequence_id": {}}
+    Note:
+        Returns empty structures for missing or invalid files
+    """
+    try:
+        with open(conservations_filepath, 'r', encoding="utf-8") as conservations_file:
+            conservations = json.load(conservations_file)
+            if not conservations:
+                conservations = {"sequence_id/range": {}}
+    except (FileNotFoundError, IOError):
+        conservations = {"sequence_id/range": {}}
+
+    try:
+        with open(annotations_filepath, 'r', encoding="utf-8") as annotations_file:
+            annotations = json.load(annotations_file)
+            if not annotations:
+                annotations = {"sequence_id": {}}
+    except (FileNotFoundError, IOError):
+        annotations = {"sequence_id": {}}
 
     return conservations, annotations
 
 def parse_go_annotations(go_column: str) -> list:
-    """
-    Parses GO Annotations column data from the InterProScan TSV output.
+    """Extracts GO terms from InterProScan TSV column.
 
     Args:
-        go_column (str): The GO Annotations column value (e.g., "GO:0005515|GO:0006302").
+        go_column: GO terms string (e.g., "GO:0005515|GO:0006302")
 
     Returns:
-        list: A list of GO terms (e.g., ["GO:0005515", "GO:0006302"]).
+        list: Clean GO terms (e.g., ["GO:0005515", "GO:0006302"])
     """
     if not go_column or go_column == "-" or not go_column.strip():
         return []
@@ -278,6 +351,9 @@ def check_interval_overlap(iprscan_start: int, iprscan_end: int,
         hit_start: Start position from HMMER hit
         hit_end: End position from HMMER hit
         margin_percent: Allowed margin as fraction of hit length (default 10%)
+
+    Returns:
+        bool: True if intervals overlap, False otherwise
     """
     if not all(isinstance(x, (int, float)) and x >= 0
               for x in [iprscan_start, iprscan_end, hit_start, hit_end, margin_percent]):
@@ -305,6 +381,18 @@ def gather_go_terms_for_target(
     Checks for:
     - Matching InterProScan lines with the PFAM ID or InterPro ID.
     - Matching intervals with the hit start and end.
+
+    Args:
+        logger (logging.Logger): Logger object for logging.
+        target_name (str): Target sequence name.
+        pfam_id (str): PFAM domain accession being processed.
+        go_terms_dir (str): Directory containing target sequence subdirs where iprscan.tsv lies.
+        interpro_conv_id (str): InterPro ID for the domain.
+        hit_start (int): Start position of the hit.
+        hit_end (int): End position of the hit.
+
+    Returns:
+        set: GO terms found for the target sequence.
     """
     sanitized_target_name = target_name.replace("|", "-")
     go_term_filepath = os.path.join(go_terms_dir, sanitized_target_name, "iprscan.tsv")
@@ -347,9 +435,15 @@ def gather_go_terms_for_target(
 
 
 def get_alignment_sequences(hmmalign_lines: list, target_id: str, conservation_id: str):
-    """
-    From hmmalign_lines, extracts the target_seq and conservation_seq matching the given IDs.
-    Returns (target_seq, conservation_seq).
+    """From hmmalign_lines, extracts the target_seq and conservation_seq matching the given IDs.
+
+    Args:
+        hmmalign_lines: Alignment file content
+        target_id: Target sequence identifier
+        conservation_id: Conservation sequence identifier
+
+    Returns:
+        tuple: (target_sequence, conservation_sequence)
     """
     target_seq = None
     conservation_seq = None
@@ -391,8 +485,26 @@ def populate_conservation(
     conservation_end: int,
     logger: Optional[logging.Logger] = None
 ) -> None:
-    """
-    Iterates over aligned sequences and populates transfer_dict with conservation info.
+    """Updates transfer_dict with conservation scores.
+
+    Processes aligned sequences to map conserved positions and scores
+    between target and conservation sequences.
+
+    Args:
+        transfer_dict: Transfer dictionary to update
+        pfam_id: PFAM domain identifier
+        target_name: Target sequence name
+        target_seq: Target sequence
+        conservation_seq: Conservation reference sequence
+        conservation_key: Key (target_id/start-end) for conservation scores in conservations
+        conservations: Whole conservation scores dictionary
+        conserved_positions: List of conserved positions
+        target_hit_start: Start position of the hit in the target sequence
+        target_hit_end: End position of the hit in the target sequence
+        interval_key: Key for current hit interval in the transfer_dict
+        conservation_start: Start position in conservation reference sequence
+        conservation_end: End position in conservation reference sequence
+        logger: Logger object for logging
     """
     processed_conserved_pos = set()
     for index, counter_cons_pos, counter_target_pos, char_cons, char_target in iterate_aligned_sequences(
@@ -443,7 +555,16 @@ def populate_go_data_for_annotations(
     target_gos: set
 ) -> None:
     """
-    Fills GO data into the transfer_dict for each annotation found, using any overlapping GO terms.
+    Adds GO data into transfer_dict for each anno_id found, using any overlapping GO terms
+    between the target and conserved/annotated sequences to calculate similarity scores by Jaccard Index.
+
+    Args:
+        transfer_dict: Transfer dictionary to update
+        pfam_id: PFAM domain identifier
+        target_name: Target sequence name
+        annotations: Annotations dictionary
+        go_terms_annot_key: Key for GO terms in annotations
+        target_gos: Set of GO terms found for the target sequence
     """
     go_info_cache = {}
     for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
@@ -487,19 +608,31 @@ def cleanup_improve_transfer_dict(
     output_dir: str,
     pfam_interpro_map_filepath: str
 ) -> dict:
-    """
-    Cleans up and improves the transfer dictionary by:
-    - Setting transfer_dict[pfam_id] from transfer_dict["DOMAIN"]
-    - Adding conservation data
-    - Adding GO term data
-    """
+    """Main function for enhancing transfer dictionary with conservation and GO data.
 
+    Coordinates data population from conservations.json and annotations.json.
+    Uses helper functions for sequence extraction from alignment,
+    GO term retrieval from iprscan.tsv,
+    and positional and GO term conservation scores calculation (latter 2 done by the populate_*).
+
+    Args:
+        logger: Process logging handler
+        transfer_dict: Dictionary to enhance
+        pfam_id: Domain identifier
+        hmmalign_lines: Alignment file content
+        *_filepath: Paths to required JSON files
+        output_dir: Directory for output files
+
+    Returns:
+        dict: Enhanced transfer dictionary with format:
+            {"domain": {pfam_id: {...}}}
+    """
     go_terms_annot_key = "0"
-    transfer_dict[pfam_id] = transfer_dict.pop("DOMAIN")
 
-    # Read external JSON files
-    conservations, annotations = read_conservations_and_annotations(conservations_filepath, annotations_filepath) # Mock
+    if "DOMAIN" in transfer_dict:
+        transfer_dict[pfam_id] = transfer_dict.pop("DOMAIN")
 
+    conservations, annotations = read_conservations_and_annotations(conservations_filepath, annotations_filepath)
     has_valid_conservations = bool(conservations) and conservations != {"sequence_id/range": {}} and any("/" in key for key in conservations.keys())
     has_valid_annotations = bool(annotations) and annotations != {"sequence_id": {}} and any(isinstance(annotations.get(key, {}).get("0", {}), dict) for key in annotations)
     if not has_valid_conservations and not has_valid_annotations:
@@ -564,7 +697,18 @@ def cleanup_improve_transfer_dict(
     return {"domain": {pfam_id: pfam_data}}
 
 def convert_sets_and_tuples_to_lists(data):
-    """Converts sets and tuples to lists for JSON serialization"""
+    """Recursively converts sets and tuples to lists for JSON serialization.
+
+    Special handling for annotation_ranges structure where:
+        - positions (set) -> sorted list
+        - ranges (list of tuples) -> list of lists
+
+    Args:
+        data: Input data structure containing sets/tuples
+
+    Returns:
+        Converted data structure with lists instead of sets/tuples
+    """
     if isinstance(data, dict):
         # Special handling for annotation_ranges structure
         if 'positions' in data and 'ranges' in data:
@@ -582,34 +726,29 @@ def convert_sets_and_tuples_to_lists(data):
     else:
         return data
 
-def convert_lists_to_original_types(data):
-    """Converts lists back to sets and tuples where needed"""
-    if isinstance(data, dict):
-        # Special handling for annotation_ranges structure
-        if 'positions' in data and 'ranges' in data:
-            return {
-                'positions': set(data['positions']),
-                'ranges': [tuple(r) for r in data['ranges']]
-            }
-        return {k: convert_lists_to_original_types(v) for k, v in data.items()}
-    elif isinstance(data, list):
-        return data  # Keep as list by default
-    else:
-        return data
-
 def write_reports(
     logger: logging.Logger,
     transfer_dict: dict,
     output_dir: str,
 ) -> None:
+    """Writes transfer results to JSON files in two formats.
+
+    Outputs transfer dictionary data as:
+    1. Complete report: output_dir/pfam_id/pfam_id_report.json
+       Contains all targets and their annotations for that domain.
+    2. Per-target reports: output_dir/target_name/pfam_id_report.json
+       Individual target-domain data.
+
+    Args:
+        logger: Process logging handler
+        transfer_dict: Transfer results to be written
+        output_dir: Base output directory
+
+    Note:
+        Converts set/tuple data to lists for JSON serialization
+        while preserving original dictionary structure. Thi must be
+        reversed for downstream consumption, use utils.convert_lists_to_original_types.
     """
-    1. Writes the entire transfer_dict to a single JSON file under:
-       output_dir/pfam_id/pfam_id_report.json
-    2. Writes each target_name's data under:
-       output_dir/target_name/pfam_id_report.json, preserving pfam_id structure
-    """
-    # NOTE --- GOTTA CONVERT WITHOUT CHANGING THE ORIGINAL DICT
-    # WILL USE ORIGINAL FOR VERSION WITH ANNO_ID-RANGES UNDER ANNOTATIONS
     transfer_dict = convert_sets_and_tuples_to_lists(transfer_dict)
     pfam_id = next(iter(transfer_dict['domain'].keys()))
     sequence_data = transfer_dict['domain'][pfam_id]['sequence_id']
@@ -619,7 +758,6 @@ def write_reports(
     os.makedirs(pfam_dir, exist_ok=True)
     entire_report_path = os.path.join(pfam_dir, pfam_id + "_report.json")
 
-    transfer_dict0 = convert_sets_and_tuples_to_lists(transfer_dict)
     structured_report = {
         "domain_id": pfam_id,
         "sequences": sequence_data
@@ -676,12 +814,27 @@ def map_and_filter_annot_pos(
     paired_annot_pos_str: str = None,
     caller_target_pos_str: str = None,
     paired_annotation_dict: Optional[Dict[str, Any]] = None) -> Optional[tuple[bool, dict]]:
-    """
-    Asks to map positions between annotated and target sequences.
-    If target paired annot position and caller target position are provided,
-    this is an associated call for a paired position sent to validate_paired_annotations.
-    Otherwise, it is a call for a single position sent to validate_annotations.
-    Makes counter_annot_pos and counter_target_pos to track the current position in both sequences.
+    """Routes annotation position mapping between target and source/annotated sequences.
+
+    Core routing function in annotation transfer pipeline. Handles two cases:
+    1. Paired positions: Validates second member of paired annotations
+    2. Single positions: Routes normal annotation validation
+
+    Args:
+        logger: Process logging handler
+        good_eco_codes: Valid evidence codes
+        target_*: Target sequence data (sequence, name, boundaries)
+        offset_*: Alignment boundaries (start, end)
+        annot_*: Source sequence data
+        entry_*: Source entry data (name, annotations)
+        transfer_dict: Output dictionary for results
+        processed_*: Set of handled annotations
+        paired_*: Optional paired annotation data
+        caller_target_pos_str: First position of pair in target
+
+    Returns:
+        For paired positions: (match_status, annotation_dict)
+        For single positions: None
     """
     counter_annot_pos = None
     counter_target_pos = None
@@ -746,13 +899,31 @@ def add_to_transfer_dict(
     paired_anno_id: Optional[str] = "",
     paired_anno_total: Optional[dict] = None) -> None:
     """
-    Adds anno_total data to the transfer dictionary.
-    The dictionary is structured by target name, hit | miss branches,
-    target position, annotation ID (type + description).
-    Further, you'll have essentials (type, description, count), evidence
-    and various possible additional annotation details, mainly for BINDING annotations.
-    Keeps tabs of how many times each annotation ID is found, as well as if paired data is provided
-    (paired_position_res_hit, paired_anno_id, paired_anno_total), processes that data analogously after the early pair data.
+    Adds annotation data to transfer dictionary with position tracking.
+
+    Core function for building transfer_dict structure. Handles both single and paired
+    annotations, tracking positions, ranges, and relationships. Uses helper functions:
+    - _add_single_annotation: Processes individual annotation entries
+    - _update_annotation_ranges: Tracks continuous position ranges
+    - _merge_adjacent_ranges: Combines overlapping ranges for storage
+
+    Args:
+        hit: Whether position matches between target/annotation
+        logger: Process logging handler
+        transfer_dict: Output dictionary being built
+        target_*: Target sequence information
+        anno_*: Annotation data (id, total dict)
+        entry_*: Source entry identifiers
+        paired_*: Optional paired annotation data
+
+    Structure built:
+        transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval] = {
+            sequence data,
+            annotations data,
+            conservations data,
+            position mappings,
+            annotations/continuous ranges
+        }
     """
     try:
         additional_keys = {k: v for k, v in anno_total.items()
@@ -836,7 +1007,12 @@ def _add_single_annotation(
     entry_mnemo_name: str,
     entry_primary_accession: str,
     additional_keys: dict) -> None:
-    """Helper function to add a single annotation to transfer_dict"""
+    """Processes single annotation entry for add_to_transfer_dict.
+
+    Handles position tracking, evidence logging, paired relationships,
+    and special annotation types (BINDING, ACT_SITE, etc).
+    Called for both main and second pair (if applicable) annotations.
+    """
 
     # Extract positions in target and annotated numbering - for early pair data
     target_position_str = anno_total.get('target_position', None)
@@ -930,7 +1106,11 @@ def _add_single_annotation(
                 positions_dict[anno_id]['additional_keys'][key][value]["count"] += 1
 
 def _update_annotation_ranges(interval_dict: dict, target_position_str: str, anno_id: str) -> None:
-    """Updates continuous ranges for a given annotation ID when a new position is added."""
+    """Maintains continuous position ranges for annotations.
+
+    Called by _add_single_annotation to track consecutive positions
+    for each annotation ID. Uses _merge_adjacent_ranges for cleanup.
+    """
     position = int(target_position_str)
     ranges_dict = interval_dict["annotation_ranges"]
 
@@ -967,7 +1147,11 @@ def _update_annotation_ranges(interval_dict: dict, target_position_str: str, ann
     ranges.sort(key=lambda x: x[0])
 
 def _merge_adjacent_ranges(ranges: list) -> None:
-    """Merges adjacent or overlapping ranges in-place."""
+    """Combines overlapping or consecutive position ranges.
+
+    Helper for _update_annotation_ranges. Maintains sorted,
+    non-overlapping ranges list by merging adjacent intervals.
+    """
     if not ranges:
         return
 
@@ -983,11 +1167,42 @@ def _merge_adjacent_ranges(ranges: list) -> None:
         else:
             i += 1
 
-def get_continuous_ranges(interval_dict: dict, anno_id: str) -> list:
-    """Returns list of continuous ranges for given annotation ID."""
+def get_continuous_ranges(interval_dict: dict, anno_id: str, logger: Optional[logging.Logger] = None) -> list:
+    """Returns list of continuous ranges for given annotation ID,
+    or empty list if no ranges are found. Meant to extract ranges from
+    the annotation_ranges field in transfer_dict. MUST have proper list of tuples format.
+
+    Args:
+        interval_dict: Dictionary containing annotation_ranges field
+        anno_id: Annotation identifier to look up
+        logger: Optional logger for warnings
+
+    Returns:
+        list: List of (start, end) tuples representing continuous ranges,
+              or empty list if no ranges found
+
+    Expected structure:
+        interval_dict = {"annotation_ranges": {"anno_id": {"ranges": [(start1, end1), (start2, end2), ...]}}}
+    """
     ranges_dict = interval_dict.get("annotation_ranges", {})
     anno_ranges = ranges_dict.get(anno_id, {}).get("ranges", [])
-    return [(start, end) for start, end in anno_ranges]
+
+    if not isinstance(anno_ranges, list):
+        if logger:
+            logger.warning(
+                f"Annotation_Ranges-Ranges structure must be a list, "
+                f"currently is of type: {type(anno_ranges)}"
+            )
+        return []
+
+    try:
+        return [(start, end) for start, end in anno_ranges]
+    except (TypeError, ValueError) as e:
+        if logger:
+            logger.warning(
+                f"Failed to process ranges, expected list of (start, end) tuples. Error: {e}, Anno_Ranges: {anno_ranges}"
+            )
+        return []
 
 #@measure_time_and_memory
 #@profile
@@ -1003,9 +1218,26 @@ def make_anno_total_dict(
     entry_annotations: Optional[Dict[str, Any]] = None,
     caller_target_pos_str: Optional[str] = None) -> Dict[str, Any]:
     """
-    For any given annotation in appropriate format (list with 1 dict(annotation_dict) inside), paired or not, produces an anno_total dict and
-    associated data to return as a dict to be extracted from in accordance to the calling function's needs.
-    Used by process_annotation and validate_paired_annotations.
+    Processes single or paired annotations into a format requested by
+    process_annotation() and validate_paired_annotations() and sent for use in
+    add_to_transfer_dict(). Handles evidence validation and extracts special fields for BINDING/ACT_SITE types.
+
+    Args:
+        good_eco_codes: List of valid evidence codes to filter by
+        entry_*: Source entry identifiers and annotations
+        annotation_dict: Raw annotation data to process
+        counter_*: Current positions in target/annotation sequences
+        index: Position in alignment
+        target_amino: Target sequence amino acid
+        caller_target_pos_str: For paired annotations, caller's target position
+
+    Returns:
+        dict: Processed annotation data containing:
+            - annotation: Original annotation dict
+            - anno_type: Annotation type string
+            - anno_id: Unique identifier (type + | + description)
+            - anno_total: Processed data for add_to_transfer_dict()
+            - paired_annot_pos_str: Paired position if applicable
     """
     anno_type = ""
     anno_id = ""
@@ -1093,10 +1325,24 @@ def process_annotation(
     annotation_key: tuple
 ) -> None:
     """
-    Processes annotations to add them to the transfer dictionary by calling make_anno_total dict
-    with anno_total containing at least type, description, count, and evidence, plus associated data.
-    Additionally, it adds paired position if the other member also hits (successfull map_and_filter_annot_pos for it),
-    and adds additional keys for BINDING annotations, if present.
+    Directs annotations to preview if we should add them to transfer_dict by calling make_anno_total_dict
+    returning anno_total containing type, description, count, evidence,
+    target/annot/index positions and target/annot amino acids data.
+    Additionally, make_anno also adds paired position if the other member also hits (successfull map_and_filter_annot_pos for it).
+    May also add additional keys for special annotation types/cases in add_to_transfer_dict and helpers.
+
+    Args:
+        logger: Process logging handler
+        good_eco_codes: Valid evidence codes
+        target_*: Target data (name, sequence, positions, amino)
+        entry_*: Source entry data (name, annotations)
+        annotation_*: Current annotation info (dict, key)
+        transfer_dict: Output dictionary for results
+        offset_*: Alignment boundaries
+        counter_*: Position strings being processed
+        index: Current position in alignment
+        processed_annotations: Set of handled annotations
+        res_hit: Whether current position matches
     """
     result_dict = make_anno_total_dict(
         good_eco_codes=good_eco_codes,
@@ -1238,6 +1484,20 @@ def validate_paired_annotations(
     if the target paired annot position from caller is a valid match.
     Success and failure both mean adding the annotation to the transfer dictionary
     in the process_annotation parent function, difference lies in where (match | miss).
+
+    Args:
+        logger: Process logging handler
+        good_eco_codes: Valid evidence codes
+        target_*: Target sequence data (sequence, name, hit boundaries)
+        offset_*: Alignment boundaries (start, end)
+        annot_*: Source annotation data (sequence, entry name)
+        paired_*: Paired position info (annotation dict, position str)
+        entry_annotations: Position-based annotation dictionary
+        counter_*: Current positions in sequences
+        caller_target_pos_str: First position of pair in target
+
+    Returns:
+        tuple: (match_status, annotation_dict | None)
     """
     paired_position_res_hit = False
     paired_result_dict = {}
@@ -1313,9 +1573,19 @@ def validate_annotations(
     counter_annot_pos: None) -> None:
     """
     Iterate on both annotated and target sequences to find columns where the annotated sequence has annotations. See if the amino acid at target sequence is the same as the one on the annotated sequence, storing the result in a boolean "res_hit".
-    Regardless of hit, send to process_annotation, granted that processed_annotations does not contain the annotation key (entry_mnemo_name, target_name, counter_annot_pos_str, counter_target_pos_str and anno_type).
-    """
+    Regardless of hit, send to process_annotation, granted that processed_annotations does not contain the annotation key (entry_mnemo_name, target_name, counter_annot_pos_str, counter_target_pos_str and anno_type), avoiding reprocessing.
 
+    Args:
+        logger: Logger for process tracking
+        good_eco_codes: List of valid evidence codes
+        target_*: Target sequence info (sequence, name, hit_start/end)
+        offset_*: Alignment offset positions (start/end)
+        annot_*: Annotation source info (sequence, entry_mnemo_name)
+        entry_annotations: Dictionary of position-based annotations
+        transfer_dict: Output dictionary for storing results
+        processed_annotations: Set of already handled annotations
+        counter_*: Current position counters (target/annot)
+    """
     annotated_annot_pos_list = [int(key) for key in entry_annotations.keys() if key != '0']
     if not any(pos in range(offset_start, offset_end + 1) for pos in annotated_annot_pos_list):
         return
@@ -1388,7 +1658,6 @@ def validate_annotations(
                     raise
 
 
-
 def main(logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
@@ -1404,22 +1673,26 @@ def main(logger: logging.Logger):
     hmmalign_lines, annotations = read_files(dom_align, annotations_filepath)
 
     try:
-        logger.debug(f"---> DEBUG --- MAIN --- Good ECO Codes to Filter by {good_eco_codes}")
-        transfer_dict = find_and_map_annots(logger, hmmalign_lines, annotations, good_eco_codes)
-        # DEBUG, Delete Later
-        # debug_transfer_dict = convert_sets_to_lists(transfer_dict)
-        logger.info(f"Annotations filepath: {annotations_filepath}")
-        # logger.info(f"Transfer dictionary: {json.dumps(transfer_dict, indent=4)}")
-        logger.info(f"Writing report to: {os.path.join(output_dir, 'MCRB_ECOLI', 'PF00244_report.json')}")
+        if annotations == {"sequence_id": {}}:
+            logger.info("No annotations file found - proceeding with conservations-only mode")
+            transfer_dict = setup_for_conservations_only(logger, hmmalign_lines, pfam_id)
+        else:
+            logger.debug(f"---> DEBUG --- MAIN --- Good ECO Codes to Filter by {good_eco_codes}")
+            transfer_dict = find_and_map_annots(logger, hmmalign_lines, annotations, good_eco_codes)
         if not transfer_dict:
             logger.info("---> MAIN --- Transfer Dict was EMPTY")
         else:
             logger.info("---> MAIN --- Transfer Dict FILLED")
+
     except (KeyError, IndexError, AttributeError) as e:
         error_info = traceback.format_exc()
         logger.error("---> MAIN --- ERROR transferring annotations for Pfam ID %s: %s\n%s", pfam_id, e, error_info)
         raise
-    improved_transfer_dict = cleanup_improve_transfer_dict(logger, transfer_dict, pfam_id, hmmalign_lines, conservations_filepath, annotations_filepath, output_dir, pfam_interpro_map_filepath)
+
+    improved_transfer_dict = cleanup_improve_transfer_dict(
+        logger, transfer_dict, pfam_id, hmmalign_lines,
+        conservations_filepath, annotations_filepath, output_dir, pfam_interpro_map_filepath
+        )
     write_reports(logger, improved_transfer_dict, output_dir)
 
 if __name__ == '__main__':

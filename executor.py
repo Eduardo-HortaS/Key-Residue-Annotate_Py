@@ -140,9 +140,11 @@ def main():
             sequence_fasta = os.path.join(subdir_path, "sequence.fasta")
             if os.path.isdir(subdir_path) and not subdir.startswith("PF") and os.path.isfile(sequence_fasta):
                 output_base_file = os.path.join(subdir_path, "iprscan")
-                run_iprscan_tasks.append(
-                    f"{python_executable} run_iprscan.py -iP {iprscan_sh_path} -iF {sequence_fasta} -oB {output_base_file} -oF {output_format_iprscan} -dB {databases} -l {log}"
-                )
+                cmd = f"{python_executable} run_iprscan.py -iP {iprscan_sh_path} -iF {sequence_fasta} -oB {output_base_file} -oF {output_format_iprscan}"
+                if databases:  # Only add -dB if databases is not empty
+                    cmd += f" -dB {databases}"
+                cmd += f" -l {log}"
+                run_iprscan_tasks.append(cmd)
         Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in run_iprscan_tasks)
         with open(run_iprscan_done, "w", encoding="utf-8") as f:
             f.write("")
@@ -213,6 +215,14 @@ def main():
 
     # make_view_jsons.py
     make_view_jsons_done = os.path.join(output_dir, "make_view_jsons.done")
+    if os.path.exists(make_view_jsons_done):
+        logger.info("MAKE_VIEW_JSONS.PY --- Skipping, output already exists")
+    else:
+        make_view_jsons_call = f"{python_executable} make_view_jsons.py -o {output_dir} -l {log}"
+        run_command(make_view_jsons_call, logger)
+        with open(make_view_jsons_done, "w", encoding="utf-8") as f:
+            f.write("")
+        logger.info("MAKE_VIEW_JSONS.PY --- Executed")
 
     logger.info("Pipeline finished successfully")
 

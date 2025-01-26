@@ -21,6 +21,7 @@ MA 02110-1301, USA.
 Runs InterProScan for a sequence in a fasta input.
 The user may opt (-db) for the default usage, a run including the panther, gene3d, smart,
 pfam, and superfamily databases, or to run with a custom set of available databases (-db=<comma-separated databases string>).
+
 This script uses 6 arguments: required paths to interproscan.sh, input sequence fasta and
 output base file name (absolute or relative),
 besides optional output format comma-and-space separated string (e.g. TSV, JSON, XML, GFF3)
@@ -52,10 +53,12 @@ def parse_arguments():
     parser.add_argument("-iP", "--iprscan-path", help="Path to interproscan.sh", required=True, type=str)
     parser.add_argument("-iF", "--input-fasta", help="Path to input sequence fasta", required=True, type=str)
     parser.add_argument("-oB", "--output-base-file", help="Path to output base file, ending right before the extension", required=True, type=str)
-    parser.add_argument("-oF", "--output-format", help="Output format/s, from (TSV, JSON, XML, GFF3). This pipeline only uses TSV, but the default is TSV, XML and GFF3 for possible downstream analyses", required=False, type=str, default="TSV, XML, GFF3")
+    parser.add_argument("-oF", "--output-format", help="Output format/s, from (TSV, JSON, XML, GFF3). This pipeline only uses TSV, but the default is TSV, XML and GFF3 for possible downstream analyses", required=False, type=str, default="TSV,XML,GFF3")
     parser.add_argument("-dB", "--databases", help="Optional: Comma-separated databases to limit the search, if the single purpose is using GO terms inside the pipeline, pass the string panther,gene3d,smart,pfam,superfamily", required=False, type=str, default="")
     parser.add_argument("-l", "--log", help="Log path", required=False, type=str, default="logs/run_iprscan.log")
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.output_format = ', '.join(fmt.strip() for fmt in args.output_format.split(','))
+    return args
 
 def configure_logging(log_path: str) -> logging.Logger:
     """Set up logging for the script."""
