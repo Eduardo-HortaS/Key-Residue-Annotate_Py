@@ -23,6 +23,8 @@ from transfer_annotations import (
     get_annotation_filepath,
     read_files,
     iterate_aligned_sequences,
+    extract_target_info_from_hmmalign,
+    setup_for_conservations_only,
     find_and_map_annots,
     read_conservations_and_annotations,
     parse_go_annotations,
@@ -37,8 +39,8 @@ from transfer_annotations import (
     map_and_filter_annot_pos,
     add_to_transfer_dict,
     _add_single_annotation,
-    _update_annotation_ranges,
-    _merge_adjacent_ranges,
+    update_position_ranges,
+    merge_adjacent_ranges,
     get_continuous_ranges,
     make_anno_total_dict,
     validate_annotations,
@@ -718,7 +720,8 @@ def transfer_dict_initialized_structure_Q9NU22():
                                 "target_to_aln": {},
                                 "aln_to_target": {}
                             },
-                            "annotation_ranges": {}
+                            "annotation_ranges": {},
+                            "conservation_ranges": {}
                         }
                     }
                 }
@@ -845,7 +848,8 @@ def transfer_dict_populated_disulfid_Q9NU22():
                                     "positions": {373},
                                     "ranges": [(373, 373)]
                                 }
-                            }
+                            },
+                            "conservation_ranges": {}
                         }
                     }
                 }
@@ -877,6 +881,8 @@ def transfer_dict_populated_disulfid_post_conservation_Q9NU22(transfer_dict_popu
     """Creates an extended version of transfer_dict_populated_disulfid_Q9NU22 with GO and conservation data."""
     extended_dict = copy.deepcopy(transfer_dict_populated_pre_process_Q9NU22)
     interval_path = extended_dict["domain"]["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]
+
+    # Update positions and scores
     interval_path["conservations"]["positions"].update({
         "329": {"conservation": 0.9853, "hit": True},
         "332": {"conservation": 0.8806, "hit": True},
@@ -884,18 +890,27 @@ def transfer_dict_populated_disulfid_post_conservation_Q9NU22(transfer_dict_popu
     })
     interval_path["conservations"]["indices"]["matches"].update(["329", "332", "335"])
 
-    # Update position conversion mappings
-    interval_path["position_conversion"]["target_to_aln"].update({
-        "329": "14",
-        "332": "17",
-        "335": "20"
-    })
+    # Add conservation positions to existing position mappings
+    conservation_mappings = {
+        "target_to_aln": {
+            "329": "14", "332": "17", "335": "20"
+        },
+        "aln_to_target": {
+            "14": "329", "17": "332", "20": "335"
+        }
+    }
 
-    interval_path["position_conversion"]["aln_to_target"].update({
-        "14": "329",
-        "17": "332",
-        "20": "335",
-    })
+    # Merge conservation mappings with existing annotation mappings
+    interval_path["position_conversion"]["target_to_aln"].update(conservation_mappings["target_to_aln"])
+    interval_path["position_conversion"]["aln_to_target"].update(conservation_mappings["aln_to_target"])
+
+    # Update conservation ranges
+    interval_path["conservation_ranges"] = {
+        "conserved_positions": {
+            "positions": {329, 332, 335},
+            "ranges": [(329, 329), (332, 332), (335, 335)]
+        }
+    }
 
     return extended_dict
 
@@ -1035,6 +1050,16 @@ def transfer_dict_success_binding_Q9NU22():
                                 "330"
                             ],
                             "misses": []
+                        }
+                    },
+                    "conservation_ranges": {
+                        "conserved_positions": {
+                            "positions": [329, 332, 335],
+                            "ranges": [
+                                [329, 329],
+                                [332, 332],
+                                [335, 335],
+                            ],
                         }
                     },
                     "conservations": {
@@ -1651,10 +1676,12 @@ def transfer_dict_success_all_types_H0YB80():
                             "34": {
                                 "conservation": 0.9736,
                                 "hit": True
+
                             },
                             "37": {
                                 "conservation": 0.9657,
                                 "hit": True
+
                             },
                             "41": {
                                 "conservation": 0.812,
@@ -1663,34 +1690,42 @@ def transfer_dict_success_all_types_H0YB80():
                             "48": {
                                 "conservation": 0.8392,
                                 "hit": True
+
                             },
                             "50": {
                                 "conservation": 0.9312,
                                 "hit": True
+
                             },
                             "52": {
                                 "conservation": 0.9043,
                                 "hit": True
+
                             },
                             "53": {
                                 "conservation": 0.9743,
                                 "hit": True
+
                             },
                             "54": {
                                 "conservation": 0.9191,
                                 "hit": True
+
                             },
                             "55": {
                                 "conservation": 0.9228,
                                 "hit": True
+
                             },
                             "56": {
                                 "conservation": 0.8745,
                                 "hit": True
+
                             },
                             "57": {
                                 "conservation": 0.978,
                                 "hit": True
+
                             },
                             "58": {
                                 "conservation": 0.9648,
@@ -2137,6 +2172,150 @@ def transfer_dict_success_all_types_H0YB80():
                                 ]
                             ]
                         }
+                    },
+                    "conservation_ranges": {
+                        "conserved_positions": {
+                            "positions": [
+                                1,
+                                2,
+                                3,
+                                5,
+                                6,
+                                7,
+                                8,
+                                9,
+                                10,
+                                12,
+                                13,
+                                15,
+                                16,
+                                34,
+                                37,
+                                41,
+                                48,
+                                50,
+                                52,
+                                53,
+                                54,
+                                55,
+                                56,
+                                57,
+                                58,
+                                60,
+                                61,
+                                62,
+                                64,
+                                65,
+                                66,
+                                73,
+                                74,
+                                77,
+                                80,
+                                81,
+                                82,
+                                84,
+                                88,
+                                89,
+                                93,
+                                96,
+                                97,
+                                98,
+                                99,
+                                100,
+                                101,
+                                102,
+                                103,
+                                104,
+                                105,
+                                106,
+                                107,
+                                108,
+                                109,
+                                110,
+                                111,
+                                112,
+                                113,
+                                114
+                            ],
+                            "ranges": [
+                                [
+                                    1,
+                                    3
+                                ],
+                                [
+                                    5,
+                                    10
+                                ],
+                                [
+                                    12,
+                                    13
+                                ],
+                                [
+                                    15,
+                                    16
+                                ],
+                                [
+                                    34,
+                                    34
+                                ],
+                                [
+                                    37,
+                                    37
+                                ],
+                                [
+                                    41,
+                                    41
+                                ],
+                                [
+                                    48,
+                                    48
+                                ],
+                                [
+                                    50,
+                                    50
+                                ],
+                                [
+                                    52,
+                                    58
+                                ],
+                                [
+                                    60,
+                                    62
+                                ],
+                                [
+                                    64,
+                                    66
+                                ],
+                                [
+                                    73,
+                                    74
+                                ],
+                                [
+                                    77,
+                                    77
+                                ],
+                                [
+                                    80,
+                                    82
+                                ],
+                                [
+                                    84,
+                                    84
+                                ],
+                                [
+                                    88,
+                                    89
+                                ],
+                                [
+                                    93,
+                                    93
+                                ],
+                                [
+                                    96,
+                                    114
+                                ]
+                            ]
+                        }
                     }
                 }
             }
@@ -2350,6 +2529,7 @@ def mock_populate_conservation(transfer_dict, source_dict):
     source_path = source_dict["domain"]["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]
     target_path["conservations"] = copy.deepcopy(source_path["conservations"])
     target_path["position_conversion"] = copy.deepcopy(source_path["position_conversion"])
+    target_path["conservation_ranges"] = copy.deepcopy(source_path["conservation_ranges"])
 
 def mock_populate_go_data(transfer_dict, source_dict):
     """Helper to populate GO data from source"""
@@ -2543,9 +2723,27 @@ def mock_json_filepaths(tmp_path):
 
     return cons_file, annot_file
 
-### Added for testing miscellaneous/utility functions (convert_sets_and_tuples_to_list, convert_lists_to_original_types)
+### Added for testing miscellaneous/utility functions (convert_*, read_*)
 ## Sent transfer_dict_populated_disulfid_list_original_structure_Q9NU22 to test_utils.py
 ## since only convert_lists_to_original_types made use of it and it went to utils, not transfer_annotations.
+
+@pytest.fixture
+def mock_open_files():
+    def _mock_open_files(mock_files):
+        def _opener(file, *args, **kwargs):
+            if file in mock_files:
+                return mock_open(read_data=mock_files[file])()
+            raise FileNotFoundError(f"File not found: {file}")
+        return _opener
+    return _mock_open_files
+
+@pytest.fixture
+def mock_target_info():
+    return {
+        "sp|Q9NU22|MDN1_HUMAN": {
+            "325-451": [(325, 451, ".........-VLLEGPIGCGKTSLVE.YLAAVTgr..........tkPPQLLKVQLGD.QT..DSKMLLGMYCCTd..........vPGEFVWQPGTLTQAAT..................MGHWILLEDIDYAP.L........D....VVS....V......LIP.LLENG.E...LLIPGRGDCLKVAPG-..----.............................FQFFAT-----.........--------------rrllscgg....................")]
+        }
+    }
 
 ### Added for testing add_to_transfer_dict and helper functions
 @pytest.fixture
@@ -2755,23 +2953,27 @@ def test_get_annotation_filepath():
 
 ###T read_files
 
-def test_read_files(annotations_content_binding_fixture_Q9NU22_PF07728):
+def test_read_files_basic(annotations_content_binding_fixture_Q9NU22_PF07728, mock_open_files):
     annotations_content = json.dumps(annotations_content_binding_fixture_Q9NU22_PF07728)
-
     mock_files = {
         "dummy_hmmalign": hmmalign_result_content_mock,
         "dummy_annotations": annotations_content
     }
 
-    def mock_open_files(file, *args, **kwargs):
-        if file in mock_files:
-            return mock_open(read_data=mock_files[file])()
-        raise FileNotFoundError(f"File not found: {file}")
-
-    with patch("builtins.open", new=mock_open_files):
+    with patch("builtins.open", new=mock_open_files(mock_files)):
         hmmalign_lines, annotations = read_files("dummy_hmmalign", "dummy_annotations")
         assert hmmalign_lines == hmmalign_result_content_mock.splitlines()
         assert annotations == annotations_content_binding_fixture_Q9NU22_PF07728
+
+def test_read_files_missing_annotations(mock_open_files):
+    mock_files = {
+        "dummy_hmmalign": hmmalign_result_content_mock
+    }
+
+    with patch("builtins.open", new=mock_open_files(mock_files)):
+        hmmalign_lines, annotations = read_files("dummy_hmmalign", "nonexistent_annotations")
+        assert hmmalign_lines == hmmalign_result_content_mock.splitlines()
+        assert annotations == {"sequence_id": {}}
 
 ###T iterate_aligned_sequences
 
@@ -2844,9 +3046,114 @@ def test_iterate_aligned_sequences_real_Q9NU22():
     for idx, expected_tuple in expected_indices.items():
         assert result[idx] == expected_tuple
 
+###T extract_target_info_from_hmmalign
+
+def test_extract_target_info_empty_lines(logger):
+    """Test empty hmmalign lines."""
+    mock_lines = ["# STOCKHOLM 1.0"]
+    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    assert result == {}
+
+def test_extract_target_info_single_target(logger):
+    """Test single target line extraction."""
+    mock_lines = [
+        "# STOCKHOLM 1.0",
+        "sp|Q9NU22|MDN1_HUMANtarget//325-451  VLLEGPIGCGKTSLVE"
+    ]
+    expected = {
+        "sp|Q9NU22|MDN1_HUMAN": {
+            "325-451": [(325, 451, "VLLEGPIGCGKTSLVE")]
+        }
+    }
+    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    assert result == expected
+
+def test_extract_target_info_multiple_targets(logger):
+    """Test multiple target lines extraction."""
+    mock_lines = [
+        "# STOCKHOLM 1.0",
+        "sp|Q9NU22|MDN1_HUMANtarget//325-451  VLLEGPIGCGKTSLVE",
+        "sp|Q9NU22|MDN1_HUMANtarget//452-580  DVFLIGPPGPLRRSIAM"
+    ]
+    expected = {
+        "sp|Q9NU22|MDN1_HUMAN": {
+            "325-451": [(325, 451, "VLLEGPIGCGKTSLVE")],
+            "452-580": [(452, 580, "DVFLIGPPGPLRRSIAM")]
+        }
+    }
+    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    assert result == expected
+
+def test_extract_target_info_invalid_format(logger):
+    """Test handling of invalid format lines."""
+    mock_lines = [
+        "# STOCKHOLM 1.0",
+        "sp|Q9NU22|MDN1_HUMANtarget/invalid_format  SEQUENCE"
+    ]
+    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    assert result == {}
+
+
+###T setup_for_conservations_only
+
+def test_setup_for_conservations_only_basic(logger):
+    """Test basic case with single target"""
+    mock_lines = [
+        "# STOCKHOLM 1.0",
+        "sp|Q9NU22|MDN1_HUMANtarget//325-451  VLLEGPIGCGKTSLVE"
+    ]
+    expected = {
+        "PF07728": {
+            "sequence_id": {
+                "sp|Q9NU22|MDN1_HUMAN": {
+                    "hit_intervals": {
+                        "325-451": {
+                            "sequence": "VLLEGPIGCGKTSLVE",
+                            "length": 16,
+                            "hit_start": 325,
+                            "hit_end": 451,
+                            "annotations": {},
+                            "conservations": {
+                                "positions": {},
+                                "indices": {"matches": set(), "misses": set()}
+                            },
+                            "position_conversion": {
+                                "target_to_aln": {},
+                                "aln_to_target": {}
+                            },
+                            "annotation_ranges": {},
+                            "conservation_ranges": {}
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    result = setup_for_conservations_only(logger, mock_lines, "PF07728")
+    assert result == expected
+
+def test_setup_for_conservations_only_empty_lines(logger):
+    """Test empty hmmalign lines case"""
+    mock_lines = ["# STOCKHOLM 1.0"]
+    result = setup_for_conservations_only(logger, mock_lines, "PF07728")
+    assert result == {}
+    logger.error.assert_called_once_with("---> ERROR --- No target sequences found in hmmalign lines!")
+
+def test_setup_for_conservations_only_invalid_format(logger):
+    """Test invalid format handling"""
+    mock_lines = [
+        "# STOCKHOLM 1.0",
+        "sp|Q9NU22|MDN1_HUMANtarget/invalid_format  SEQUENCE"
+    ]
+    result = setup_for_conservations_only(logger, mock_lines, "PF07728")
+    assert result == {}
+    logger.error.assert_called_once_with("---> ERROR --- No target sequences found in hmmalign lines!")
+
+
 ###T find_and_map_annots
 
-def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU22_PF07728, logger, target_sequence_Q9NU22, annot_sequence_Q9NU22):
+def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU22_PF07728, logger, mock_target_info, target_sequence_Q9NU22, annot_sequence_Q9NU22):
     """Test basic case with single binding annotation"""
     mock_lines = [
         "# STOCKHOLM 1.0\n",
@@ -2854,13 +3161,17 @@ def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU
         "sp|Q9NU22|MDN1_HUMANtarget//325-451                     .........-VLLEGPIGCGKTSLVE.YLAAVTgr..........tkPPQLLKVQLGD.QT..DSKMLLGMYCCTd..........vPGEFVWQPGTLTQAAT..................MGHWILLEDIDYAP.L........D....VVS....V......LIP.LLENG.E...LLIPGRGDCLKVAPG-..----.............................FQFFAT-----.........--------------rrllscgg....................\n"
     ]
 
-    with patch('transfer_annotations.map_and_filter_annot_pos') as mock_map_and_filter:
+    with patch('transfer_annotations.extract_target_info_from_hmmalign', return_value=mock_target_info) as mock_extract, \
+         patch('transfer_annotations.map_and_filter_annot_pos') as mock_map_and_filter:
+
         find_and_map_annots(
             logger=logger,
             hmmalign_lines=mock_lines,
             annotations=annotations_content_binding_fixture_Q9NU22_PF07728,
             good_eco_codes=[]
         )
+
+        mock_extract.assert_called_once_with(mock_lines, logger)
 
         mock_map_and_filter.assert_called_with(
             logger=logger,
@@ -2884,20 +3195,20 @@ def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixt
         "# STOCKHOLM 1.0\n",
         "VWA8_HUMAN/105-261    .........DVFLIGPPGPLRRSIAM.QYLELT..............KREVEYIALSR.DT..TETDLKQRREIR\n"
     ]
+    with patch('transfer_annotations.extract_target_info_from_hmmalign', return_value={}):
+        transfer_dict = find_and_map_annots(
+            logger=logger,
+            hmmalign_lines=mock_lines,
+            annotations=annotations_content_binding_fixture_Q9NU22_PF07728,
+            good_eco_codes=[]
+        )
 
-    transfer_dict = find_and_map_annots(
-        logger=logger,
-        hmmalign_lines=mock_lines,
-        annotations=annotations_content_binding_fixture_Q9NU22_PF07728,
-        good_eco_codes=[]
-    )
+        assert not transfer_dict
 
-    assert not transfer_dict
-
-    # Verify the logger captured the correct error message
-    logger.error.assert_called_once_with(
-        "---> ERROR --- FIND_AND_MAP --- No target sequences found in hmmalign lines!"
-    )
+        # Verify the logger captured the correct error message
+        logger.error.assert_called_once_with(
+            "---> ERROR --- FIND_AND_MAP --- No target sequences found in hmmalign lines!"
+        )
 
 ###T read_conservations_and_annotations
 
@@ -2916,6 +3227,22 @@ def test_read_conservations_and_annotations_success(
 
     assert conservations == conservations_content_Q9NU22_PF07728
     assert annotations == annotations_content_disulfid_fixture_Q9NU22_PF07728
+
+def test_read_conservations_and_annotations_conservations_only(tmp_path):
+    """Test handling when only conservations file exists"""
+    cons_file = tmp_path / "conservations.json"
+    mock_conservations = {"sequence_id/1-100": {"1": 0.5, "2": 0.8}}
+
+    with open(cons_file, 'w') as f:
+        json.dump(mock_conservations, f)
+
+    conservations, annotations = read_conservations_and_annotations(
+        str(cons_file),
+        str(tmp_path / "nonexistent_annotations.json")
+    )
+
+    assert conservations == mock_conservations
+    assert annotations == {"sequence_id": {}}
 
 def test_read_conservations_and_annotations_missing_files(tmp_path):
     """Test handling of missing files - should return empty dicts."""
@@ -3512,6 +3839,7 @@ def test_cleanup_improve_transfer_dict_basic(
         # Apply complete conservation and position tracking state from fixture
         target_path["conservations"] = copy.deepcopy(source_path["conservations"])
         target_path["position_conversion"] = copy.deepcopy(source_path["position_conversion"])
+        target_path["conservation_ranges"] = copy.deepcopy(source_path["conservation_ranges"])
 
     def mock_populate_go_data(transfer_dict, **kwargs):
         # Get paths
@@ -3556,6 +3884,49 @@ def test_cleanup_improve_transfer_dict_basic(
             pfam_interpro_map_filepath="fake.tsv"
         )
         assert result == transfer_dict_populated_disulfid_post_gos_Q9NU22
+
+def test_cleanup_improve_transfer_dict_conservations_only(
+    logger,
+    transfer_dict_populated_disulfid_Q9NU22,
+    conservations_content_Q9NU22_PF07728,
+    mapping_content_Q9NU22_and_H0YB80_domains,
+    target_id_plus_seq_Q9NU22,
+    conservation_id_plus_seq_Q9NU22_PF07728,
+    transfer_dict_populated_disulfid_post_conservation_Q9NU22
+):
+    """Test handling when only conservations data exists"""
+    mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep='\t')
+
+    with patch(
+        'transfer_annotations.read_conservations_and_annotations',
+        return_value=(conservations_content_Q9NU22_PF07728, {"sequence_id": {}})
+    ), patch(
+        'pandas.read_csv',
+        return_value=mapping_df
+    ), patch(
+        'transfer_annotations.get_alignment_sequences',
+        return_value=(target_id_plus_seq_Q9NU22[1], conservation_id_plus_seq_Q9NU22_PF07728[1])
+    ), patch(
+        'transfer_annotations.populate_conservation',
+        side_effect=lambda transfer_dict, **kwargs: mock_populate_conservation(
+            transfer_dict, transfer_dict_populated_disulfid_post_conservation_Q9NU22
+        )
+    ):
+        result = cleanup_improve_transfer_dict(
+            logger=logger,
+            transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
+            pfam_id="PF07728",
+            hmmalign_lines=[],
+            conservations_filepath="fake.json",
+            annotations_filepath="nonexistent.json",
+            output_dir="fake_dir",
+            pfam_interpro_map_filepath="fake.tsv"
+        )
+
+        # Verify only conservation data was populated
+        interval_path = result["domain"]["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]
+        assert interval_path["conservations"] == transfer_dict_populated_disulfid_post_conservation_Q9NU22["domain"]["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["conservations"]
+        assert "GO" not in interval_path["annotations"]["positions"]["333"][list(interval_path["annotations"]["positions"]["333"].keys())[0]]
 
 def test_cleanup_improve_transfer_dict_handles_empty_conservations(
     logger,
@@ -4388,7 +4759,7 @@ def test_add_single_annotation_complete(
     logger, transfer_dict_initialized_structure_Q9NU22, anno_total_disulfid_MCRB_ECOLI_Q9NU22_205,
 ):
     """Test all aspects of _add_single_annotation data population"""
-    with patch('transfer_annotations._update_annotation_ranges'):
+    with patch('transfer_annotations.update_position_ranges'):
         interval_dict = transfer_dict_initialized_structure_Q9NU22["DOMAIN"]["sequence_id"][target_name_mock_Q9NU22]["hit_intervals"]["325-451"]
 
         _add_single_annotation(
@@ -4433,54 +4804,84 @@ def test_add_single_annotation_complete(
         assert interval_dict["position_conversion"]["target_to_aln"]["333"] == "18"
         assert interval_dict["position_conversion"]["aln_to_target"]["18"] == "333"
 
-###T _update_annotation_range
+###T update_position_range
 
-def test_update_annotation_ranges_new_anno(interval_dict_empty):
+def test_update_position_ranges_new_anno(interval_dict_empty):
     """Test creation of new annotation range"""
-    with patch('transfer_annotations._merge_adjacent_ranges') as mock_merge:
-        _update_annotation_ranges(interval_dict_empty, "333", "DISULFID | Intrachain (with C-246); in linked form")
+    with patch('transfer_annotations.merge_adjacent_ranges') as mock_merge:
+        update_position_ranges(
+            interval_dict=interval_dict_empty,
+            target_position_str="333",
+            ranges_dict_key="annotation_ranges",
+            range_id="DISULFID | Intrachain (with C-246); in linked form"
+            )
 
         ranges = interval_dict_empty["annotation_ranges"]["DISULFID | Intrachain (with C-246); in linked form"]
         assert ranges["ranges"] == [(333, 333)]
         assert ranges["positions"] == {333}
         mock_merge.assert_not_called()
 
-def test_update_annotation_ranges_extend_integration(interval_dict_with_range):
+def test_update_position_ranges_extend_integration(interval_dict_with_range):
     """Test extending existing range with integration"""
-    _update_annotation_ranges(interval_dict_with_range, "334", "DISULFID | Test")
+    update_position_ranges(
+        interval_dict=interval_dict_with_range,
+        target_position_str="334",
+        ranges_dict_key="annotation_ranges",
+        range_id="DISULFID | Test"
+        )
 
     ranges = interval_dict_with_range["annotation_ranges"]["DISULFID | Test"]
     assert ranges["ranges"] == [(333, 334)]
     assert ranges["positions"] == {333, 334}
 
-def test_update_annotation_ranges_position_in_range(interval_dict_with_position_in_range):
+def test_update_position_ranges_position_in_range(interval_dict_with_position_in_range):
     """Test adding position that falls within existing range"""
-    _update_annotation_ranges(interval_dict_with_position_in_range, "334", "DISULFID | Test")
+    update_position_ranges(
+        interval_dict=interval_dict_with_position_in_range,
+        target_position_str="334",
+        ranges_dict_key="annotation_ranges",
+        range_id="DISULFID | Test"
+        )
 
     ranges = interval_dict_with_position_in_range["annotation_ranges"]["DISULFID | Test"]
     assert ranges["ranges"] == [(333, 335)]  # Range shouldn't change
     assert ranges["positions"] == {333, 334, 335}  # Position already in set
 
-def test_update_annotation_ranges_merge_multiple(interval_dict_with_multiple_ranges):
+def test_update_position_ranges_merge_multiple(interval_dict_with_multiple_ranges):
     """Test merging of multiple ranges when adding connecting position"""
-    _update_annotation_ranges(interval_dict_with_multiple_ranges, "335", "DISULFID | Test")
+    update_position_ranges(
+        interval_dict=interval_dict_with_multiple_ranges,
+        target_position_str="335",
+        ranges_dict_key="annotation_ranges",
+        range_id="DISULFID | Test"
+        )
 
     ranges = interval_dict_with_multiple_ranges["annotation_ranges"]["DISULFID | Test"]
     assert ranges["ranges"] == [(333, 337)]  # All ranges merged
     assert ranges["positions"] == {333, 334, 335, 336, 337}
 
-def test_update_annotation_ranges_non_adjacent(interval_dict_with_multiple_ranges):
+def test_update_position_ranges_non_adjacent(interval_dict_with_multiple_ranges):
     """Test adding non-adjacent position"""
-    _update_annotation_ranges(interval_dict_with_multiple_ranges, "340", "DISULFID | Test")
+    update_position_ranges(
+        interval_dict=interval_dict_with_multiple_ranges,
+        target_position_str="340",
+        ranges_dict_key="annotation_ranges",
+        range_id="DISULFID | Test"
+        )
 
     ranges = interval_dict_with_multiple_ranges["annotation_ranges"]["DISULFID | Test"]
     assert ranges["ranges"] == [(333, 334), (336, 337), (340, 340)]
     assert ranges["positions"] == {333, 334, 336, 337, 340}
 
-def test_update_annotation_ranges_duplicate_pos(interval_dict_with_range):
+def test_update_position_ranges_duplicate_pos(interval_dict_with_range):
     """Test adding duplicate position"""
-    with patch('transfer_annotations._merge_adjacent_ranges') as mock_merge:
-        _update_annotation_ranges(interval_dict_with_range, "333", "DISULFID | Test")
+    with patch('transfer_annotations.merge_adjacent_ranges') as mock_merge:
+        update_position_ranges(
+            interval_dict=interval_dict_with_range,
+            target_position_str="333",
+            ranges_dict_key="annotation_ranges",
+            range_id="DISULFID | Test"
+            )
 
         ranges = interval_dict_with_range["annotation_ranges"]["DISULFID | Test"]
         assert ranges["ranges"] == [(333, 333)]
@@ -4488,36 +4889,36 @@ def test_update_annotation_ranges_duplicate_pos(interval_dict_with_range):
         mock_merge.assert_not_called()
 
 
-###T _merge_adjacent_ranges
+###T merge_adjacent_ranges
 
 def test_merge_adjacent_ranges():
     """Test merging of adjacent ranges"""
     ranges = [(333, 334), (335, 337), (338, 340)]
-    _merge_adjacent_ranges(ranges)
+    merge_adjacent_ranges(ranges)
     assert ranges == [(333, 340)]
 
 def test_merge_overlapping_ranges():
     """Test merging of overlapping ranges"""
     ranges = [(333, 335), (334, 337), (336, 340)]
-    _merge_adjacent_ranges(ranges)
+    merge_adjacent_ranges(ranges)
     assert ranges == [(333, 340)]
 
 def test_merge_non_adjacent_ranges():
     """Test preservation of non-adjacent ranges"""
     ranges = [(333, 334), (336, 337), (340, 341)]
-    _merge_adjacent_ranges(ranges)
+    merge_adjacent_ranges(ranges)
     assert ranges == [(333, 334), (336, 337), (340, 341)]
 
 def test_merge_adjacent_ranges_empty():
     """Test merging with empty ranges list"""
     ranges = []
-    _merge_adjacent_ranges(ranges)
+    merge_adjacent_ranges(ranges)
     assert ranges == []
 
 def test_merge_adjacent_ranges_single():
     """Test merging with single range"""
     ranges = [(333, 334)]
-    _merge_adjacent_ranges(ranges)
+    merge_adjacent_ranges(ranges)
     assert ranges == [(333, 334)]
 
 ###T get_continuous_ranges
@@ -5792,6 +6193,9 @@ def test_main_integration_all_types_H0YB80(
             logger = configure_logging(args.log)
             main(logger)
 
+        # with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
+        #     transfer_dict = json.load(f)
+        #     print(json.dumps(transfer_dict, indent=4))
 
         assert os.path.exists(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"))
         assert transfer_dict_success_all_types_H0YB80 == json.load(open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"), 'r', encoding='utf-8'))

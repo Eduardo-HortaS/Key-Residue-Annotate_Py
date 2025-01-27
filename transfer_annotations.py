@@ -161,22 +161,26 @@ def extract_target_info_from_hmmalign(hmmalign_lines: list, logger: logging.Logg
     for line in hmmalign_lines:
         if "target/" in line and not line.startswith("#"):
             logger.debug(f"---> DEBUG --- Target Line: {line}")
-            parts = line.split("target/")
-            target_name = parts[0].strip()
-            target_relevant = parts[1].strip()
-            target_parts = target_relevant.split()
-            if len(target_parts) >= 2:
-                target_hit_interval = target_parts[0].split("/")[1]
-                target_hit_start = int(target_hit_interval.split("-")[0])
-                target_hit_end = int(target_hit_interval.split("-")[1])
-                target_hit_sequence = target_parts[1]
-                if target_name not in target_info:
-                    target_info[target_name] = {}
-                if target_hit_interval not in target_info[target_name]:
-                    target_info[target_name][target_hit_interval] = []
-                target_info[target_name][target_hit_interval].append(
-                    (target_hit_start, target_hit_end, target_hit_sequence)
-                )
+            try:
+                parts = line.split("target/")
+                target_name = parts[0].strip()
+                target_relevant = parts[1].strip()
+                target_parts = target_relevant.split()
+                if len(target_parts) >= 2:
+                    target_hit_interval = target_parts[0].split("/")[1]
+                    target_hit_start = int(target_hit_interval.split("-")[0])
+                    target_hit_end = int(target_hit_interval.split("-")[1])
+                    target_hit_sequence = target_parts[1]
+                    if target_name not in target_info:
+                        target_info[target_name] = {}
+                    if target_hit_interval not in target_info[target_name]:
+                        target_info[target_name][target_hit_interval] = []
+                    target_info[target_name][target_hit_interval].append(
+                        (target_hit_start, target_hit_end, target_hit_sequence)
+                    )
+            except(IndexError, ValueError) as e:
+                logger.warning(f"Invalid format in line: {line}. Error: {e}")
+                continue
     return target_info
 
 def setup_for_conservations_only(logger: logging.Logger, hmmalign_lines: list, pfam_id: str) -> dict:
@@ -220,7 +224,8 @@ def setup_for_conservations_only(logger: logging.Logger, hmmalign_lines: list, p
                         "target_to_aln": {},
                         "aln_to_target": {}
                     },
-                    "annotation_ranges": {}
+                    "annotation_ranges": {},
+                    "conservation_ranges": {}
                 }
                 transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key] = interval_dict
 
@@ -506,7 +511,12 @@ def populate_conservation(
         conservation_end: End position in conservation reference sequence
         logger: Logger object for logging
     """
+    ranges_dict_key = "conservation_ranges"
+    range_id = "conserved_positions"
     processed_conserved_pos = set()
+    interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
+    conservations_dict = interval_data["conservations"]
+
     for index, counter_cons_pos, counter_target_pos, char_cons, char_target in iterate_aligned_sequences(
         source_sequence=conservation_seq,
         target_sequence=target_seq,
@@ -525,13 +535,18 @@ def populate_conservation(
             is_match = char_cons == char_target and char_cons not in '.-' and char_target not in '.-'
             cons_type = "matches" if is_match else "misses"
 
+            # Add to conservation_ranges-conserved_positions
+            update_position_ranges(
+                interval_data, counter_target_pos_str,
+                ranges_dict_key, range_id
+            )
+
             score_data = round(conservations[conservation_key][counter_cons_pos_str], 4)
             counter_target_pos_info = {
                 "conservation": score_data,
                 "hit": is_match
             }
-            interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
-            conservations_dict = interval_data["conservations"]
+
             conservations_dict["positions"][counter_target_pos_str] = counter_target_pos_info
             conservations_dict["indices"][cons_type].add(counter_target_pos_str)
             # Add position conversion info
@@ -958,7 +973,8 @@ def add_to_transfer_dict(
                 "target_to_aln": {},
                 "aln_to_target": {}
             },
-            "annotation_ranges": {} # New field for tracking same anno_id ranges of positions
+            "annotation_ranges": {},
+            "conservation_ranges": {} # New field for tracking conservation ranges
         }
 
     # Process main annotation
@@ -1013,7 +1029,7 @@ def _add_single_annotation(
     and special annotation types (BINDING, ACT_SITE, etc).
     Called for both main and second pair (if applicable) annotations.
     """
-
+    ranges_dict_key = "annotation_ranges"
     # Extract positions in target and annotated numbering - for early pair data
     target_position_str = anno_total.get('target_position', None)
     annot_position_str = anno_total.get('annot_position', None)
@@ -1058,7 +1074,12 @@ def _add_single_annotation(
 
     positions_dict[anno_id].setdefault('hit', hit)
 
-    _update_annotation_ranges(interval_dict, target_position_str, anno_id)
+    update_position_ranges(
+        interval_dict=interval_dict,
+        target_position_str=target_position_str,
+        ranges_dict_key=ranges_dict_key,
+        range_id=anno_id
+        )
 
     if evidence_value:
         if 'evidence' not in positions_dict[anno_id]:
@@ -1105,24 +1126,27 @@ def _add_single_annotation(
             else:
                 positions_dict[anno_id]['additional_keys'][key][value]["count"] += 1
 
-def _update_annotation_ranges(interval_dict: dict, target_position_str: str, anno_id: str) -> None:
-    """Maintains continuous position ranges for annotations.
+def update_position_ranges(interval_dict: dict, target_position_str: str, ranges_dict_key: str = "annotation_ranges", range_id: str = "") -> None:
+    """Generic function for maintaining continuous position ranges.
 
-    Called by _add_single_annotation to track consecutive positions
-    for each annotation ID. Uses _merge_adjacent_ranges for cleanup.
+    Args:
+        interval_dict: Dictionary containing ranges data
+        target_position_str: Position to process
+        range_id: Identifier for the range group (annotation ID or conservation type)
+        ranges_dict_key: Key for the ranges dictionary ("annotation_ranges" or "conservation_ranges")
     """
     position = int(target_position_str)
-    ranges_dict = interval_dict["annotation_ranges"]
+    ranges_dict = interval_dict[ranges_dict_key]
 
-    if anno_id not in ranges_dict:
-        ranges_dict[anno_id] = {
+    if range_id not in ranges_dict and range_id:
+        ranges_dict[range_id] = {
             "ranges": [(position, position)],
             "positions": {position}
         }
         return
 
-    ranges = ranges_dict[anno_id]["ranges"]
-    positions = ranges_dict[anno_id]["positions"]
+    ranges = ranges_dict[range_id]["ranges"]
+    positions = ranges_dict[range_id]["positions"]
 
     if position in positions:
         return
@@ -1133,11 +1157,11 @@ def _update_annotation_ranges(interval_dict: dict, target_position_str: str, ann
     for i, (start, end) in enumerate(ranges):
         if position == start - 1:
             ranges[i] = (position, end)
-            _merge_adjacent_ranges(ranges)
+            merge_adjacent_ranges(ranges)
             return
         if position == end + 1:
             ranges[i] = (start, position)
-            _merge_adjacent_ranges(ranges)
+            merge_adjacent_ranges(ranges)
             return
         if start <= position <= end:
             return
@@ -1146,7 +1170,7 @@ def _update_annotation_ranges(interval_dict: dict, target_position_str: str, ann
     ranges.append((position, position))
     ranges.sort(key=lambda x: x[0])
 
-def _merge_adjacent_ranges(ranges: list) -> None:
+def merge_adjacent_ranges(ranges: list) -> None:
     """Combines overlapping or consecutive position ranges.
 
     Helper for _update_annotation_ranges. Maintains sorted,
@@ -1502,7 +1526,6 @@ def validate_paired_annotations(
     paired_position_res_hit = False
     paired_result_dict = {}
     paired_annot_pos_int = int(paired_annot_pos_str)
-    last_target_pos = False
 
     logger.debug(f"---> DEBUG --- VAL_PAIRED --- Running for target {target_name}/{target_hit_start}-{target_hit_end} and annotated {entry_mnemo_name}/{offset_start}-{offset_end}")
 
@@ -1529,7 +1552,6 @@ def validate_paired_annotations(
                 logger.debug(f"---> DEBUG --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
 
                 paired_target_amino = target_sequence[index]
-                # paired_position_res_hit = bool(target_sequence[index] == annot_sequence[index])
                 paired_position_res_hit = bool(char_target == char_annot)
 
                 paired_result_dict = make_anno_total_dict(
@@ -1548,7 +1570,6 @@ def validate_paired_annotations(
                 return paired_position_res_hit, paired_result_dict
 
             if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
-                last_target_pos = True
                 break
 
     return paired_position_res_hit, paired_result_dict
@@ -1616,7 +1637,6 @@ def validate_annotations(
             logger.debug(f"---> DEBUG --- VAL_ANNOTS --- Annot Window: {annot_window} + Target Window: {target_window}")
 
             target_amino = target_sequence[index]
-            # res_hit = bool(target_sequence[index] == annot_sequence[index])
             res_hit = bool(char_target == char_annot)
             for annotation_dict in entry_annotations[counter_annot_pos_str]:
                 anno_type = annotation_dict.get('type', None)

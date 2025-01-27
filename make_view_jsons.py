@@ -25,7 +25,7 @@ Functions:
 1. process_sequence_report: Reads per-sequence report JSONs and processes annotations
 2. transform_to_ranges: Converts position-based annotations to range-based format
 3. aggregate_range_annotations: Combines annotation data for continuous ranges
-4. write_range_views: Outputs processed data in Nightingale-compatible format
+4. write_range_views: Outputs data in a Nightingale-compatible format
 
 Input: Per-sequence JSON reports from transfer_annotations.py
 Output: Range-based JSON views for Nightingale visualization
@@ -95,12 +95,20 @@ def transform_to_ranges(interval_dict: Dict) -> Dict:
     """Transform position-based annotations to range-based format."""
     range_based = defaultdict(dict)
 
+    # Process annotation ranges
     for anno_id, ranges_data in interval_dict.get("annotation_ranges", {}).items():
         for start, end in ranges_data.get("ranges", []):
             range_key = f"{start}-{end}"
             range_based[anno_id][range_key] = aggregate_range_annotations(
                 interval_dict, anno_id, (start, end)
             )
+
+    # Process conservation ranges
+    for cons_id, ranges_data in interval_dict.get("conservation_ranges", {}).items():
+        for start, end in ranges_data.get("ranges", []):
+            range_key = f"{start}-{end}"
+            if str(start) in interval_dict["conservations"]["positions"]:
+                range_based[cons_id][range_key] = interval_dict["conservations"]["positions"][str(start)]
 
     return dict(range_based)
 
@@ -116,8 +124,8 @@ def process_sequence_report(report_path: str, logger: logging.Logger = None) -> 
     for domain_id, domain_data in data["domain"].items():
         transformed["domain"][domain_id] = {}
 
-        for interval_key, interval_dict in domain_data.get("hit_intervals", {}).items():
-            transformed["domain"][domain_id][interval_key] = transform_to_ranges(interval_dict)
+        for interval_key, interval_data in domain_data.get("hit_intervals", {}).items():
+            transformed["domain"][domain_id][interval_key] = transform_to_ranges(interval_data)
             if logger:
                 logger.info(f"Processed {sequence_id} - {domain_id} - {interval_key}")
                 logger.info(f"Transformed data: {transformed['domain'][domain_id][interval_key]}")
@@ -145,23 +153,24 @@ def main():
     """Main execution function."""
     args = parse_arguments()
     logger = configure_logging(args.log)
+    output_dir = args.output_dir
 
     try:
         # Process all sequence directories
-        for entry in os.scandir(args.output_dir):
+        for entry in os.scandir(output_dir):
             if entry.is_dir() and not entry.name.startswith('PF'):
                 for file in os.scandir(entry.path):
                     if file.name.endswith('_report.json'):
                         logger.info("Processing %s", file.path)
                         try:
                             transformed_data = process_sequence_report(file.path, logger)
-                            write_range_views(transformed_data, args.output_dir, logger)
+                            write_range_views(transformed_data, output_dir, logger)
                         except (IOError, json.JSONDecodeError) as e:
                             logger.error("Error processing %s: %s", file.path, str(e))
                             continue
 
         # Create done file
-        with open(os.path.join(args.output_dir, "make_views_jsons.done"), 'w', encoding='utf-8') as f:
+        with open(os.path.join(output_dir, "make_views_jsons.done"), 'w', encoding='utf-8') as f:
             f.write('')
 
     except Exception as e:
