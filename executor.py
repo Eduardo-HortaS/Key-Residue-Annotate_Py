@@ -27,12 +27,12 @@ import os
 import json
 import glob
 import subprocess
-import logging
 import argparse
 import sys
 import traceback
 from configparser import ConfigParser
 from joblib import Parallel, delayed
+from utils import get_logger
 
 def load_config(config_file=None):
     """Load configuration from INI file"""
@@ -88,11 +88,6 @@ def parse_arguments():
 
     return argparse.Namespace(**config)
 
-def configure_logging(log_path):
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", filename=log_path)
-    logger = logging.getLogger()
-    return logger
-
 def run_command(command, logger):
     try:
         subprocess.run(command, shell=True, check=True)
@@ -115,8 +110,7 @@ def main():
     threads = args.threads
     nucleotide = args.nucleotide
     python_executable = args.python
-    logger = configure_logging(args.log)
-    log = args.log
+    logger, timestamped_log = get_logger(args.log)
 
     # run_hmmsearch.py
     per_dom_json = os.path.join(output_dir, "hmmsearch_per_domain.json")
@@ -125,9 +119,10 @@ def main():
     else:
         run_hmmsearch_call = (f"{python_executable} run_hmmsearch.py "
                              f"-iF {input_fasta} -iH {input_hmm} "
-                             f"-o {output_dir} -l {log}"
+                             f"-o {output_dir} -l {timestamped_log}"
                              f"{' -n' if nucleotide else ''}")
         run_command(run_hmmsearch_call, logger)
+        logger.info("RUN_HMMSEARCH.PY --- Executed")
 
     # run_iprscan.py
     run_iprscan_done = os.path.join(output_dir, "run_iprscan.done")
@@ -140,10 +135,10 @@ def main():
             sequence_fasta = os.path.join(subdir_path, "sequence.fasta")
             if os.path.isdir(subdir_path) and not subdir.startswith("PF") and os.path.isfile(sequence_fasta):
                 output_base_file = os.path.join(subdir_path, "iprscan")
-                cmd = f"{python_executable} run_iprscan.py -iP {iprscan_sh_path} -iF {sequence_fasta} -oB {output_base_file} -oF {output_format_iprscan}"
-                if databases:  # Only add -dB if databases is not empty
+                cmd = f"{python_executable} run_iprscan.py -iP {iprscan_sh_path} -iF {sequence_fasta} -s {subdir} -oB {output_base_file} -oF {output_format_iprscan}"
+                if databases:
                     cmd += f" -dB {databases}"
-                cmd += f" -l {log}"
+                cmd += f" -l {timestamped_log}"
                 run_iprscan_tasks.append(cmd)
         Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in run_iprscan_tasks)
         with open(run_iprscan_done, "w", encoding="utf-8") as f:
@@ -159,7 +154,7 @@ def main():
             hits_per_domain = json.load(f)
 
         prepare_fasta_tasks = [
-            f"{python_executable} prepare_fasta_per_domain.py -iJ {per_dom_json} -iD {dom_accession} -r {resource_dir} -o {output_dir} -l {log}"
+            f"{python_executable} prepare_fasta_per_domain.py -iJ {per_dom_json} -iD {dom_accession} -r {resource_dir} -o {output_dir} -l {timestamped_log}"
             for dom_accession in hits_per_domain
         ]
         Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in prepare_fasta_tasks)
@@ -178,7 +173,7 @@ def main():
             if os.path.isdir(subdir_path) and subdir.startswith("PF"):
                 domain_info = os.path.join(subdir_path, "domain_info.json")
                 if os.path.isfile(domain_info):
-                    run_hmmalign_tasks.append(f"{python_executable} run_hmmalign.py -iDI {domain_info} -l {log}")
+                    run_hmmalign_tasks.append(f"{python_executable} run_hmmalign.py -iDI {domain_info} -d {subdir} -l {timestamped_log}")
         Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in run_hmmalign_tasks)
         with open(run_hmmalign_done, "w", encoding="utf-8") as f:
             f.write("")
@@ -195,37 +190,44 @@ def main():
             if os.path.isdir(subdir_path) and subdir.startswith("PF"):
                 dom_aligns = [dom_align for dom_align in glob.glob(os.path.join(subdir_path, "PF*_hmmalign.sth")) if os.path.isfile(dom_align)]
                 for dom_align in dom_aligns:
-                    transfer_annotations_tasks.append(f"{python_executable} transfer_annotations.py -iA {dom_align} -r {resource_dir} -o {output_dir} --eco-codes {' '.join(eco_codes)} -l {log}")
-        logger.info("Transfer annotations tasks: %s", transfer_annotations_tasks)
+                    transfer_annotations_tasks.append(f"{python_executable} transfer_annotations.py -iA {dom_align} -r {resource_dir} -d {subdir} -o {output_dir} --eco-codes {' '.join(eco_codes)} -l {timestamped_log}")
+        logger.debug("Number of Transfer annotations tasks: %s", len(transfer_annotations_tasks))
         Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in transfer_annotations_tasks)
         with open(transfer_annotations_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("TRANSFER_ANNOTATIONS.PY --- Executed")
 
-    # merge_sequences.py
-    merge_sequences_done = os.path.join(output_dir, "merge_sequences.done")
-    if os.path.exists(merge_sequences_done):
-        logger.info("MERGE_SEQUENCES --- Skipping, output already exists")
+    # merge_reports_in_sequences.py
+    merge_reports_in_sequences = os.path.join(output_dir, "merge_sequences.done")
+    if os.path.exists(merge_reports_in_sequences):
+        logger.info("MERGE_REPORT_SEQUENCES --- Skipping, output already exists")
     else:
-        merge_sequences_call = f"{python_executable} merge_sequences.py -o {output_dir} -l {log}"
-        run_command(merge_sequences_call, logger)
-        with open(merge_sequences_done, "w", encoding="utf-8") as f:
+        merge_reports_in_sequences_tasks = []
+        for subdir in os.listdir(output_dir):
+            subdir_path = os.path.join(output_dir, subdir)
+            if os.path.isdir(subdir_path) and not subdir.startswith("PF"):
+                merge_reports_in_sequences_tasks.append(f"{python_executable} merge_reports_in_sequences.py -s {subdir} -sd {subdir_path} -l {timestamped_log}")
+        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in merge_reports_in_sequences_tasks)
+        with open(merge_reports_in_sequences, "w", encoding="utf-8") as f:
             f.write("")
-        logger.info("MERGE_SEQUENCES --- Executed")
+        logger.info("MERGE_REPORT_SEQUENCES --- Executed")
 
     # make_view_jsons.py
     make_view_jsons_done = os.path.join(output_dir, "make_view_jsons.done")
     if os.path.exists(make_view_jsons_done):
         logger.info("MAKE_VIEW_JSONS.PY --- Skipping, output already exists")
     else:
-        make_view_jsons_call = f"{python_executable} make_view_jsons.py -o {output_dir} -l {log}"
-        run_command(make_view_jsons_call, logger)
+        make_view_jsons_tasks = []
+        for subdir in os.listdir(output_dir):
+            subdir_path = os.path.join(output_dir, subdir)
+            if os.path.isdir(subdir_path) and not subdir.startswith("PF"):
+                make_view_jsons_tasks.append(f"{python_executable} make_view_jsons.py -o {subdir_path} -s {subdir} -l {timestamped_log}")
+        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in make_view_jsons_tasks)
         with open(make_view_jsons_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("MAKE_VIEW_JSONS.PY --- Executed")
 
     logger.info("Pipeline finished successfully")
-
 
 if __name__ == "__main__":
     main()

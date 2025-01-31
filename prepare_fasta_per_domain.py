@@ -38,7 +38,8 @@ import os
 import json
 import argparse
 import logging
-from typing import Any
+from typing import Any, Callable
+from utils import get_logger, get_multi_logger
 # from modules.decorators import measure_time_and_memory
 
 def parse_arguments():
@@ -52,19 +53,12 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description=
     'Generates a temporary multifasta for running hmmalign using a hits per domain JSON.')
     parser.add_argument("-iJ", "--per-dom-json", help="Path to hits per domain json", required=True, type=str)
-    parser.add_argument("-iD", "--dom-accession", help="The domain Pfam accession you're prepping for", required=True, type=str)
+    parser.add_argument("-iD", "--domain-accession", help="The domain Pfam accession you're prepping for", required=True, type=str)
     parser.add_argument("-r", "--resource-dir", help="Resource dir path", required=True, type=str)
     parser.add_argument("-o", "--output-dir", help="Output dir path", required=True, type=str)
     parser.add_argument("-l", "--log", help="Log path", \
         required=False, type=str, default="logs/prepare_fasta_per_domain.log")
     return parser.parse_args()
-
-def configure_logging(log_path: str) -> logging.Logger:
-    """Set up logging for the script."""
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    return logging.getLogger()
 
 def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> dict[str, Any]:
     """
@@ -99,7 +93,7 @@ def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> 
     }
     return domain_run_info
 
-def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, logger: logging.Logger) -> (str | None):
+def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, domain_logger: logging.Logger, multi_logger: Callable) -> (str | None):
     """
     Loads a hits per domain JSON and searches for a target domain by its accession to
     generate a FASTA containing its hits across all sequences.
@@ -110,8 +104,10 @@ def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, lo
         with open(per_dom_json, 'r', encoding='utf-8') as f:
             hits = json.load(f)
     except IOError as e:
-        logger.error(f"Error opening or reading the file: {e}")
-        return
+        multi_logger("error", "PREPARE_FASTA_PER_DOMAIN --- Error opening or reading file %s: %s", per_dom_json, e)
+        return None
+
+    domain_logger.info("PREPARE_FASTA_PER_DOMAIN --- Preparing fasta for domain %s", dom_accession)
 
     for accession, sequences in hits.items():
         if accession == dom_accession:
@@ -123,42 +119,54 @@ def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, lo
                     header = f">{target_seq_name}target/{ali_range}"
                     fasta_data += f"{header}\n{subseq}\n"
 
+    if not fasta_data:
+        multi_logger("warning", "PREPARE_FASTA_PER_DOMAIN --- No hits found for domain %s", dom_accession)
+        return None
+
     domain_dir = os.path.join(output_dir, dom_accession)
     os.makedirs(domain_dir, exist_ok=True)
 
     fasta_filename = f"{dom_accession}_hits.fasta"
     fasta_path = os.path.join(domain_dir, fasta_filename)
 
-    with open(fasta_path, 'w', encoding='utf-8') as fasta_file:
-        fasta_file.write(fasta_data)
-    return fasta_path
+    try:
+        with open(fasta_path, 'w', encoding='utf-8') as fasta_file:
+            fasta_file.write(fasta_data)
+        domain_logger.info("PREPARE_FASTA_PER_DOMAIN --- Generated fasta for domain %s at %s", dom_accession, fasta_path)
+        return fasta_path
+    except IOError as e:
+        multi_logger("error", "PREPARE_FASTA_PER_DOMAIN --- Error writing FASTA file %s: %s", fasta_path, e)
+        return None
 
-def main(logger: logging.Logger):
+def main(domain_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     per_dom_json = args.per_dom_json
-    dom_accession = args.dom_accession
+    dom_accession = args.domain_accession
     resource_dir = args.resource_dir
     output_dir = args.output_dir
+    main_logger = logging.getLogger("main")
+    log_to_both = get_multi_logger([main_logger, domain_logger])
 
-    logger.info(f"Running prepare_fasta_per_domain with arguments: {args}")
+    domain_logger.info(f"PREPARE_FASTA_PER_DOMAIN --- Running prepare_fasta_per_domain with arguments: {args}")
 
     domain_info = can_run_hmmalign(dom_accession, resource_dir, output_dir)
     if domain_info['can_align']:
-        dom_fasta_path = prep_domain_fasta(per_dom_json, dom_accession, output_dir, logger)
-        domain_info['dom_fasta'] = dom_fasta_path
-        output_json_path = os.path.join(output_dir, dom_accession, 'domain_info.json')
-        os.makedirs(os.path.dirname(output_json_path), exist_ok=True)
-        try:
-            with open(output_json_path, 'w', encoding='utf-8') as f:
-                json.dump(domain_info, f, indent=4)
-            logger.info(f"Information for {dom_accession} was written to {output_json_path}")
-        except IOError as e:
-            logger.error(f"Error writing the file: {e}")
+        dom_fasta_path = prep_domain_fasta(per_dom_json, dom_accession, output_dir, domain_logger, log_to_both)
+        if dom_fasta_path:
+            domain_info['dom_fasta'] = dom_fasta_path
+            output_json_path = os.path.join(output_dir, dom_accession, 'domain_info.json')
+            os.makedirs(os.path.dirname(output_json_path), exist_ok=True)
+            try:
+                with open(output_json_path, 'w', encoding='utf-8') as f:
+                    json.dump(domain_info, f, indent=4)
+                domain_logger.info(f"PREPARE_FASTA_PER_DOMAIN --- Information for {dom_accession} was written to {output_json_path}")
+            except IOError as e:
+                log_to_both("error", "PREPARE_FASTA_PER_DOMAIN --- Error writing domain info to %s: %s", output_json_path, e)
     else:
-        logger.warning(f"Couldn't find the necessary files for domain {dom_accession}")
+        log_to_both("warning", "PREPARE_FASTA_PER_DOMAIN --- Missing required files for domain %s", dom_accession)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger = configure_logging(outer_args.log)
+    outer_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
     main(outer_logger)

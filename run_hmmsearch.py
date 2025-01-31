@@ -23,12 +23,12 @@ a FASTA file, a HMM targets file and the path to the output directory. Optionall
 a flag to indicate nucleotide sequences and a log file path.
 
 1 - Runs pyHMMER hmmsearch on the FASTA file using the provided HMM database file,
-generates a 'hmmsearch_per_domain.json' file, one level above all sequence dirs.
+generates a 'hmmsearch_per_domain.json' file in the output directory.
 Also, generates a 'hmmsearch_sequences.txt' and a 'hmmsearch_sequences.json'
 file in the output directory, these last two contain the sequence IDs with at least 1 domain hit.
 
     1.5 - Loads the sequence file, either as a SequenceFile or a DigitalSequenceBlock,
-    depending on size and available memory.
+    depending on size and available memory. For nucleotide sequences, performs translation to protein sequences before searching.
 
 # Moved these general functions to utils.py, for better modularity:
     2 - Parses the FASTA file and stores each sequence's queryname (ex.: TTHY_XENLA) in a list,
@@ -48,7 +48,7 @@ from typing import Union
 import psutil
 import pyhmmer
 from pyhmmer.easel import DigitalSequenceBlock, DigitalSequence
-import utils
+from utils import get_logger, seqrecord_yielder, make_dirs_and_write_fasta
 # from modules.decorators import measure_time_and_memory
 
 def parse_arguments():
@@ -71,22 +71,23 @@ def parse_arguments():
         required=False, type=str, default="logs/run_hmmsearch.log")
     return parser.parse_args()
 
-def configure_logging(log_path: str) -> logging.Logger:
-    """Set up logging for the script."""
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    return logging.getLogger()
-
 def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is_nucleotide: bool = False) -> Union[DigitalSequenceBlock, DigitalSequence]:
     """
     Loads a multifasta file either as a SequenceFile or a DigitalSequenceBlock,
     the latter only if the file loaded to memory would take less than 20% of the available memory.
+
+    Args:
+        fasta_path: Path to the multifasta file
+        logger: Logger instance for tracking execution
+        is_nucleotide: If True, treats input as nucleotide sequences (default: False)
+
+    Returns:
+        Union[DigitalSequenceBlock, DigitalSequence]: Loaded sequence file
     """
     available_memory = psutil.virtual_memory().available
     target_size= os.stat(fasta_path).st_size
-    logger.info(f"Available memory: {available_memory/1024:.1f} KiB")
-    logger.info(f"Database on-disk size: {target_size/1024:.1f} KiB")
+    logger.info(f"RUN_HMMSEARCH --- Available memory: {available_memory/1024:.1f} KiB")
+    logger.info(f"RUN_HMMSEARCH --- Database on-disk size: {target_size/1024:.1f} KiB")
 
     if is_nucleotide:
         alphabet = pyhmmer.easel.Alphabet.dna()
@@ -95,16 +96,16 @@ def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is
 
     with pyhmmer.easel.SequenceFile(fasta_path, digital=True, alphabet=alphabet) as seq_file:
         if target_size < available_memory * 0.2:
-            logger.info("Pre-fetching targets into memory")
+            logger.info("RUN_HMMSEARCH --- Pre-fetching targets into memory")
             targets = seq_file.read_block()
             if is_nucleotide:
-                logger.info("Translating nucleotide sequences to protein sequences")
+                logger.info("RUN_HMMSEARCH --- Translating nucleotide sequences to protein sequences")
                 targets = targets.translate()
-            logger.info(f"Database in-memory size: {(sys.getsizeof(targets) + sum(sys.getsizeof(target) for target in targets))/1024:.1f} KiB")
+            logger.info(f"RUN_HMMSEARCH --- Database in-memory size: {(sys.getsizeof(targets) + sum(sys.getsizeof(target) for target in targets))/1024:.1f} KiB")
         else:
             targets = seq_file
             if is_nucleotide:
-                logger.info("Translating nucleotide sequences to protein sequences")
+                logger.info("RUN_HMMSEARCH --- Translating nucleotide sequences to protein sequences")
                 targets = targets.translate()
     return targets
 
@@ -194,9 +195,9 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
     with open(per_domain_output, "w", encoding='utf-8') as f:
         json.dump(hits_per_domain, f, indent=4)
 
-    logger.info(f"HmmSearch hit sequences saved in text format - {sequences_txt_path}")
-    logger.info(f"HmmSearch hit sequences saved in JSON format - {sequences_json_path}")
-    logger.info(f"HmmSearch TopHits results saved per domain - {per_domain_output}")
+    logger.info(f"RUN_HMMSEARCH --- HmmSearch hit sequences saved in text format - {sequences_txt_path}")
+    logger.info(f"RUN_HMMSEARCH --- HmmSearch hit sequences saved in JSON format - {sequences_json_path}")
+    logger.info(f"RUN_HMMSEARCH --- HmmSearch TopHits results saved per domain - {per_domain_output}")
 
 def main(logger: logging.Logger):
     """Main function, initializes this script"""
@@ -205,16 +206,16 @@ def main(logger: logging.Logger):
     input_hmm = args.hmm
     output_dir = args.output_dir
     is_nucleotide = args.nucleotide
-    logger.info(f"Running hmmsearch with arguments: {args}")
+    logger.info(f"RUN_HMMSEARCH --- Running hmmsearch with arguments: {args}")
 
     # Create dirs for all sequences, don't filter by those with hmmer hits because
     # we want to run iprscan on all sequences, regardless of hmmer.
-    yielded_sequences = utils.seqrecord_yielder(input_fasta, is_nucleotide, logger)
-    utils.make_dirs_and_write_fasta(yielded_sequences, output_dir)
+    yielded_sequences = seqrecord_yielder(input_fasta, is_nucleotide, logger)
+    make_dirs_and_write_fasta(yielded_sequences, output_dir)
     # Run hmmsearch for all sequences
     run_hmmsearch(input_hmm, input_fasta, output_dir, logger, is_nucleotide)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger = configure_logging(outer_args.log)
+    outer_logger, _ = get_logger(outer_args.log, scope="main")
     main(outer_logger)

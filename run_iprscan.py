@@ -34,7 +34,6 @@ Command Format:
 
 Functions:
     1 - parse_arguments - Parse command-line arguments for running InterProScan.
-    2 - configure_logging - Configure logging for the script.
     3 - run_interproscan - Run InterProScan with the given arguments.
 
 Reference for TSV output columns:
@@ -42,16 +41,18 @@ https://interproscan-docs.readthedocs.io/en/latest/OutputFormats.html#tab-separa
 
 """
 
-import os
 import argparse
 import logging
 import subprocess
+from typing import Callable
+from utils import get_logger, get_multi_logger
 
 def parse_arguments():
     """Parse command-line arguments for running InterProScan."""
     parser = argparse.ArgumentParser(description="Runs InterProScan for a sequence in a fasta input.")
     parser.add_argument("-iP", "--iprscan-path", help="Path to interproscan.sh", required=True, type=str)
     parser.add_argument("-iF", "--input-fasta", help="Path to input sequence fasta", required=True, type=str)
+    parser.add_argument("-s", "--sequence", help="Sequence to process", required=True, type=str)
     parser.add_argument("-oB", "--output-base-file", help="Path to output base file, ending right before the extension", required=True, type=str)
     parser.add_argument("-oF", "--output-format", help="Output format/s, from (TSV, JSON, XML, GFF3). This pipeline only uses TSV, but the default is TSV, XML and GFF3 for possible downstream analyses", required=False, type=str, default="TSV,XML,GFF3")
     parser.add_argument("-dB", "--databases", help="Optional: Comma-separated databases to limit the search, if the single purpose is using GO terms inside the pipeline, pass the string panther,gene3d,smart,pfam,superfamily", required=False, type=str, default="")
@@ -60,14 +61,7 @@ def parse_arguments():
     args.output_format = ', '.join(fmt.strip() for fmt in args.output_format.split(','))
     return args
 
-def configure_logging(log_path: str) -> logging.Logger:
-    """Set up logging for the script."""
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', 
-                        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    return logging.getLogger()
-
-def run_interproscan(iprscan_path: str, input_fasta: str, output_basefile: str, output_format: str, databases: str, logger: logging.Logger) -> None:
+def run_interproscan(iprscan_path: str, input_fasta: str, output_basefile: str, output_format: str, databases: str, multi_logger: Callable) -> None:
     """
     Runs InterProScan with the given arguments.
     """
@@ -80,12 +74,12 @@ def run_interproscan(iprscan_path: str, input_fasta: str, output_basefile: str, 
     result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
     if result.returncode != 0:
-        logger.error(f"RUN_IPRSCAN --- Error running InterProScan: {result.stderr.decode('utf-8')}")
+        multi_logger("error", "RUN_IPRSCAN --- Error running InterProScan: %s", result.stderr.decode('utf-8'))
     else:
-        logger.info(f"RUN_IPRSCAN --- InterProScan completed successfully. Output saved to {output_basefile}.{output_format.lower()}")
+        multi_logger("info", "RUN_IPRSCAN --- InterProScan completed successfully. Output saved to %s.%s", output_basefile, output_format.lower())
 
 
-def main(logger: logging.Logger):
+def main(sequence_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     iprscan_sh_path = args.iprscan_path
@@ -93,12 +87,13 @@ def main(logger: logging.Logger):
     output_basefile = args.output_base_file
     output_format = args.output_format
     databases = args.databases
+    main_logger = logging.getLogger("main")
+    log_to_both = get_multi_logger([main_logger, sequence_logger])
+    log_to_both("info", "RUN_IPRSCAN --- Running InterProScan with input fasta: %s",  input_fasta_filepath)
 
-    logger.info(f"RUN_IPRSCAN --- Running InterProScan with input fasta: {input_fasta_filepath}")
-
-    run_interproscan(iprscan_sh_path, input_fasta_filepath, output_basefile, output_format, databases, logger)
+    run_interproscan(iprscan_sh_path, input_fasta_filepath, output_basefile, output_format, databases, log_to_both)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger = configure_logging(outer_args.log)
+    outer_logger, _ = get_logger(outer_args.log, scope="sequence", identifier=outer_args.sequence)
     main(outer_logger)

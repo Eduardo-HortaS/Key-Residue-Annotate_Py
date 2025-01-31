@@ -31,12 +31,120 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from multiprocessing import Pool
 from typing import Iterator
+from datetime import datetime
 from Bio import SeqIO
-from typing import TypeVar, List, Callable, Optional
+from collections import defaultdict
+from typing import TypeVar, List, Callable, Optional, Literal, Any
+import glob
 
+Scope = Literal["main", "domain", "sequence"]
+
+def get_logger(log_path: str, scope: Scope = 'main', identifier: str = None) -> tuple[logging.Logger, str]:
+    """
+    Creates and configures a logger that writes to a timestamped log file.
+
+    Parameters:
+    log_path (str): The base path for the log file.
+    scope (str): The scope of the logger, which can be 'main', 'domain', or 'sequence'. Defaults to 'main'.
+    identifier (str, optional): An optional identifier to include in the log file name. Defaults to None.
+
+    Returns:
+    tuple[logging.Logger, str]: A tuple containing the configured logger and the final log file path.
+    """
+    # 1. Separate directory and filename
+    log_dir = os.path.dirname(log_path)
+    base_name = os.path.basename(log_path)
+    base_stem, base_ext = os.path.splitext(base_name)
+
+    # 2. Check for existing timestamp at the END of the filename
+    timestamp = None
+    if "_" in base_stem:
+        # Split into parts and check only the LAST TWO segments
+        parts = base_stem.split("_")
+        if len(parts) >= 2:
+            candidate_date = parts[-2]
+            candidate_time = parts[-1]
+            if (len(candidate_date) == 6 and candidate_date.isdigit() and 
+                len(candidate_time) == 4 and candidate_time.isdigit()):
+                timestamp = f"{candidate_date}_{candidate_time}"
+                base_stem = "_".join(parts[:-2])  # Rebuild base without timestamp
+
+    # 3. Generate fresh timestamp if none found
+    if not timestamp:
+        timestamp = datetime.now().strftime("%y%m%d_%H%M")
+
+    # 4. Build final filename
+    if scope in ("domain", "sequence") and identifier:
+        clean_id = str(identifier).replace("|", "-").replace(" ", "_")[:64]
+        filename = f"{base_stem}_{timestamp}_{clean_id}{base_ext}"
+    else:
+        filename = f"{base_stem}_{timestamp}{base_ext}"
+
+    final_log = os.path.join(log_dir, filename)
+
+    # 5. Configure logger
+    os.makedirs(log_dir, exist_ok=True)
+    logger = logging.getLogger(f"{scope}_{identifier}" if identifier else "main")
+    if not logger.handlers:
+        handler = logging.FileHandler(final_log)
+        handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
+
+    return logger, final_log
+
+LogLevel = Literal["debug", "info", "warning", "error", "critical"]
+
+def get_multi_logger(loggers: List[logging.Logger]) -> Callable[[LogLevel, str, Any], None]:
+    """Helper to write same message to multiple loggers.
+
+    Args:
+        loggers: List of logger instances to write to
+
+    Returns:
+        Function that takes:
+            - level: Must be one of "debug", "info", "warning", "error", "critical"
+            - message: Format string
+            - args: Values for format string
+
+    Example:
+        >>> log = get_multi_logger([domain_logger, main_logger])
+        >>> log("info", "Processing %s", domain_id)  # IDE suggests valid levels
+    """
+    def log(level: LogLevel, message: str, *args: Any) -> None:
+        for logger in loggers:
+            getattr(logger, level)(message, *args)
+    return log
+
+# def get_logger(log_path: str) -> tuple[logging.Logger, str]:
+#     """Get or create a logger with a single log file for all processes."""
+#     # Check if the provided log_path exists
+#     if os.path.exists(log_path):
+#         existing_log = log_path
+#     else:
+#         # Generate a new timestamped log path based on the provided log_path
+#         log_base, log_ext = os.path.splitext(log_path)
+#         timestamp = datetime.now().strftime('%y%m%d_%H%M')
+#         existing_log = f"{log_base}_{timestamp}{log_ext}"
+
+#     # Create logs directory if needed
+#     os.makedirs(os.path.dirname(existing_log), exist_ok=True)
+
+#     # Configure the root logger only if not already configured
+#     root = logging.getLogger()
+#     if not root.handlers:
+#         logging.basicConfig(
+#             level=logging.DEBUG,
+#             format='%(asctime)s - %(levelname)s - %(message)s',
+#             filename=existing_log,
+#             filemode='a'
+#         )
+
+#     return logging.getLogger(), existing_log
 
 # T = input type (could be str, int, dict, etc.)
 # R = return type (could be different from input)
+
 T = TypeVar('T')
 R = TypeVar('R')
 
@@ -66,9 +174,9 @@ def translate_sequence(seq_record: SeqRecord, logger: logging.Logger) -> SeqReco
 
     # Translate using pyHMMER
     translated = digital_seq.translate()
-    logger.info("Translated %s to amino acids.", seq_record.id)
-    logger.info("Original sequence: %s", seq_record.seq)
-    logger.info("Translated sequence: %s", translated.sequence.decode())
+    logger.debug("Translated %s to amino acids.", seq_record.id)
+    logger.debug("Original sequence: %s", seq_record.seq)
+    logger.debug("Translated sequence: %s", translated.sequence.decode())
 
     # Create new SeqRecord with translated sequence
     return SeqRecord(
@@ -162,6 +270,16 @@ def convert_sets_and_tuples_to_lists(data):
         return sorted(list(data))
     else:
         return data
+
+def convert_defaultdict_to_dict(obj):
+    """Recursively convert defaultdicts to dicts."""
+    if isinstance(obj, defaultdict):
+        obj = dict(obj)
+    if isinstance(obj, dict):
+        return {k: convert_defaultdict_to_dict(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_defaultdict_to_dict(item) for item in obj]
+    return obj
 
 def get_continuous_ranges(interval_dict: dict, anno_id: str, logger: Optional[logging.Logger] = None) -> list:
     """Returns list of continuous ranges for given annotation ID,

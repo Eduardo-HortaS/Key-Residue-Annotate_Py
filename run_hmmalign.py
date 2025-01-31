@@ -24,11 +24,12 @@ a domain info JSON file with paths to the HMM file, seed alignment, domain fasta
 1 - run_hmmalign - Runs hmmalign for the domain in the domain_info JSON.
 """
 
-import os
 import argparse
 import logging
 import json
 import subprocess
+from utils import get_logger, get_multi_logger
+from typing import Callable
 # from modules.decorators import measure_time_and_memory
 # from memory_profiler import profile
 
@@ -45,20 +46,14 @@ def parse_arguments():
     "Runs hmmalign using a domain's hits sequence database against its HMM \
     aiming to generate a <domain_accession>_hmmalign.sto file inside the domain's folder.")
     parser.add_argument("-iDI", "--dom-info", help="Path to domain info JSON with paths", required=True, type=str)
+    parser.add_argument("-d", "--domain-accession", help="Domain accession for scoped logging", required=True, type=str)
     parser.add_argument("-l", "--log", help="Log path", \
         required=False, type=str, default="logs/run_hmmalign.log")
     return parser.parse_args()
 
-def configure_logging(log_path: str) -> logging.Logger:
-    """Set up logging for the script."""
-    os.makedirs(os.path.dirname(log_path),exist_ok=True)
-    logging.basicConfig(filename=log_path, level=logging.DEBUG, filemode='a', \
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    return logging.getLogger()
-
 #@measure_time_and_memory
 #@profile
-def run_hmmalign(dom_info_json: str, logger: logging.Logger) -> None:
+def run_hmmalign(dom_info_json: str, multi_logger: Callable) -> None:
     """
     Runs hmmalign for the domain in the domain_info JSON.
     """
@@ -75,20 +70,23 @@ def run_hmmalign(dom_info_json: str, logger: logging.Logger) -> None:
     result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
     if result.returncode != 0:
-        logger.error(f"Error running hmmalign: {result.stderr.decode('utf-8')}")
+        multi_logger("error", "RUN_HMMALIGN --- Error running hmmalign: %s", result.stderr.decode('utf-8'))
     else:
-        logger.info(f"Generated {pfam_id_hmmaligned}")
+        multi_logger("info", "RUN_HMMALIGN --- Generated: %s", pfam_id_hmmaligned)
 
-def main(logger: logging.Logger):
+def main(domain_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     domain_info_json = args.dom_info
 
-    logger.info(f"Running hmmalign for domain info JSON: {domain_info_json}")
+    # Can also get main logger if needed
+    main_logger = logging.getLogger("main")
+    log_to_both = get_multi_logger([main_logger, domain_logger])
+    log_to_both("info", "RUN_HMMALIGN --- Running hmmalign for domain info JSON: %s", domain_info_json)
 
-    run_hmmalign(domain_info_json, logger)
+    run_hmmalign(domain_info_json, log_to_both)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger = configure_logging(outer_args.log)
+    outer_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
     main(outer_logger)

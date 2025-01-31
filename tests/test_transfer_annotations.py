@@ -18,7 +18,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from transfer_annotations import (
     parse_arguments,
-    configure_logging,
     get_pfam_id_from_hmmalign_result,
     get_annotation_filepath,
     read_files,
@@ -41,13 +40,14 @@ from transfer_annotations import (
     _add_single_annotation,
     update_position_ranges,
     merge_adjacent_ranges,
-    get_continuous_ranges,
     make_anno_total_dict,
     validate_annotations,
     process_annotation,
     validate_paired_annotations,
     main
 )
+
+from utils import get_logger
 
 import pytest
 
@@ -2917,28 +2917,6 @@ def test_parse_arguments_optional():
     assert args.log == log_filepath_mock
     assert args.eco_codes == good_eco_codes_mock
 
-###T configure_logging
-
-def test_configure_logging(tmp_path):
-    reload(logging)
-    # Temporary log path for testing
-    log_path = tmp_path / "test.log"
-    logger = configure_logging(str(log_path))
-
-    # Confirm the logger is set up
-    assert logger is not None
-
-    # Write something to create the file
-    logger.info("Test log entry")
-
-    # Now check if file exists
-    assert log_path.exists(), f"Log file not found at {log_path}"
-
-    # Verify contents
-    with open(log_path, "r", encoding="utf-8") as log_file:
-        log_contents = log_file.read()
-    assert "Test log entry" in log_contents, "Log entry not found in log file"
-
 ###T get_pfam_id_from_hmmalign_result
 
 def test_get_pfam_id_from_hmmalign_result():
@@ -4921,28 +4899,6 @@ def test_merge_adjacent_ranges_single():
     merge_adjacent_ranges(ranges)
     assert ranges == [(333, 334)]
 
-###T get_continuous_ranges
-
-def test_get_continuous_ranges_empty_dict():
-    """Test with empty interval dict"""
-    ranges = get_continuous_ranges({}, "DISULFID | Test")
-    assert ranges == []
-
-def test_get_continuous_ranges_missing_anno_id(interval_dict_with_range):
-    """Test with non-existent annotation ID"""
-    ranges = get_continuous_ranges(interval_dict_with_range, "BINDING | Test")
-    assert ranges == []
-
-def test_get_continuous_ranges_single_range(interval_dict_with_range):
-    """Test with single valid range"""
-    ranges = get_continuous_ranges(interval_dict_with_range, "DISULFID | Test")
-    assert ranges == [(333, 333)]
-
-def test_get_continuous_ranges_multiple_ranges(interval_dict_with_multiple_ranges):
-    """Test with multiple valid ranges"""
-    ranges = get_continuous_ranges(interval_dict_with_multiple_ranges, "DISULFID | Test")
-    assert ranges == [(333, 334), (336, 337)]
-
 ###T make_anno_total_dict
 
 def test_make_anno_total_dict_basic(
@@ -6066,7 +6022,7 @@ def test_main_integration_binding_Q9NU22_PF07728(
         )
 
         with patch('transfer_annotations.parse_arguments', return_value=args):
-            logger = configure_logging(args.log)
+            logger, _ = get_logger(args.log)
             main(logger)
 
         # with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
@@ -6128,7 +6084,7 @@ def test_main_integration_disulfid_Q9NU22_PF07728(
         )
 
         with patch('transfer_annotations.parse_arguments', return_value=args):
-            logger = configure_logging(args.log)
+            logger, _ = get_logger(args.log)
             main(logger)
 
         # with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
@@ -6190,7 +6146,7 @@ def test_main_integration_all_types_H0YB80(
         )
 
         with patch('transfer_annotations.parse_arguments', return_value=args):
-            logger = configure_logging(args.log)
+            logger, _ = get_logger(args.log)
             main(logger)
 
         # with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
