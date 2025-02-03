@@ -56,17 +56,21 @@ def parse_arguments():
     parser.add_argument("-oB", "--output-base-file", help="Path to output base file, ending right before the extension", required=True, type=str)
     parser.add_argument("-oF", "--output-format", help="Output format/s, from (TSV, JSON, XML, GFF3). This pipeline only uses TSV, but the default is TSV, XML and GFF3 for possible downstream analyses", required=False, type=str, default="TSV,XML,GFF3")
     parser.add_argument("-dB", "--databases", help="Optional: Comma-separated databases to limit the search, if the single purpose is using GO terms inside the pipeline, pass the string panther,gene3d,smart,pfam,superfamily", required=False, type=str, default="")
+    parser.add_argument("-c", "--cpu-cores", help="Number of CPU cores to use per job", required=False, type=int, default=1)
     parser.add_argument("-l", "--log", help="Log path", required=False, type=str, default="logs/run_iprscan.log")
     args = parser.parse_args()
     args.output_format = ', '.join(fmt.strip() for fmt in args.output_format.split(','))
     return args
 
-def run_interproscan(iprscan_path: str, input_fasta: str, output_basefile: str, output_format: str, databases: str, multi_logger: Callable) -> None:
+def run_interproscan(
+    iprscan_path: str, input_fasta: str, output_basefile: str,
+    output_format: str, databases: str, cpu_cores: int,  multi_logger: Callable) -> None:
     """
     Runs InterProScan with the given arguments.
     """
-    # NOTE: Kinda slow, not sure about CPU usage.
-    command = f"{iprscan_path} -i {input_fasta} -b {output_basefile} -f {output_format} -goterms -iprlookup -dp --cpu 1"
+    # NOTE: Need to be careful with CPU cores and memory allocated,
+    # interproscan can be very intensive in these regards.
+    command = f"{iprscan_path} -i {input_fasta} -b {output_basefile} -f {output_format} -goterms -iprlookup -dra --cpu {cpu_cores}"
 
     if databases:
         command += f" -appl {databases}"
@@ -79,7 +83,7 @@ def run_interproscan(iprscan_path: str, input_fasta: str, output_basefile: str, 
         multi_logger("info", "RUN_IPRSCAN --- InterProScan completed successfully. Output saved to %s.%s", output_basefile, output_format.lower())
 
 
-def main(sequence_logger: logging.Logger):
+def main(sequence_logger: logging.Logger, main_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     iprscan_sh_path = args.iprscan_path
@@ -87,13 +91,14 @@ def main(sequence_logger: logging.Logger):
     output_basefile = args.output_base_file
     output_format = args.output_format
     databases = args.databases
-    main_logger = logging.getLogger("main")
+    cpu_cores = args.cpu_cores
     log_to_both = get_multi_logger([main_logger, sequence_logger])
-    log_to_both("info", "RUN_IPRSCAN --- Running InterProScan with input fasta: %s",  input_fasta_filepath)
+    log_to_both("info", "RUN_IPRSCAN --- Running InterProScan with arguments: %s", args)
 
-    run_interproscan(iprscan_sh_path, input_fasta_filepath, output_basefile, output_format, databases, log_to_both)
+    run_interproscan(iprscan_sh_path, input_fasta_filepath, output_basefile, output_format, databases, cpu_cores, log_to_both)
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger, _ = get_logger(outer_args.log, scope="sequence", identifier=outer_args.sequence)
-    main(outer_logger)
+    main_logger, _ = get_logger(outer_args.log, scope="main")
+    sequence_logger, _ = get_logger(outer_args.log, scope="sequence", identifier=outer_args.sequence)
+    main(sequence_logger, main_logger)

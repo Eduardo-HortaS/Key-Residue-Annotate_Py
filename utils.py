@@ -116,35 +116,6 @@ def get_multi_logger(loggers: List[logging.Logger]) -> Callable[[LogLevel, str, 
             getattr(logger, level)(message, *args)
     return log
 
-# def get_logger(log_path: str) -> tuple[logging.Logger, str]:
-#     """Get or create a logger with a single log file for all processes."""
-#     # Check if the provided log_path exists
-#     if os.path.exists(log_path):
-#         existing_log = log_path
-#     else:
-#         # Generate a new timestamped log path based on the provided log_path
-#         log_base, log_ext = os.path.splitext(log_path)
-#         timestamp = datetime.now().strftime('%y%m%d_%H%M')
-#         existing_log = f"{log_base}_{timestamp}{log_ext}"
-
-#     # Create logs directory if needed
-#     os.makedirs(os.path.dirname(existing_log), exist_ok=True)
-
-#     # Configure the root logger only if not already configured
-#     root = logging.getLogger()
-#     if not root.handlers:
-#         logging.basicConfig(
-#             level=logging.DEBUG,
-#             format='%(asctime)s - %(levelname)s - %(message)s',
-#             filename=existing_log,
-#             filemode='a'
-#         )
-
-#     return logging.getLogger(), existing_log
-
-# T = input type (could be str, int, dict, etc.)
-# R = return type (could be different from input)
-
 T = TypeVar('T')
 R = TypeVar('R')
 

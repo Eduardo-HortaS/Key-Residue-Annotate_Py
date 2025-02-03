@@ -74,7 +74,7 @@ def run_hmmalign(dom_info_json: str, multi_logger: Callable) -> None:
     else:
         multi_logger("info", "RUN_HMMALIGN --- Generated: %s", pfam_id_hmmaligned)
 
-def main(domain_logger: logging.Logger):
+def main(domain_logger: logging.Logger, main_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     domain_info_json = args.dom_info
@@ -88,5 +88,6 @@ def main(domain_logger: logging.Logger):
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
-    main(outer_logger)
+    main_logger, _ = get_logger(outer_args.log, scope="main")
+    domain_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
+    main(domain_logger, main_logger)

@@ -138,14 +138,13 @@ def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, do
         multi_logger("error", "PREPARE_FASTA_PER_DOMAIN --- Error writing FASTA file %s: %s", fasta_path, e)
         return None
 
-def main(domain_logger: logging.Logger):
+def main(domain_logger: logging.Logger, main_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     per_dom_json = args.per_dom_json
     dom_accession = args.domain_accession
     resource_dir = args.resource_dir
     output_dir = args.output_dir
-    main_logger = logging.getLogger("main")
     log_to_both = get_multi_logger([main_logger, domain_logger])
 
     domain_logger.info(f"PREPARE_FASTA_PER_DOMAIN --- Running prepare_fasta_per_domain with arguments: {args}")
@@ -168,5 +167,6 @@ def main(domain_logger: logging.Logger):
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
-    main(outer_logger)
+    main_logger, _ = get_logger(outer_args.log, scope="main")
+    domain_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
+    main(domain_logger, main_logger)

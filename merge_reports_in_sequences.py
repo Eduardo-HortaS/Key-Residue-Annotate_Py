@@ -89,13 +89,10 @@ def merge_sequences(sequence_dir: str, multi_logger: Callable, logger: logging.L
 
     return aggregated_report_path
 
-def main(sequence_logger: logging.Logger):
+def main(sequence_logger: logging.Logger, main_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     sequence_dir = args.sequence_dir
-
-    # Get main logger and create multi_logger
-    main_logger = logging.getLogger("main")
     log_to_both = get_multi_logger([main_logger, sequence_logger])
 
     log_to_both("info", "MERGE_SEQUENCES --- Running merge_sequences with arguments: %s", args)
@@ -103,5 +100,6 @@ def main(sequence_logger: logging.Logger):
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger, _ = get_logger(outer_args.log, scope="sequence", identifier=outer_args.sequence)
-    main(outer_logger)
+    main_logger, _ = get_logger(outer_args.log, scope="main")
+    sequence_logger, _ = get_logger(outer_args.log, scope="sequence", identifier=outer_args.sequence)
+    main(sequence_logger, main_logger)

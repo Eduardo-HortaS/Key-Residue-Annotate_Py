@@ -23,6 +23,7 @@ env/
 *.sublime-workspace
 
 # Miscellaneous
+./temp/*
 *.swp
 .DS_Store
 *.txt

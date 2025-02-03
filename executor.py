@@ -111,6 +111,10 @@ def main():
     nucleotide = args.nucleotide
     python_executable = args.python
     logger, timestamped_log = get_logger(args.log)
+    # Determine number of cores to use in interproscan, attempt to evade memory issues
+    iprscan_cpu_per_job = 2
+    iprscan_jobs_num = max(1, threads // iprscan_cpu_per_job)
+
 
     # run_hmmsearch.py
     per_dom_json = os.path.join(output_dir, "hmmsearch_per_domain.json")
@@ -139,8 +143,9 @@ def main():
                 if databases:
                     cmd += f" -dB {databases}"
                 cmd += f" -l {timestamped_log}"
+                cmd += f" -c {iprscan_cpu_per_job}"
                 run_iprscan_tasks.append(cmd)
-        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in run_iprscan_tasks)
+        Parallel(n_jobs=iprscan_jobs_num)(delayed(run_command)(task, logger) for task in run_iprscan_tasks)
         with open(run_iprscan_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("RUN_IPRSCAN.PY --- Executed")

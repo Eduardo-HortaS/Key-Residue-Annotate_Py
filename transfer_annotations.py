@@ -1693,7 +1693,7 @@ def validate_annotations(
                     raise
 
 
-def main(domain_logger: logging.Logger):
+def main(domain_logger: logging.Logger, main_logger: logging.Logger):
     """Main function, initializes this script"""
     args = parse_arguments()
     dom_align = args.dom_align
@@ -1701,7 +1701,6 @@ def main(domain_logger: logging.Logger):
     output_dir = args.output_dir
     good_eco_codes = args.eco_codes
     pfam_interpro_map_filepath = os.path.join(resource_dir, "mappings/interpro_pfam_accession_mapping.tsv")
-    main_logger = logging.getLogger("main")
     multi_logger = get_multi_logger([main_logger, domain_logger])
 
     domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Running transfer_annotations.py for %s --- ", dom_align)
@@ -1735,5 +1734,6 @@ def main(domain_logger: logging.Logger):
 
 if __name__ == '__main__':
     outer_args = parse_arguments()
-    outer_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
-    main(outer_logger)
+    main_logger, _ = get_logger(outer_args.log, scope="main")
+    domain_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
+    main(domain_logger, main_logger)
