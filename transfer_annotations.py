@@ -29,12 +29,34 @@ Execution begins by calling find_and_map_annots with 2 arguments:
 a list of hmmalign result lines and the loaded annotations dict.
 
 The function call order is as follows:
-parse_arguments -> get_pfam_id_from_hmmalign_result -> get_annotation_filepath -> read_files ->
-find_and_map_annots -> map_and_filter_annot_pos -> validate_annotations -> process_annotations -> make_anno_total_dict
-(Anno_Total is None?) YES -> DO NOTHING --- position effectively skipped
-(Anno_Total is None?) NO -> PROCEED CHECK PAIREABLE ANNOTATIONS
-(paireable annotation?) NO -> add_to_transfer_dict
-(paireable annotation?) YES -> map_and_filter_annot_pos -> validate_paired_annotations ->  make_anno_total_dict -> process_annotation -> add_to_transfer_dict
+parse_arguments -> get_logger -> get_multi_logger ->
+get_pfam_id_from_hmmalign_result -> get_annotation_filepath -> read_files ->
+
+(Annotations file missing?)
+YES -> annotations = {"sequence_id": {}} -> setup_for_conservations_only -> extract_target_info_from_hmmalign ->
+cleanup_improve_transfer_dict -> read_conservations_and_annotations -> get_alignment_sequences ->
+populate_conservation -> gather_go_terms_for_target -> populate_go_data_for_annotations -> write_reports
+
+NO -> find_and_map_annots -> extract_target_info_from_hmmalign -> map_and_filter_annot_pos ->
+validate_annotations -> iterate_aligned_sequences -> process_annotation -> make_anno_total_dict
+
+(Anno_Total is None?)
+YES -> DO NOTHING, JUST TRACK --- position effectively skipped
+
+NO -> PROCEED CHECK PAIREABLE ANNOTATIONS
+
+(paireable annotation?)
+NO -> add_to_transfer_dict -> _add_single_annotation ->
+update_position_ranges -> merge_adjacent_ranges
+
+YES -> map_and_filter_annot_pos -> validate_paired_annotations ->
+iterate_aligned_sequences -> make_anno_total_dict -> process_annotation -> add_to_transfer_dict ->
+_add_single_annotation -> update_position_ranges -> merge_adjacent_ranges
+
+ANNOTATIONS PRESENT FINAL STEPS -> cleanup_improve_transfer_dict -> read_conservations_and_annotations ->
+get_alignment_sequences -> populate_conservation -> gather_go_terms_for_target
+-> populate_go_data_for_annotations -> write_reports
+
 """
 
 import os
@@ -156,7 +178,7 @@ def extract_target_info_from_hmmalign(logger: logging.Logger, multi_logger: Call
     target_info = {}
     for line in hmmalign_lines:
         if "target/" in line and not line.startswith("#"):
-            logger.debug("TRANSFER_ANNOTS --- Target Line: %s", line)
+            logger.debug("TRANSFER_ANNOTS --- EXTRACT_TARGET_INFO --- Target Line: \n %s", line)
             try:
                 parts = line.split("target/")
                 target_name = parts[0].strip()
@@ -175,7 +197,7 @@ def extract_target_info_from_hmmalign(logger: logging.Logger, multi_logger: Call
                         (target_hit_start, target_hit_end, target_hit_sequence)
                     )
             except(IndexError, ValueError) as e:
-                multi_logger("warning", "Invalid format in line: %s. Error: %s", line, e)
+                multi_logger("warning", "TRANSFER_ANNOTS --- EXTRACT_TARGET_INFO --- Invalid format in line: %s. Error: %s", line, e)
                 continue
     return target_info
 
@@ -406,7 +428,11 @@ def gather_go_terms_for_target(
     go_term_filepath = os.path.join(go_terms_dir, sanitized_target_name, "iprscan.tsv")
     target_gos = set()
     if not os.path.exists(go_term_filepath):
-        multi_logger("warning", "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- Missing iprscan.tsv file for %s-%s at %s", pfam_id, sanitized_target_name, go_term_filepath)
+        multi_logger(
+            "warning",
+            "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- Missing iprscan.tsv file for Pfam ID %s and Target Name %s at %s",
+            pfam_id, sanitized_target_name, go_term_filepath
+        )
         return target_gos
 
     found_matching_accession = False
@@ -482,7 +508,7 @@ def get_alignment_sequences(
             multi_logger("error", "TRANSFER_ANNOTS --- GET_ALIGN_SEQS --- Conservation ID '%s' not found in hmmalign_lines.", conservation_id)
             return None, None
 
-        logger.debug("Successfully extracted alignment sequences for target '%s'", target_id)
+        logger.debug("TRANSFER_ANNOTS --- GET_ALIGN_SEQS --- Successfully extracted alignment sequences for target '%s'", target_id)
         return target_seq, conservation_seq
 
     except Exception as e:
@@ -505,7 +531,6 @@ def populate_conservation(
     conservation_start: int,
     conservation_end: int,
     logger: Optional[logging.Logger] = None,
-    multi_logger: Optional[Callable] = None
 ) -> None:
     """Updates transfer_dict with conservation scores.
 
@@ -526,8 +551,7 @@ def populate_conservation(
         interval_key: Key for current hit interval in the transfer_dict
         conservation_start: Start position in conservation reference sequence
         conservation_end: End position in conservation reference sequence
-        logger: Logger object for logging
-        multi_logger: Callable for logging to multiple loggers
+        logger: Logger object for registering debug messages
     """
     ranges_dict_key = "conservation_ranges"
     range_id = "conserved_positions"
@@ -580,13 +604,10 @@ def populate_conservation(
                 aln_dict[index_str] = counter_target_pos_str
         if counter_target_pos == target_hit_end or counter_cons_pos == conservation_end:
             break
-    if logger or multi_logger:
+    if logger:
         missing = set(conserved_positions) - processed_conserved_pos
         if missing:
-            if multi_logger:
-                multi_logger("warning", "TRANSFER_ANNOTS --- POP_CONS --- Missing conserved positions: %s", missing)
-            elif logger:
-                logger.warning(f"TRANSFER_ANNOTS --- POP_CONS --- Missing conserved positions: {missing}")
+            logger.debug("TRANSFER_ANNOTS --- POP_CONS --- Pfam ID: %s - Target Name: %s - Conserv-Rep Name: %s - Missing conserved positions: %s", pfam_id, target_name, conservation_key.split("/")[0], missing)
 
 def populate_go_data_for_annotations(
     transfer_dict: dict,
@@ -611,8 +632,8 @@ def populate_go_data_for_annotations(
     go_info_cache = {}
     for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
         interval_data = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]
-        for pos, position_data in interval_data['annotations']['positions'].items():
-            for anno_id, anno_data in position_data.items():
+        for _, position_data in interval_data['annotations']['positions'].items():
+            for _, anno_data in position_data.items():
                 go_data_for_annotation = {}
                 for _, evidence_data in anno_data.get("evidence", {}).items():
                     annot_name = evidence_data.get("rep_mnemo_name")
@@ -621,7 +642,7 @@ def populate_go_data_for_annotations(
                         if cache_key not in go_info_cache:
                             matched_go_info = {}
                             annotation_go_set = set()
-                            for subontology, go_terms_with_meanings in annotations[annot_name][go_terms_annot_key].items():
+                            for _, go_terms_with_meanings in annotations[annot_name][go_terms_annot_key].items():
                                 for go_term, meaning in go_terms_with_meanings.items():
                                     annotation_go_set.add(go_term)
                                     if go_term in target_gos:
@@ -672,6 +693,11 @@ def cleanup_improve_transfer_dict(
             {"domain": {pfam_id: {...}}}
     """
     go_terms_annot_key = "0"
+
+    if not transfer_dict:
+        multi_logger("warning",
+        "TRANSFER_ANNOTS --- CLEANUP_IMPROV_TD --- Empty transfer dictionary for Pfam ID %s - skipping data population", pfam_id)
+        return {"domain": {"pfam_id": {}}}
 
     if "DOMAIN" in transfer_dict:
         transfer_dict[pfam_id] = transfer_dict.pop("DOMAIN")
@@ -727,7 +753,7 @@ def cleanup_improve_transfer_dict(
                         interval_key=interval_key,
                         conservation_start=conservation_start,
                         conservation_end=conservation_end,
-                        multi_logger=multi_logger
+                        logger=logger
                     )
             if has_valid_annotations:
                 target_gos = gather_go_terms_for_target(
@@ -779,6 +805,7 @@ def convert_sets_and_tuples_to_lists(data):
 
 def write_reports(
     logger: logging.Logger,
+    multi_logger: Callable,
     transfer_dict: dict,
     output_dir: str,
 ) -> None:
@@ -801,7 +828,18 @@ def write_reports(
         reversed for downstream consumption, use utils.convert_lists_to_original_types.
     """
     transfer_dict = convert_sets_and_tuples_to_lists(transfer_dict)
+
+    # First check if we have an empty/invalid dictionary
+    if not transfer_dict.get("domain"):
+        multi_logger("warning", "TRANSFER_ANNOTS --- WRITE_REPORT --- Transfer dictionary is empty - no value assigned to 'domain' - skipping report writing")
+        return
+
+    # Get the pfam_id - either literal "pfam_id" or actual ID
     pfam_id = next(iter(transfer_dict['domain'].keys()))
+    if transfer_dict["domain"][pfam_id] == {}:
+        multi_logger("warning", "TRANSFER_ANNOTS --- WRITE_REPORT --- Transfer dictionary is empty - no value assigned to pfam_id %s - skipping report writing", pfam_id)
+        return
+
     sequence_data = transfer_dict['domain'][pfam_id]['sequence_id']
 
     # Write the entire transfer_dict to the pfam_id subdir
@@ -835,7 +873,7 @@ def write_reports(
                     pfam_id: {"annotations": "None"}
                 }
             }
-            logger.debug(f"TRANSFER_ANNOTS --- WRITE_REPORT --- No data to write for {target_name}!")
+            logger.debug(f"TRANSFER_ANNOTS --- WRITE_REPORT --- No data to write for {target_name}, mock !")
 
         safe_target_name = target_name.replace("|", "-")
         target_report_filepath = os.path.join(output_dir, safe_target_name, pfam_id + "_report.json")
@@ -933,7 +971,7 @@ def map_and_filter_annot_pos(
         )
         return None
     except Exception as e:
-        logger.error(f"---> ERROR --- MAP_AND_FILTER --- Error in validate_annotations: {e}")
+        logger.error(f"TRANSFER_ANNOTS ---> ERROR --- MAP_AND_FILTER --- Error in validate_annotations: {e}")
         traceback.print_exc()
         raise
 
@@ -1429,7 +1467,12 @@ def process_annotation(
                 paired_anno_id = None
                 paired_target_position_str = None
             anno_total['paired_target_position'] = paired_target_position_str
-            logger.debug(f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- Paired Position Valid for target {target_name} and annotated {entry_mnemo_name}")
+            logger.debug(
+                f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- Paired Position Valid (Present in Entry Annotations) with "
+                f"target---caller_pos-hit_status-paired_pos-hit_status {target_name}---{counter_target_pos_str}-{res_hit}-"
+                f"{paired_target_position_str}-{paired_position_res_hit} and "
+                f"annotated {entry_mnemo_name}"
+            )
             try:
                 add_to_transfer_dict(
                     hit=res_hit,
@@ -1459,13 +1502,15 @@ def process_annotation(
                     )
                     processed_annotations.add(paired_annotation_key)
                 logger.debug(
-                    f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- SUCCESS PA Added to transfer_dict for target {target_name} and "
-                    f"annotated {entry_mnemo_name} at target {counter_target_pos_str} and "
-                    f"annotated {counter_annot_pos_str} --- ORIGIN: Type {anno_type} and "
-                    f"Evidence {anno_total['evidence']}"
+                    f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- SUCCESS - ROUTE: Paired - "
+                    f"Added to transfer_dict for target {target_name} and "
+                    f"annotated {entry_mnemo_name} at target_caller-paired {counter_target_pos_str}-{paired_target_position_str} and "
+                    f"annotated_caller-paired {counter_annot_pos_str}-{paired_anno_total.get("annot_position", None)} "
+                    f"--- ORIGIN: Type {anno_type} and Evidence {anno_total['evidence']}"
                 )
             except Exception as e:
-                multi_logger("error", "TRANSFER_ANNOTS --- PROCESS_ANNOT --- Error in add_to_transfer_dict: %s", e)
+                multi_logger("error",
+                "TRANSFER_ANNOTS --- PROCESS_ANNOT --- FAILURE - ROUTE: Paired - Error in add_to_transfer_dict: %s", e)
                 traceback.print_exc()
                 raise
         else:
@@ -1485,13 +1530,19 @@ def process_annotation(
             )
             processed_annotations.add(annotation_key)
             logger.debug(
-                f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- SUCCESS PA Added to transfer_dict for target {target_name} and "
+                f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- SUCCESS - ROUTE: Single - "
+                f"Added to transfer_dict for target {target_name} and "
                 f"annotated {entry_mnemo_name} at target {counter_target_pos_str} and "
                 f"annotated {counter_annot_pos_str} --- ORIGIN: Type {anno_type} and "
                 f"Evidence {anno_total['evidence']}"
             )
     else:
-        logger.debug(f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- NO ANNOTATION FOR SINGLE --- Anno Total was None for target {target_name} and annotated {entry_mnemo_name} at target {counter_target_pos_str} and annotated {counter_annot_pos_str} --- ORIGIN: No evidence of desired type")
+        logger.debug(
+            f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- FAILURE - ROUTE: Single - "
+            f"Anno Total was None for target {target_name} and annotated {entry_mnemo_name} "
+            f"at target {counter_target_pos_str} and annotated {counter_annot_pos_str} "
+            f"--- ORIGIN: No evidence of desired type"
+        )
         processed_annotations.add(annotation_key)
 
 #@measure_time_and_memory
@@ -1538,7 +1589,11 @@ def validate_paired_annotations(
     paired_result_dict = {}
     paired_annot_pos_int = int(paired_annot_pos_str)
 
-    logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Running for target {target_name}/{target_hit_start}-{target_hit_end} and annotated {entry_mnemo_name}/{offset_start}-{offset_end}")
+    logger.debug(
+        f"TRANSFER_ANNOTS --- VAL_PAIRED --- Running for target {target_name}/{target_hit_start}-{target_hit_end}"
+        f"and annotated {entry_mnemo_name}/{offset_start}-{offset_end} -"
+        f"Target: Caller Position {caller_target_pos_str} and Paired Position {paired_annot_pos_str}"
+    )
 
     for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
         source_sequence=annot_sequence,
@@ -1548,41 +1603,41 @@ def validate_paired_annotations(
         source_end=offset_end,
         target_end=target_hit_end
         ):
-            if counter_annot_pos is None or counter_target_pos is None:
-                continue
+        if counter_annot_pos is None or counter_target_pos is None:
+            continue
 
-            if counter_annot_pos == paired_annot_pos_int:
-                counter_target_pos_str = str(counter_target_pos)
+        if counter_annot_pos == paired_annot_pos_int:
+            counter_target_pos_str = str(counter_target_pos)
 
-                # DEBUGGING INFO
-                logger.debug("\n TRANSFER_ANNOTS--- VAL_PAIRED --- Helpful Info for paired match | miss \n")
-                start_index = max(0, index - 3)
-                end_index = min(len(annot_sequence), index + 4)
-                annot_window = annot_sequence[start_index:end_index]
-                target_window = target_sequence[start_index:end_index]
-                logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Counter Tar Pos {counter_target_pos_str} and amino acid {target_sequence[index]} + Counter annot Pos (annotated) {str(counter_annot_pos)} and amino acid {annot_sequence[index]}")
-                logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
+            # DEBUGGING INFO
+            logger.debug("\n TRANSFER_ANNOTS--- VAL_PAIRED --- Helpful Info for paired match | miss \n")
+            start_index = max(0, index - 3)
+            end_index = min(len(annot_sequence), index + 4)
+            annot_window = annot_sequence[start_index:end_index]
+            target_window = target_sequence[start_index:end_index]
+            logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Counter Tar Pos {counter_target_pos_str} and amino acid {target_sequence[index]} + Counter annot Pos (annotated) {str(counter_annot_pos)} and amino acid {annot_sequence[index]}")
+            logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
 
-                paired_target_amino = target_sequence[index]
-                paired_position_res_hit = bool(char_target == char_annot)
+            paired_target_amino = target_sequence[index]
+            paired_position_res_hit = bool(char_target == char_annot)
 
-                paired_result_dict = make_anno_total_dict(
-                    good_eco_codes=good_eco_codes,
-                    entry_mnemo_name=entry_mnemo_name,
-                    annotation_dict=paired_annotation_dict,
-                    counter_target_pos_str=counter_target_pos_str, # kinda paired_target_pos_str
-                    counter_annot_pos_str=paired_annot_pos_str,
-                    index=index,
-                    target_amino=paired_target_amino,
-                    logger=logger, # Delete in production
-                    entry_annotations=entry_annotations,
-                    caller_target_pos_str=caller_target_pos_str,
-                )
+            paired_result_dict = make_anno_total_dict(
+                good_eco_codes=good_eco_codes,
+                entry_mnemo_name=entry_mnemo_name,
+                annotation_dict=paired_annotation_dict,
+                counter_target_pos_str=counter_target_pos_str, # kinda paired_target_pos_str
+                counter_annot_pos_str=paired_annot_pos_str,
+                index=index,
+                target_amino=paired_target_amino,
+                logger=logger, # Delete in production
+                entry_annotations=entry_annotations,
+                caller_target_pos_str=caller_target_pos_str,
+            )
 
-                return paired_position_res_hit, paired_result_dict
+            return paired_position_res_hit, paired_result_dict
 
-            if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
-                break
+        if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
+            break
 
     return paired_position_res_hit, paired_result_dict
 
@@ -1642,7 +1697,7 @@ def validate_annotations(
             counter_target_pos_str = str(counter_target_pos)
 
             # DEBUGGING INFO
-            logger.debug(f"\n TRANSFER_ANNOTS--- VAL_ANNOTS --- Helpful Info for Single/Caller Annotation Match \n NAMES: target {target_name} and annot {entry_mnemo_name} \n POSITIONS: target {counter_target_pos_str} and annot {counter_annot_pos_str} \n")
+            logger.debug(f"TRANSFER_ANNOTS--- VAL_ANNOTS --- Helpful Info for Single/Caller Annotation Match \n NAMES: target {target_name} and annot {entry_mnemo_name} \n POSITIONS: target {counter_target_pos_str} and annot {counter_annot_pos_str} \n")
             start_index = max(0, index - 3)
             end_index = min(len(annot_sequence), index + 4)
             annot_window = annot_sequence[start_index:end_index]
@@ -1693,7 +1748,7 @@ def validate_annotations(
                     raise
 
 
-def main(domain_logger: logging.Logger, main_logger: logging.Logger):
+def main():
     """Main function, initializes this script"""
     args = parse_arguments()
     dom_align = args.dom_align
@@ -1701,9 +1756,11 @@ def main(domain_logger: logging.Logger, main_logger: logging.Logger):
     output_dir = args.output_dir
     good_eco_codes = args.eco_codes
     pfam_interpro_map_filepath = os.path.join(resource_dir, "mappings/interpro_pfam_accession_mapping.tsv")
+    main_logger, _ = get_logger(args.log, scope="main")
+    domain_logger, _ = get_logger(args.log, scope="domain", identifier=args.domain_accession)
     multi_logger = get_multi_logger([main_logger, domain_logger])
 
-    domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Running transfer_annotations.py for %s --- ", dom_align)
+    domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Running transfer_annotations.py for %s", dom_align)
 
     pfam_id = get_pfam_id_from_hmmalign_result(dom_align)
     annotations_filepath, conservations_filepath = get_annotation_filepath(resource_dir, pfam_id)
@@ -1711,15 +1768,17 @@ def main(domain_logger: logging.Logger, main_logger: logging.Logger):
 
     try:
         if annotations == {"sequence_id": {}}:
-            domain_logger.info("No annotations file found - proceeding with conservations-only mode")
+            # CONSERVATIONS ONLY PATH
+            domain_logger.info("TRANSFER_ANNOTS --- MAIN --- No annotations file found - proceeding with conservations-only mode")
             transfer_dict = setup_for_conservations_only(domain_logger, multi_logger, hmmalign_lines, pfam_id)
         else:
-            domain_logger.debug(f"TRANSFER_ANNOTS --- MAIN --- Good ECO Codes to Filter by {good_eco_codes}")
+            # ANNOTATIONS + CONSERVATIONS PATH
+            domain_logger.debug("TRANSFER_ANNOTS --- MAIN --- Good ECO Codes to Filter by %s", good_eco_codes)
             transfer_dict = find_and_map_annots(domain_logger, multi_logger, hmmalign_lines, annotations, good_eco_codes)
         if not transfer_dict:
-            domain_logger.info("---> MAIN --- Transfer Dict was EMPTY")
+            domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Transfer Dict was EMPTY")
         else:
-            domain_logger.info("---> MAIN --- Transfer Dict FILLED")
+            domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Transfer Dict FILLED")
 
     except (KeyError, IndexError, AttributeError) as e:
         error_info = traceback.format_exc()
@@ -1730,10 +1789,7 @@ def main(domain_logger: logging.Logger, main_logger: logging.Logger):
         domain_logger, multi_logger, transfer_dict, pfam_id, hmmalign_lines,
         conservations_filepath, annotations_filepath, output_dir, pfam_interpro_map_filepath
         )
-    write_reports(domain_logger, improved_transfer_dict, output_dir)
+    write_reports(domain_logger, multi_logger, improved_transfer_dict, output_dir)
 
 if __name__ == '__main__':
-    outer_args = parse_arguments()
-    main_logger, _ = get_logger(outer_args.log, scope="main")
-    domain_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
-    main(domain_logger, main_logger)
+    main()

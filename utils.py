@@ -35,9 +35,8 @@ from datetime import datetime
 from Bio import SeqIO
 from collections import defaultdict
 from typing import TypeVar, List, Callable, Optional, Literal, Any
-import glob
 
-Scope = Literal["main", "domain", "sequence"]
+Scope = Literal["main", "domain", "sequence", "seq_batch"]
 
 def get_logger(log_path: str, scope: Scope = 'main', identifier: str = None) -> tuple[logging.Logger, str]:
     """
@@ -64,7 +63,7 @@ def get_logger(log_path: str, scope: Scope = 'main', identifier: str = None) -> 
         if len(parts) >= 2:
             candidate_date = parts[-2]
             candidate_time = parts[-1]
-            if (len(candidate_date) == 6 and candidate_date.isdigit() and 
+            if (len(candidate_date) == 6 and candidate_date.isdigit() and
                 len(candidate_time) == 4 and candidate_time.isdigit()):
                 timestamp = f"{candidate_date}_{candidate_time}"
                 base_stem = "_".join(parts[:-2])  # Rebuild base without timestamp
@@ -74,7 +73,7 @@ def get_logger(log_path: str, scope: Scope = 'main', identifier: str = None) -> 
         timestamp = datetime.now().strftime("%y%m%d_%H%M")
 
     # 4. Build final filename
-    if scope in ("domain", "sequence") and identifier:
+    if scope in ("domain", "sequence", "seq_batch") and identifier:
         clean_id = str(identifier).replace("|", "-").replace(" ", "_")[:64]
         filename = f"{base_stem}_{timestamp}_{clean_id}{base_ext}"
     else:

@@ -25,7 +25,6 @@ a domain info JSON file with paths to the HMM file, seed alignment, domain fasta
 """
 
 import argparse
-import logging
 import json
 import subprocess
 from utils import get_logger, get_multi_logger
@@ -70,24 +69,22 @@ def run_hmmalign(dom_info_json: str, multi_logger: Callable) -> None:
     result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
     if result.returncode != 0:
-        multi_logger("error", "RUN_HMMALIGN --- Error running hmmalign: %s", result.stderr.decode('utf-8'))
+        multi_logger("error", "RUN_HMMALIGN --- RUN --- Error running hmmalign: %s", result.stderr.decode('utf-8'))
     else:
-        multi_logger("info", "RUN_HMMALIGN --- Generated: %s", pfam_id_hmmaligned)
+        multi_logger("info", "RUN_HMMALIGN --- RUN --- Generated: %s", pfam_id_hmmaligned)
 
-def main(domain_logger: logging.Logger, main_logger: logging.Logger):
+def main():
     """Main function, initializes this script"""
     args = parse_arguments()
     domain_info_json = args.dom_info
 
     # Can also get main logger if needed
-    main_logger = logging.getLogger("main")
+    main_logger, _ = get_logger(args.log, scope="main")
+    domain_logger, _ = get_logger(args.log, scope="domain", identifier=args.domain_accession)
     log_to_both = get_multi_logger([main_logger, domain_logger])
     log_to_both("info", "RUN_HMMALIGN --- Running hmmalign for domain info JSON: %s", domain_info_json)
 
     run_hmmalign(domain_info_json, log_to_both)
 
 if __name__ == '__main__':
-    outer_args = parse_arguments()
-    main_logger, _ = get_logger(outer_args.log, scope="main")
-    domain_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
-    main(domain_logger, main_logger)
+    main()

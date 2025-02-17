@@ -138,16 +138,20 @@ def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, do
         multi_logger("error", "PREPARE_FASTA_PER_DOMAIN --- Error writing FASTA file %s: %s", fasta_path, e)
         return None
 
-def main(domain_logger: logging.Logger, main_logger: logging.Logger):
+def main():
     """Main function, initializes this script"""
     args = parse_arguments()
     per_dom_json = args.per_dom_json
     dom_accession = args.domain_accession
     resource_dir = args.resource_dir
     output_dir = args.output_dir
+    log_path = args.log
+
+    main_logger, _ = get_logger(log_path, scope="main")
+    domain_logger, _ = get_logger(log_path, scope="domain", identifier=dom_accession)
     log_to_both = get_multi_logger([main_logger, domain_logger])
 
-    domain_logger.info(f"PREPARE_FASTA_PER_DOMAIN --- Running prepare_fasta_per_domain with arguments: {args}")
+    domain_logger.info("PREPARE_FASTA_PER_DOMAIN --- Running prepare_fasta_per_domain with arguments: %s", args)
 
     domain_info = can_run_hmmalign(dom_accession, resource_dir, output_dir)
     if domain_info['can_align']:
@@ -159,14 +163,11 @@ def main(domain_logger: logging.Logger, main_logger: logging.Logger):
             try:
                 with open(output_json_path, 'w', encoding='utf-8') as f:
                     json.dump(domain_info, f, indent=4)
-                domain_logger.info(f"PREPARE_FASTA_PER_DOMAIN --- Information for {dom_accession} was written to {output_json_path}")
+                domain_logger.info("PREPARE_FASTA_PER_DOMAIN --- Information for  %s was written to %s", dom_accession, output_json_path)
             except IOError as e:
                 log_to_both("error", "PREPARE_FASTA_PER_DOMAIN --- Error writing domain info to %s: %s", output_json_path, e)
     else:
         log_to_both("warning", "PREPARE_FASTA_PER_DOMAIN --- Missing required files for domain %s", dom_accession)
 
 if __name__ == '__main__':
-    outer_args = parse_arguments()
-    main_logger, _ = get_logger(outer_args.log, scope="main")
-    domain_logger, _ = get_logger(outer_args.log, scope="domain", identifier=outer_args.domain_accession)
-    main(domain_logger, main_logger)
+    main()

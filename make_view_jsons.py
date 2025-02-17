@@ -37,7 +37,7 @@ import json
 import logging
 import argparse
 from collections import defaultdict
-from typing import Tuple, Dict, Optional, Callable
+from typing import Tuple, Dict, Callable
 from utils import convert_lists_to_original_types, convert_sets_and_tuples_to_lists, convert_defaultdict_to_dict, get_logger, get_multi_logger
 
 def parse_arguments():
@@ -214,21 +214,22 @@ def write_range_views(transformed_data: Dict, output_dir: str, logger: logging.L
         logger.error("MAKE VIEW - Failed to write range view for %s: %s", clean_sequence_id, e)
         raise
 
-def main(logger: logging.Logger):
+def main():
     """Main execution function."""
     args = parse_arguments()
+    main_logger, _ = get_logger(args.log, scope="main")
+    sequence_logger, _ = get_logger(args.log, scope="sequence", identifier=args.sequence)
     output_dir = args.output_dir
     sequence_dir = os.path.join(output_dir, args.sequence)
-    logger.info("MAKE VIEW - Starting to process sequence reports in %s", output_dir)
+    sequence_logger.info("MAKE VIEW - Starting to process sequence reports in %s", output_dir)
 
-    main_logger = logging.getLogger("main")
-    log_to_both = get_multi_logger([main_logger, logger])
+    log_to_both = get_multi_logger([main_logger, sequence_logger])
 
     for file in os.scandir(sequence_dir):
         if file.name.endswith('_report.json'):
             try:
-                transformed_data = process_sequence_report(file.path, logger, log_to_both)
-                write_range_views(transformed_data, output_dir, logger)
+                transformed_data = process_sequence_report(file.path, sequence_logger, log_to_both)
+                write_range_views(transformed_data, output_dir, sequence_logger)
             except (IOError, json.JSONDecodeError) as e:
                 log_to_both("error", "Error processing %s: %s", file.path, str(e))
                 continue
@@ -238,6 +239,4 @@ def main(logger: logging.Logger):
         f.write('')
 
 if __name__ == '__main__':
-    outer_args = parse_arguments()
-    outer_logger, _ = get_logger(outer_args.log, scope="sequence", identifier=outer_args.sequence)
-    main(outer_logger)
+    main()

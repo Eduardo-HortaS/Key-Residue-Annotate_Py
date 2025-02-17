@@ -29,14 +29,6 @@ file in the output directory, these last two contain the sequence IDs with at le
 
     1.5 - Loads the sequence file, either as a SequenceFile or a DigitalSequenceBlock,
     depending on size and available memory. For nucleotide sequences, performs translation to protein sequences before searching.
-
-# Moved these general functions to utils.py, for better modularity:
-    2 - Parses the FASTA file and stores each sequence's queryname (ex.: TTHY_XENLA) in a list,
-    and generates a SeqRecord object to be used sequentially and *only once*.
-
-    3 - For each sequence with at least 1 domain hit, creates a directory
-    and writes the sequence to a 'sequence.fasta' file in the directory.
-
 """
 
 import os
@@ -48,7 +40,7 @@ from typing import Union
 import psutil
 import pyhmmer
 from pyhmmer.easel import DigitalSequenceBlock, DigitalSequence
-from utils import get_logger, seqrecord_yielder, make_dirs_and_write_fasta
+from utils import get_logger
 # from modules.decorators import measure_time_and_memory
 
 def parse_arguments():
@@ -63,12 +55,18 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description=
     'Runs hmmsearch using a sequence database against target HMMs \
     aiming to generate a hmmsearch_per_domain.json file.')
-    parser.add_argument("-iF", "--fasta", help="Path to fasta file", required=True, type=str)
-    parser.add_argument("-iH", "--hmm", help="Path to target HMMs database file", required=True, type=str)
-    parser.add_argument("-o", "--output-dir", help="Output dir path", required=True, type=str)
-    parser.add_argument("-n", "--nucleotide", help="Flag to indicate nucleotide instead of default protein sequences", default=False, action="store_true")
-    parser.add_argument("-l", "--log", help="Log path", \
-        required=False, type=str, default="logs/run_hmmsearch.log")
+    parser.add_argument("-iF", "--fasta", help="Path to fasta file",
+                        required=True, type=str)
+    parser.add_argument("-iH", "--hmm", help="Path to target HMMs database file",
+                        required=True, type=str)
+    parser.add_argument("-o", "--output-dir", help="Output dir path",
+                        required=True, type=str)
+    parser.add_argument("-n", "--nucleotide",
+                        help="Flag to indicate nucleotide instead of default protein sequences",
+                        action="store_true")
+    parser.add_argument("-l", "--log",
+                        help="Log path",
+                        required=False, type=str, default="logs/run_hmmsearch.log")
     return parser.parse_args()
 
 def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is_nucleotide: bool = False) -> Union[DigitalSequenceBlock, DigitalSequence]:
@@ -86,8 +84,8 @@ def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is
     """
     available_memory = psutil.virtual_memory().available
     target_size= os.stat(fasta_path).st_size
-    logger.info(f"RUN_HMMSEARCH --- Available memory: {available_memory/1024:.1f} KiB")
-    logger.info(f"RUN_HMMSEARCH --- Database on-disk size: {target_size/1024:.1f} KiB")
+    logger.info(f"RUN_HMMSEARCH --- LOAD_TRANSLATE --- Available memory: {available_memory/1024:.1f} KiB")
+    logger.info(f"RUN_HMMSEARCH --- LOAD_TRANSLATE --- Database on-disk size: {target_size/1024:.1f} KiB")
 
     if is_nucleotide:
         alphabet = pyhmmer.easel.Alphabet.dna()
@@ -96,16 +94,16 @@ def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is
 
     with pyhmmer.easel.SequenceFile(fasta_path, digital=True, alphabet=alphabet) as seq_file:
         if target_size < available_memory * 0.2:
-            logger.info("RUN_HMMSEARCH --- Pre-fetching targets into memory")
+            logger.info("RUN_HMMSEARCH --- LOAD_TRANSLATE --- Pre-fetching targets into memory")
             targets = seq_file.read_block()
             if is_nucleotide:
-                logger.info("RUN_HMMSEARCH --- Translating nucleotide sequences to protein sequences")
+                logger.info("RUN_HMMSEARCH --- LOAD_TRANSLATE --- Translating nucleotide sequences to protein sequences")
                 targets = targets.translate()
-            logger.info(f"RUN_HMMSEARCH --- Database in-memory size: {(sys.getsizeof(targets) + sum(sys.getsizeof(target) for target in targets))/1024:.1f} KiB")
+            logger.info(f"RUN_HMMSEARCH --- LOAD_TRANSLATE --- Database in-memory size: {(sys.getsizeof(targets) + sum(sys.getsizeof(target) for target in targets))/1024:.1f} KiB")
         else:
             targets = seq_file
             if is_nucleotide:
-                logger.info("RUN_HMMSEARCH --- Translating nucleotide sequences to protein sequences")
+                logger.info("RUN_HMMSEARCH --- LOAD_TRANSLATE --- Translating nucleotide sequences to protein sequences")
                 targets = targets.translate()
     return targets
 
@@ -195,27 +193,22 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
     with open(per_domain_output, "w", encoding='utf-8') as f:
         json.dump(hits_per_domain, f, indent=4)
 
-    logger.info(f"RUN_HMMSEARCH --- HmmSearch hit sequences saved in text format - {sequences_txt_path}")
-    logger.info(f"RUN_HMMSEARCH --- HmmSearch hit sequences saved in JSON format - {sequences_json_path}")
-    logger.info(f"RUN_HMMSEARCH --- HmmSearch TopHits results saved per domain - {per_domain_output}")
+    logger.info(f"RUN_HMMSEARCH --- RUN --- HmmSearch hit sequences saved in text format - {sequences_txt_path}")
+    logger.info(f"RUN_HMMSEARCH --- RUN --- HmmSearch hit sequences saved in JSON format - {sequences_json_path}")
+    logger.info(f"RUN_HMMSEARCH --- RUN --- HmmSearch TopHits results saved per domain - {per_domain_output}")
 
-def main(logger: logging.Logger):
+def main():
     """Main function, initializes this script"""
     args = parse_arguments()
+    logger, _ = get_logger(args.log, scope="main")
     input_fasta = args.fasta
     input_hmm = args.hmm
     output_dir = args.output_dir
     is_nucleotide = args.nucleotide
-    logger.info(f"RUN_HMMSEARCH --- Running hmmsearch with arguments: {args}")
+    logger.info("RUN_HMMSEARCH --- MAIN --- Running hmmsearch with arguments: %s", args)
 
-    # Create dirs for all sequences, don't filter by those with hmmer hits because
-    # we want to run iprscan on all sequences, regardless of hmmer.
-    yielded_sequences = seqrecord_yielder(input_fasta, is_nucleotide, logger)
-    make_dirs_and_write_fasta(yielded_sequences, output_dir)
     # Run hmmsearch for all sequences
     run_hmmsearch(input_hmm, input_fasta, output_dir, logger, is_nucleotide)
 
 if __name__ == '__main__':
-    outer_args = parse_arguments()
-    outer_logger, _ = get_logger(outer_args.log, scope="main")
-    main(outer_logger)
+    main()

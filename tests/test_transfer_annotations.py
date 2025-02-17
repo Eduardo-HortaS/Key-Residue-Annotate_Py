@@ -73,13 +73,10 @@ tr|J3QRW1|J3QRW1_HUMANtarget//108-135                   .........GVLLYGPPGTGKTLL
 """
 
 resource_dir_mock = "/home/user/resources/"
-
+domain_accession_mock = "PF07728"
 output_dir_mock = "/home/user/results/human/PF07728/"
-
 go_terms_mock = "/home/user/results/human/"
-
 good_eco_codes_mock = ["ECO:0000269", "ECO:0000255", "ECO:0000313", "ECO:0007669"]
-
 log_filepath_mock = "/home/user/logs/transfer_annotations.log"
 
 
@@ -491,118 +488,437 @@ def annotations_content_all_types_fixture_H0YB80_PF00244():
 def conservations_content_Q9NU22_PF07728():
     return {
     "Q7US48_RHOBA/138-284": {
-        "143": 0.9853259562184268,
-        "146": 0.8806005719733079,
-        "149": 0.956244087038789,
-        "267": 0.8021297672114909,
-        "283": 0.959562479284057,
-        "284": 0.8452762923351159
+        "143": {
+            "conservation": 0.9853,
+            "amino_acid": "G"
+        },
+        "146": {
+            "conservation": 0.8806,
+            "amino_acid": "G"
+        },
+        "148": {
+            "conservation": 0.9084,
+            "amino_acid": "G"
+        },
+        "149": {
+            "conservation": 0.9562,
+            "amino_acid": "K"
+        },
+        "267": {
+            "conservation": 0.8021,
+            "amino_acid": "N"
+        },
+        "283": {
+            "conservation": 0.9596,
+            "amino_acid": "R"
+        },
+        "284": {
+            "conservation": 0.8453,
+            "amino_acid": "F"
+        }
     }
 }
 
 @pytest.fixture
 def conservations_content_H0YB80_PF00244():
     return {
-    "C1E2K1_MICCC/19-248": {
-        "20": 0.9802880970432145,
-        "21": 0.8013100436681223,
-        "22": 0.83632447954056,
-        "23": 0.8230659025787965,
-        "24": 0.8863473909935669,
-        "25": 0.8404558404558404,
-        "26": 0.8196605374823197,
-        "27": 0.8921775898520085,
-        "28": 0.9500351864883885,
-        "29": 0.8625525946704067,
-        "32": 0.9007936507936508,
-        "36": 0.8561151079136691,
-        "51": 0.9382239382239382,
-        "54": 0.8360025624599615,
-        "55": 0.9296225207933462,
-        "56": 0.9481765834932822,
-        "57": 0.8817891373801917,
-        "58": 0.9156549520766774,
-        "59": 0.8792332268370607,
-        "60": 0.9060702875399361,
-        "61": 0.8446291560102301,
-        "62": 0.8378033205619413,
-        "63": 0.8959795788130185,
-        "64": 0.9527760051052967,
-        "65": 0.8864795918367347,
-        "68": 0.8354591836734694,
-        "70": 0.8068833652007649,
-        "71": 0.9700255102040817,
-        "74": 0.8662420382165605,
-        "75": 0.9292993630573249,
-        "81": 0.8132646490663232,
-        "83": 0.8134615384615385,
-        "101": 0.8401768793430195,
-        "106": 0.8635502210991788,
-        "108": 0.9348513598987982,
-        "109": 0.8949367088607595,
-        "113": 0.9358322744599746,
-        "124": 0.9197452229299363,
-        "132": 0.8320561941251596,
-        "135": 0.8855498721227621,
-        "136": 0.9213051823416507,
-        "137": 0.8509277031349968,
-        "139": 0.9430217669654289,
-        "140": 0.8856416772554002,
-        "141": 0.8162093171665603,
-        "142": 0.8750796685787126,
-        "143": 0.9859783301465902,
-        "144": 0.9315856777493606,
-        "146": 0.9775928297055058,
-        "147": 0.9814696485623003,
-        "149": 0.8355640535372849,
-        "150": 0.9681528662420382,
-        "168": 0.9736180904522613,
-        "171": 0.9656893325015595,
-        "175": 0.8119873817034701,
-        "182": 0.8391739674593242,
-        "184": 0.9311639549436797,
-        "186": 0.9043151969981238,
-        "187": 0.9743107769423559,
-        "188": 0.9191222570532915,
-        "189": 0.9228356336260979,
-        "190": 0.8745294855708908,
-        "191": 0.9780288763339611,
-        "192": 0.964824120603015,
-        "194": 0.9050911376492772,
-        "195": 0.9376966645689113,
-        "196": 0.9346323067253299,
-        "198": 0.8826498422712934,
-        "199": 0.9215189873417722,
-        "200": 0.833859759949463,
-        "207": 0.9721695129664769,
-        "208": 0.8228969006957622,
-        "211": 0.9375394321766561,
-        "214": 0.8852564102564102,
-        "215": 0.87001287001287,
-        "216": 0.8009020618556701,
-        "218": 0.9090322580645162,
-        "222": 0.8463047743623283,
-        "223": 0.8356344510190664,
-        "227": 0.8168187744458931,
-        "230": 0.8641732283464567,
-        "231": 0.8045901639344263,
-        "232": 0.8844386080105056,
-        "233": 0.8355263157894737,
-        "234": 0.8320158102766798,
-        "235": 0.8148880105401844,
-        "236": 0.9163372859025033,
-        "237": 0.8081740276862228,
-        "238": 0.8982826948480845,
-        "239": 0.9404367968232958,
-        "240": 0.9178263750828363,
-        "241": 0.8887408394403731,
-        "242": 0.9231283422459893,
-        "243": 0.9685408299866132,
-        "244": 0.9009370816599732,
-        "245": 0.8181208053691276,
-        "246": 0.9040163376446563,
-        "247": 0.9993174061433447,
-        "248": 0.8651196519216824
+        "C1E2K1_MICCC/19-248": {
+            "20": {
+                "conservation": 0.9802880970432145,
+                "amino_acid": "G"
+            },
+            "21": {
+                "conservation": 0.8013100436681223,
+                "amino_acid": "K"
+            },
+            "22": {
+                "conservation": 0.8363,
+                "amino_acid": "L"
+            },
+            "23": {
+                "conservation": 0.8231,
+                "amino_acid": "A"
+            },
+            "24": {
+                "conservation": 0.8863,
+                "amino_acid": "E"
+            },
+            "25": {
+                "conservation": 0.8405,
+                "amino_acid": "Q"
+            },
+            "26": {
+                "conservation": 0.8197,
+                "amino_acid": "A"
+            },
+            "27": {
+                "conservation": 0.8922,
+                "amino_acid": "E"
+            },
+            "28": {
+                "conservation": 0.95,
+                "amino_acid": "R"
+            },
+            "29": {
+                "conservation": 0.8626,
+                "amino_acid": "Y"
+            },
+            "32": {
+                "conservation": 0.9008,
+                "amino_acid": "M"
+            },
+            "36": {
+                "conservation": 0.8561,
+                "amino_acid": "M"
+            },
+            "51": {
+                "conservation": 0.9382,
+                "amino_acid": "L"
+            },
+            "54": {
+                "conservation": 0.836,
+                "amino_acid": "E"
+            },
+            "55": {
+                "conservation": 0.9296,
+                "amino_acid": "E"
+            },
+            "56": {
+                "conservation": 0.9482,
+                "amino_acid": "R"
+            },
+            "57": {
+                "conservation": 0.8818,
+                "amino_acid": "N"
+            },
+            "58": {
+                "conservation": 0.9157,
+                "amino_acid": "L"
+            },
+            "59": {
+                "conservation": 0.8792,
+                "amino_acid": "L"
+            },
+            "60": {
+                "conservation": 0.9061,
+                "amino_acid": "S"
+            },
+            "61": {
+                "conservation": 0.8446,
+                "amino_acid": "V"
+            },
+            "62": {
+                "conservation": 0.8378,
+                "amino_acid": "A"
+            },
+            "63": {
+                "conservation": 0.896,
+                "amino_acid": "Y"
+            },
+            "64": {
+                "conservation": 0.9528,
+                "amino_acid": "K"
+            },
+            "65": {
+                "conservation": 0.8865,
+                "amino_acid": "N"
+            },
+            "68": {
+                "conservation": 0.8355,
+                "amino_acid": "G"
+            },
+            "70": {
+                "conservation": 0.8069,
+                "amino_acid": "R"
+            },
+            "71": {
+                "conservation": 0.97,
+                "amino_acid": "R"
+            },
+            "74": {
+                "conservation": 0.8662,
+                "amino_acid": "W"
+            },
+            "75": {
+                "conservation": 0.9293,
+                "amino_acid": "R"
+            },
+            "81": {
+                "conservation": 0.8133,
+                "amino_acid": "E"
+            },
+            "83": {
+                "conservation": 0.8135,
+                "amino_acid": "K"
+            },
+            "101": {
+                "conservation": 0.8402,
+                "amino_acid": "Y"
+            },
+            "106": {
+                "conservation": 0.8636,
+                "amino_acid": "E"
+            },
+            "108": {
+                "conservation": 0.9349,
+                "amino_acid": "E"
+            },
+            "109": {
+                "conservation": 0.8949,
+                "amino_acid": "L"
+            },
+            "113": {
+                "conservation": 0.9358,
+                "amino_acid": "C"
+            },
+            "124": {
+                "conservation": 0.9197,
+                "amino_acid": "L"
+            },
+            "132": {
+                "conservation": 0.8321,
+                "amino_acid": "E"
+            },
+            "135": {
+                "conservation": 0.8855,
+                "amino_acid": "V"
+            },
+            "136": {
+                "conservation": 0.9213,
+                "amino_acid": "F"
+            },
+            "137": {
+                "conservation": 0.8509,
+                "amino_acid": "Y"
+            },
+            "139": {
+                "conservation": 0.943,
+                "amino_acid": "K"
+            },
+            "140": {
+                "conservation": 0.8856,
+                "amino_acid": "M"
+            },
+            "141": {
+                "conservation": 0.8162,
+                "amino_acid": "K"
+            },
+            "142": {
+                "conservation": 0.8751,
+                "amino_acid": "G"
+            },
+            "143": {
+                "conservation": 0.986,
+                "amino_acid": "D"
+            },
+            "144": {
+                "conservation": 0.9316,
+                "amino_acid": "Y"
+            },
+            "146": {
+                "conservation": 0.9776,
+                "amino_acid": "R"
+            },
+            "147": {
+                "conservation": 0.9815,
+                "amino_acid": "Y"
+            },
+            "149": {
+                "conservation": 0.8356,
+                "amino_acid": "A"
+            },
+            "150": {
+                "conservation": 0.9682,
+                "amino_acid": "E"
+            },
+            "168": {
+                "conservation": 0.9736,
+                "amino_acid": "Y"
+            },
+            "171": {
+                "conservation": 0.9657,
+                "amino_acid": "A"
+            },
+            "175": {
+                "conservation": 0.812,
+                "amino_acid": "A"
+            },
+            "182": {
+                "conservation": 0.8392,
+                "amino_acid": "T"
+            },
+            "184": {
+                "conservation": 0.9312,
+                "amino_acid": "P"
+            },
+            "186": {
+                "conservation": 0.9043,
+                "amino_acid": "R"
+            },
+            "187": {
+                "conservation": 0.9743,
+                "amino_acid": "L"
+            },
+            "188": {
+                "conservation": 0.9191,
+                "amino_acid": "G"
+            },
+            "189": {
+                "conservation": 0.9228,
+                "amino_acid": "L"
+            },
+            "190": {
+                "conservation": 0.8745,
+                "amino_acid": "A"
+            },
+            "191": {
+                "conservation": 0.978,
+                "amino_acid": "L"
+            },
+            "192": {
+                "conservation": 0.9648,
+                "amino_acid": "N"
+            },
+            "194": {
+                "conservation": 0.9051,
+                "amino_acid": "S"
+            },
+            "195": {
+                "conservation": 0.9377,
+                "amino_acid": "V"
+            },
+            "196": {
+                "conservation": 0.9346,
+                "amino_acid": "F"
+            },
+            "198": {
+                "conservation": 0.8826,
+                "amino_acid": "Y"
+            },
+            "199": {
+                "conservation": 0.9215,
+                "amino_acid": "E"
+            },
+            "200": {
+                "conservation": 0.8339,
+                "amino_acid": "I"
+            },
+            "207": {
+                "conservation": 0.9722,
+                "amino_acid": "A"
+            },
+            "208": {
+                "conservation": 0.8229,
+                "amino_acid": "C"
+            },
+            "211": {
+                "conservation": 0.9375,
+                "amino_acid": "A"
+            },
+            "214": {
+                "conservation": 0.8853,
+                "amino_acid": "A"
+            },
+            "215": {
+                "conservation": 0.87,
+                "amino_acid": "F"
+            },
+            "216": {
+                "conservation": 0.8009,
+                "amino_acid": "D"
+            },
+            "218": {
+                "conservation": 0.909,
+                "amino_acid": "A"
+            },
+            "222": {
+                "conservation": 0.8463,
+                "amino_acid": "L"
+            },
+            "223": {
+                "conservation": 0.8356,
+                "amino_acid": "D"
+            },
+            "227": {
+                "conservation": 0.8168,
+                "amino_acid": "E"
+            },
+            "230": {
+                "conservation": 0.8642,
+                "amino_acid": "Y"
+            },
+            "231": {
+                "conservation": 0.8046,
+                "amino_acid": "K"
+            },
+            "232": {
+                "conservation": 0.8844,
+                "amino_acid": "D"
+            },
+            "233": {
+                "conservation": 0.8355,
+                "amino_acid": "S"
+            },
+            "234": {
+                "conservation": 0.832,
+                "amino_acid": "T"
+            },
+            "235": {
+                "conservation": 0.8149,
+                "amino_acid": "L"
+            },
+            "236": {
+                "conservation": 0.9163,
+                "amino_acid": "I"
+            },
+            "237": {
+                "conservation": 0.8082,
+                "amino_acid": "M"
+            },
+            "238": {
+                "conservation": 0.8983,
+                "amino_acid": "Q"
+            },
+            "239": {
+                "conservation": 0.9404,
+                "amino_acid": "L"
+            },
+            "240": {
+                "conservation": 0.9178,
+                "amino_acid": "L"
+            },
+            "241": {
+                "conservation": 0.8887,
+                "amino_acid": "R"
+            },
+            "242": {
+                "conservation": 0.9231,
+                "amino_acid": "D"
+            },
+            "243": {
+                "conservation": 0.9685,
+                "amino_acid": "N"
+            },
+            "244": {
+                "conservation": 0.9009,
+                "amino_acid": "L"
+            },
+            "245": {
+                "conservation": 0.8181,
+                "amino_acid": "T"
+            },
+            "246": {
+                "conservation": 0.904,
+                "amino_acid": "L"
+            },
+            "247": {
+                "conservation": 0.9993,
+                "amino_acid": "W"
+            },
+            "248": {
+                "conservation": 0.8651,
+                "amino_acid": "T"
+            }
     }
 }
 
@@ -620,6 +936,17 @@ def logger():
     mock_logger.warning = MagicMock()
     mock_logger.debug = MagicMock()
     return mock_logger
+
+@pytest.fixture
+def multi_logger():
+    """Create a mock multi_logger that matches the get_multi_logger behavior"""
+    def multi_log(level: str, message: str, *args):
+        # This simulates the behavior of the actual multi_logger
+        # which formats the message with args and logs to multiple loggers
+        return getattr(logging.getLogger(), level)(message, *args)
+
+    mock = MagicMock(side_effect=multi_log)
+    return mock
 
 @pytest.fixture
 def good_eco_codes_all():
@@ -886,17 +1213,18 @@ def transfer_dict_populated_disulfid_post_conservation_Q9NU22(transfer_dict_popu
     interval_path["conservations"]["positions"].update({
         "329": {"conservation": 0.9853, "hit": True},
         "332": {"conservation": 0.8806, "hit": True},
+        "334": {"conservation": 0.9084, "hit": True},
         "335": {"conservation": 0.9562, "hit": True}
     })
-    interval_path["conservations"]["indices"]["matches"].update(["329", "332", "335"])
+    interval_path["conservations"]["indices"]["matches"].update(["329", "332", "334", "335"])
 
     # Add conservation positions to existing position mappings
     conservation_mappings = {
         "target_to_aln": {
-            "329": "14", "332": "17", "335": "20"
+            "329": "14", "332": "17", "334": "19", "335": "20"
         },
         "aln_to_target": {
-            "14": "329", "17": "332", "20": "335"
+            "14": "329", "17": "332", "19": "334", "20": "335"
         }
     }
 
@@ -907,8 +1235,8 @@ def transfer_dict_populated_disulfid_post_conservation_Q9NU22(transfer_dict_popu
     # Update conservation ranges
     interval_path["conservation_ranges"] = {
         "conserved_positions": {
-            "positions": {329, 332, 335},
-            "ranges": [(329, 329), (332, 332), (335, 335)]
+            "positions": {329, 332, 334, 335},
+            "ranges": [(329, 329), (332, 332), (334, 335)]
         }
     }
 
@@ -1054,11 +1382,11 @@ def transfer_dict_success_binding_Q9NU22():
                     },
                     "conservation_ranges": {
                         "conserved_positions": {
-                            "positions": [329, 332, 335],
+                            "positions": [329, 332, 334, 335],
                             "ranges": [
                                 [329, 329],
                                 [332, 332],
-                                [335, 335],
+                                [334, 335],
                             ],
                         }
                     },
@@ -1072,6 +1400,10 @@ def transfer_dict_success_binding_Q9NU22():
                                 "conservation": 0.8806,
                                 "hit": True
                             },
+                            "334": {
+                                "conservation": 0.9084,
+                                "hit": True
+                            },
                             "335": {
                                 "conservation": 0.9562,
                                 "hit": True
@@ -1081,6 +1413,7 @@ def transfer_dict_success_binding_Q9NU22():
                             "matches": [
                                 "329",
                                 "332",
+                                "334",
                                 "335"
                             ],
                             "misses": []
@@ -1091,12 +1424,14 @@ def transfer_dict_success_binding_Q9NU22():
                             "329": "14",
                             "330": "15",
                             "332": "17",
+                            "334": "19",
                             "335": "20"
                         },
                         "aln_to_target": {
                             "14": "329",
                             "15": "330",
                             "17": "332",
+                            "19": "334",
                             "20": "335"
                         }
                     },
@@ -2882,6 +3217,7 @@ def test_parse_arguments_required():
     test_args = [
         "-iA", hmmalign_result_mock,
         "-r", resource_dir_mock,
+        "-d", domain_accession_mock,
         "-o", output_dir_mock
     ]
 
@@ -2895,6 +3231,7 @@ def test_parse_arguments_required():
     expected = Namespace(
         dom_align="/home/user/results/human/PF07728_hmmalign.sth",
         resource_dir="/home/user/resources/",
+        domain_accession="PF07728",
         output_dir="/home/user/results/human/PF07728/",
         eco_codes=[],
         log="logs/transfer_annotations.log"
@@ -2905,6 +3242,7 @@ def test_parse_arguments_optional():
     test_args = [
         "-iA", hmmalign_result_mock,
         "-r", resource_dir_mock,
+        "-d", domain_accession_mock,
         "-o", output_dir_mock,
         "-e", *good_eco_codes_mock, # Unpacking list of ECO codes to simupaired space-separated input
         "-l", log_filepath_mock
@@ -3026,13 +3364,14 @@ def test_iterate_aligned_sequences_real_Q9NU22():
 
 ###T extract_target_info_from_hmmalign
 
-def test_extract_target_info_empty_lines(logger):
+def test_extract_target_info_empty_lines(logger, multi_logger):
     """Test empty hmmalign lines."""
     mock_lines = ["# STOCKHOLM 1.0"]
-    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    result = extract_target_info_from_hmmalign(logger, multi_logger, mock_lines)
     assert result == {}
+    multi_logger.assert_not_called()
 
-def test_extract_target_info_single_target(logger):
+def test_extract_target_info_single_target(logger, multi_logger):
     """Test single target line extraction."""
     mock_lines = [
         "# STOCKHOLM 1.0",
@@ -3043,10 +3382,11 @@ def test_extract_target_info_single_target(logger):
             "325-451": [(325, 451, "VLLEGPIGCGKTSLVE")]
         }
     }
-    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    result = extract_target_info_from_hmmalign(logger, multi_logger, mock_lines)
     assert result == expected
+    multi_logger.assert_not_called()
 
-def test_extract_target_info_multiple_targets(logger):
+def test_extract_target_info_multiple_targets(logger, multi_logger):
     """Test multiple target lines extraction."""
     mock_lines = [
         "# STOCKHOLM 1.0",
@@ -3059,22 +3399,29 @@ def test_extract_target_info_multiple_targets(logger):
             "452-580": [(452, 580, "DVFLIGPPGPLRRSIAM")]
         }
     }
-    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    result = extract_target_info_from_hmmalign(logger, multi_logger, mock_lines)
     assert result == expected
+    multi_logger.assert_not_called()
 
-def test_extract_target_info_invalid_format(logger):
+def test_extract_target_info_invalid_format(logger, multi_logger):
     """Test handling of invalid format lines."""
     mock_lines = [
         "# STOCKHOLM 1.0",
         "sp|Q9NU22|MDN1_HUMANtarget/invalid_format  SEQUENCE"
     ]
-    result = extract_target_info_from_hmmalign(mock_lines, logger)
+    result = extract_target_info_from_hmmalign(logger, multi_logger, mock_lines)
     assert result == {}
+    multi_logger.assert_called_once_with(
+        "warning",
+        "TRANSFER_ANNOTS --- EXTRACT_TARGET_INFO --- Invalid format in line: %s. Error: %s",
+        "sp|Q9NU22|MDN1_HUMANtarget/invalid_format  SEQUENCE",
+        ANY  # The exact error message may vary
+    )
 
 
 ###T setup_for_conservations_only
 
-def test_setup_for_conservations_only_basic(logger):
+def test_setup_for_conservations_only_basic(logger, multi_logger):
     """Test basic case with single target"""
     mock_lines = [
         "# STOCKHOLM 1.0",
@@ -3108,30 +3455,36 @@ def test_setup_for_conservations_only_basic(logger):
         }
     }
 
-    result = setup_for_conservations_only(logger, mock_lines, "PF07728")
+    result = setup_for_conservations_only(logger, multi_logger, mock_lines, "PF07728")
     assert result == expected
 
-def test_setup_for_conservations_only_empty_lines(logger):
+def test_setup_for_conservations_only_empty_lines(logger, multi_logger):
     """Test empty hmmalign lines case"""
     mock_lines = ["# STOCKHOLM 1.0"]
-    result = setup_for_conservations_only(logger, mock_lines, "PF07728")
+    result = setup_for_conservations_only(logger, multi_logger, mock_lines, "PF07728")
     assert result == {}
-    logger.error.assert_called_once_with("---> ERROR --- No target sequences found in hmmalign lines!")
+    multi_logger.assert_called_once_with(
+    "error",
+    "TRANSFER_ANNOTS --- SETUP_CONS_ONLY --- No target sequences found in hmmalign lines!"
+    )
 
-def test_setup_for_conservations_only_invalid_format(logger):
+def test_setup_for_conservations_only_invalid_format(logger, multi_logger):
     """Test invalid format handling"""
     mock_lines = [
         "# STOCKHOLM 1.0",
         "sp|Q9NU22|MDN1_HUMANtarget/invalid_format  SEQUENCE"
     ]
-    result = setup_for_conservations_only(logger, mock_lines, "PF07728")
+    result = setup_for_conservations_only(logger, multi_logger, mock_lines, "PF07728")
     assert result == {}
-    logger.error.assert_called_once_with("---> ERROR --- No target sequences found in hmmalign lines!")
+    multi_logger.assert_called_with(
+        "error",
+        "TRANSFER_ANNOTS --- SETUP_CONS_ONLY --- No target sequences found in hmmalign lines!"
+    )
 
 
 ###T find_and_map_annots
 
-def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU22_PF07728, logger, mock_target_info, target_sequence_Q9NU22, annot_sequence_Q9NU22):
+def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU22_PF07728, logger, multi_logger, mock_target_info, target_sequence_Q9NU22, annot_sequence_Q9NU22):
     """Test basic case with single binding annotation"""
     mock_lines = [
         "# STOCKHOLM 1.0\n",
@@ -3144,15 +3497,17 @@ def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU
 
         find_and_map_annots(
             logger=logger,
+            multi_logger=multi_logger,
             hmmalign_lines=mock_lines,
             annotations=annotations_content_binding_fixture_Q9NU22_PF07728,
             good_eco_codes=[]
         )
 
-        mock_extract.assert_called_once_with(mock_lines, logger)
+        mock_extract.assert_called_once_with(logger, multi_logger, mock_lines)
 
         mock_map_and_filter.assert_called_with(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=[],
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -3167,7 +3522,7 @@ def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU
             processed_annotations=set(),
         )
 
-def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixture_Q9NU22_PF07728, logger):
+def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixture_Q9NU22_PF07728, logger, multi_logger):
     """Test case with no matching annotations"""
     mock_lines = [
         "# STOCKHOLM 1.0\n",
@@ -3176,6 +3531,7 @@ def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixt
     with patch('transfer_annotations.extract_target_info_from_hmmalign', return_value={}):
         transfer_dict = find_and_map_annots(
             logger=logger,
+            multi_logger=multi_logger,
             hmmalign_lines=mock_lines,
             annotations=annotations_content_binding_fixture_Q9NU22_PF07728,
             good_eco_codes=[]
@@ -3184,8 +3540,9 @@ def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixt
         assert not transfer_dict
 
         # Verify the logger captured the correct error message
-        logger.error.assert_called_once_with(
-            "---> ERROR --- FIND_AND_MAP --- No target sequences found in hmmalign lines!"
+        multi_logger.assert_called_once_with(
+            "error",
+            "TRANSFER_ANNOTS --- FIND_AND_MAP --- No target sequences found in hmmalign lines!"
         )
 
 ###T read_conservations_and_annotations
@@ -3297,50 +3654,57 @@ def test_parse_go_annotations_empty():
 
 ###T check_interval_overlap
 
-def test_check_interval_overlap_exact_match():
+def test_check_interval_overlap_exact_match(multi_logger):
     """Test when intervals match exactly."""
-    assert check_interval_overlap(100, 200, 100, 200) == True
+    assert check_interval_overlap(multi_logger, 100, 200, 100, 200) == True
 
-def test_check_interval_overlap_within_margins():
+def test_check_interval_overlap_within_margins(multi_logger):
     """Test when interval is within allowed margins."""
     # Hit interval 100-200 (length 101)
     # Default 10% margin = 10 positions
     # Allowed range: [90-210]
 
     # Exactly at margin boundaries
-    assert check_interval_overlap(90, 210, 100, 200) == True
+    assert check_interval_overlap(multi_logger, 90, 210, 100, 200) == True
 
     # One end within margin, other end inside interval
-    assert check_interval_overlap(90, 150, 100, 200) == True  # Start at margin
-    assert check_interval_overlap(150, 210, 100, 200) == True  # End at margin
+    assert check_interval_overlap(multi_logger, 90, 150, 100, 200) == True  # Start at margin
+    assert check_interval_overlap(multi_logger, 150, 210, 100, 200) == True  # End at margin
 
     # Just outside margins
-    assert check_interval_overlap(89, 200, 100, 200) == False  # Start beyond margin
-    assert check_interval_overlap(100, 211, 100, 200) == False  # End beyond margin
+    assert check_interval_overlap(multi_logger, 89, 200, 100, 200) == False  # Start beyond margin
+    assert check_interval_overlap(multi_logger, 100, 211, 100, 200) == False  # End beyond margin
 
-def test_check_interval_overlap_outside_margins():
+def test_check_interval_overlap_outside_margins(multi_logger):
     """Test when interval is outside allowed margins."""
-    assert check_interval_overlap(50, 150, 200, 300) == False
-    assert check_interval_overlap(250, 350, 100, 200) == False
+    assert check_interval_overlap(multi_logger, 50, 150, 200, 300) == False
+    assert check_interval_overlap(multi_logger, 250, 350, 100, 200) == False
 
-def test_check_interval_overlap_invalid_inputs():
+def test_check_interval_overlap_invalid_inputs(multi_logger):
     """Test handling of invalid inputs."""
-    with pytest.raises(ValueError, match="All positions must be non-negative numbers"):
-        check_interval_overlap(-1, 100, 100, 200)
+    check_interval_overlap(multi_logger, -1, 100, 100, 200)
+    multi_logger.assert_called_once_with(
+        "error",
+        "TRANSFER_ANNOTS --- CHECK_INTERVAL --- All positions must be non-negative numbers"
+    )
+    check_interval_overlap(multi_logger, 100, 200, 100, 200, 1.5)
+    multi_logger.assert_called_with(
+        "error",
+        "TRANSFER_ANNOTS --- CHECK_INTERVAL --- margin_percent must be a float between 0 and 1 (exclusive, inclusive)"
+    )
 
-    with pytest.raises(ValueError, match="margin_percent must be a float between 0 and 1"):
-        check_interval_overlap(100, 200, 100, 200, 1.5)
-
-def test_check_interval_overlap_edge_margins():
+def test_check_interval_overlap_edge_margins(multi_logger):
     """Test edge cases for margin percentages."""
-    with pytest.raises(ValueError):
-        check_interval_overlap(100, 200, 100, 200, 0.0)
-
-    assert check_interval_overlap(90, 210, 100, 200, 1.0) == True
+    check_interval_overlap(multi_logger, 100, 200, 100, 200, 0.0)
+    multi_logger.assert_called_once_with(
+        "error",
+        "TRANSFER_ANNOTS --- CHECK_INTERVAL --- margin_percent must be a float between 0 and 1 (exclusive, inclusive)"
+    )
+    assert check_interval_overlap(multi_logger, 90, 210, 100, 200, 1.0) == True
 
 ###T gather_go_terms_for_target
 
-def test_gather_go_terms_for_target_pfam_match(logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when matching PFAM ID"""
     with patch('os.path.exists', return_value=True), \
          patch('builtins.open', mock_open()), \
@@ -3351,7 +3715,7 @@ def test_gather_go_terms_for_target_pfam_match(logger, iprscan_df_Q9NU22_PF07728
         mock_parse.return_value = ["GO:0005524", "GO:0016887"]
 
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="sp|Q9NU22|MDN1_HUMAN",
             pfam_id="PF07728",
             go_terms_dir="/mock/path",
@@ -3363,7 +3727,7 @@ def test_gather_go_terms_for_target_pfam_match(logger, iprscan_df_Q9NU22_PF07728
         assert result == {"GO:0005524", "GO:0016887"}
         mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)")
 
-def test_gather_go_terms_for_target_interpro_match(logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when matching InterPro ID"""
     with patch('os.path.exists', return_value=True), \
          patch('builtins.open', mock_open()), \
@@ -3374,7 +3738,7 @@ def test_gather_go_terms_for_target_interpro_match(logger, iprscan_df_Q9NU22_PF0
         mock_parse.return_value = ["GO:0042623"]
 
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="sp|Q9NU22|MDN1_HUMAN",
             pfam_id="PF00000",
             go_terms_dir="/mock/path",
@@ -3386,7 +3750,7 @@ def test_gather_go_terms_for_target_interpro_match(logger, iprscan_df_Q9NU22_PF0
         assert result == {"GO:0042623"}
         mock_parse.assert_called_once_with("GO:0042623(InterPro)")
 
-def test_gather_go_terms_for_target_interval_only(logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when only interval matches"""
     with patch('os.path.exists', return_value=True), \
          patch('builtins.open', mock_open()), \
@@ -3397,7 +3761,7 @@ def test_gather_go_terms_for_target_interval_only(logger, iprscan_df_Q9NU22_PF07
         mock_parse.return_value = ["GO:0016887"]
 
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="sp|Q9NU22|MDN1_HUMAN",
             pfam_id="PF00000",
             go_terms_dir="/mock/path",
@@ -3408,7 +3772,7 @@ def test_gather_go_terms_for_target_interval_only(logger, iprscan_df_Q9NU22_PF07
 
         assert result == {"GO:0016887"}
 
-def test_gather_go_terms_for_target_no_matches(logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test when no entries match any criteria"""
     with patch('os.path.exists', return_value=True), \
          patch('builtins.open', mock_open()), \
@@ -3416,7 +3780,7 @@ def test_gather_go_terms_for_target_no_matches(logger, iprscan_df_Q9NU22_PF07728
          patch('transfer_annotations.check_interval_overlap', return_value=False):
 
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="sp|Q9NU22|MDN1_HUMAN",
             pfam_id="PF00000",
             go_terms_dir="/mock/path",
@@ -3426,13 +3790,17 @@ def test_gather_go_terms_for_target_no_matches(logger, iprscan_df_Q9NU22_PF07728
         )
 
         assert result == set()
-        logger.warning.assert_called_once()
+        multi_logger.assert_called_once_with(
+            "warning",
+            "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- No usable InterProScan lines in iprscan.tsv for %s-%s",
+            "PF00000", "sp-Q9NU22-MDN1_HUMAN"
+        )
 
-def test_gather_go_terms_for_target_file_not_found(logger):
+def test_gather_go_terms_for_target_file_not_found(multi_logger):
     """Test handling of missing iprscan.tsv file"""
     with patch('os.path.exists', return_value=False):
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="nonexistent",
             pfam_id="PF00000",
             go_terms_dir="/mock/path",
@@ -3442,9 +3810,13 @@ def test_gather_go_terms_for_target_file_not_found(logger):
         )
 
         assert result == set()
-        logger.warning.assert_called_once()
+        multi_logger.assert_called_once_with(
+            "warning",
+            "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- Missing iprscan.tsv file for Pfam ID %s and Target Name %s at %s",
+            "PF00000", "nonexistent", "/mock/path/nonexistent/iprscan.tsv"
+        )
 
-def test_gather_go_terms_for_target_empty_file(logger, mock_empty_df):
+def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df):
     """Test handling of empty but valid TSV file"""
     with patch('os.path.exists', return_value=True), \
          patch('builtins.open', mock_open()), \
@@ -3452,7 +3824,7 @@ def test_gather_go_terms_for_target_empty_file(logger, mock_empty_df):
          patch('transfer_annotations.check_interval_overlap', return_value=False):
 
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="sp|Q9NU22|MDN1_HUMAN",
             pfam_id="PF07728",
             go_terms_dir="/mock/path",
@@ -3462,9 +3834,12 @@ def test_gather_go_terms_for_target_empty_file(logger, mock_empty_df):
         )
 
         assert result == set()
-        logger.warning.assert_called_once()
+        multi_logger.assert_called_once_with(
+            'warning',
+            'TRANSFER_ANNOTS --- GO_TERMS_TARGET --- No usable InterProScan lines in iprscan.tsv for %s-%s',
+            'PF07728', 'sp-Q9NU22-MDN1_HUMAN')
 
-def test_gather_go_terms_for_target_multiple_matches(logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when both accession and interval match"""
     with patch('os.path.exists', return_value=True), \
          patch('builtins.open', mock_open()), \
@@ -3480,7 +3855,7 @@ def test_gather_go_terms_for_target_multiple_matches(logger, iprscan_df_Q9NU22_P
         ]
 
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="sp|Q9NU22|MDN1_HUMAN",
             pfam_id="PF07728",
             go_terms_dir="/mock/path",
@@ -3493,7 +3868,7 @@ def test_gather_go_terms_for_target_multiple_matches(logger, iprscan_df_Q9NU22_P
         assert result == {"GO:0005524", "GO:0016887", "GO:0042623"}
         assert mock_parse.call_count == 3
 
-def test_gather_go_terms_for_target_dash_go_terms(logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test handling of '-' GO annotations"""
     mock_df_dash = iprscan_df_Q9NU22_PF07728.copy()
     mock_df_dash.loc[0, "GO Annotations"] = "-"
@@ -3505,7 +3880,7 @@ def test_gather_go_terms_for_target_dash_go_terms(logger, iprscan_df_Q9NU22_PF07
          patch('transfer_annotations.parse_go_annotations', wraps=parse_go_annotations):
 
         result = gather_go_terms_for_target(
-            logger=logger,
+            multi_logger=multi_logger,
             target_name="sp|Q9NU22|MDN1_HUMAN",
             pfam_id="PF07728",
             go_terms_dir="/mock/path",
@@ -3517,9 +3892,9 @@ def test_gather_go_terms_for_target_dash_go_terms(logger, iprscan_df_Q9NU22_PF07
         assert result == set()
 
 ## Integration tests so to speak
-def test_gather_go_terms_for_target(logger, go_terms_dir_mock):
+def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock):
     go_terms = gather_go_terms_for_target(
-        logger=logger,
+        multi_logger=multi_logger,
         target_name="target_name",
         pfam_id="PF07728",
         go_terms_dir=go_terms_dir_mock,
@@ -3529,9 +3904,9 @@ def test_gather_go_terms_for_target(logger, go_terms_dir_mock):
     )
     assert go_terms == {"GO:0005524", "GO:0016887"}
 
-def test_gather_go_terms_for_target_no_go(logger, go_terms_dir_mock):
+def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock):
     go_terms = gather_go_terms_for_target(
-        logger=logger,
+        multi_logger=multi_logger,
         target_name="target_name_no_go",
         pfam_id="PF07728",
         go_terms_dir=go_terms_dir_mock,
@@ -3543,12 +3918,14 @@ def test_gather_go_terms_for_target_no_go(logger, go_terms_dir_mock):
 
 ###T get_alignment_sequences
 
-def test_get_alignment_sequences(minimal_hmmalign_lines_fixture_Q9NU22, target_id_plus_seq_Q9NU22, conservation_id_plus_seq_Q9NU22_PF07728):
+def test_get_alignment_sequences(minimal_hmmalign_lines_fixture_Q9NU22, target_id_plus_seq_Q9NU22, conservation_id_plus_seq_Q9NU22_PF07728, logger, multi_logger):
     hmmalign_lines_list = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
     target_seq, conservation_seq = get_alignment_sequences(
         hmmalign_lines_list,
         "sp|Q9NU22|MDN1_HUMANtarget//325-451",
-        "Q7US48_RHOBA/138-284"
+        "Q7US48_RHOBA/138-284",
+        logger,
+        multi_logger
     )
 
     _, target_seq_expected = target_id_plus_seq_Q9NU22
@@ -3557,25 +3934,46 @@ def test_get_alignment_sequences(minimal_hmmalign_lines_fixture_Q9NU22, target_i
     assert target_seq == target_seq_expected
     assert conservation_seq == conservation_seq_expected
 
-def test_get_alignment_sequence_no_target(minimal_hmmalign_lines_fixture_Q9NU22):
+def test_get_alignment_sequence_no_target(minimal_hmmalign_lines_fixture_Q9NU22, logger, multi_logger):
     hmmalign_lines_list = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
 
     # Remove the line with the target ID
     hmmalign_lines_list = [line for line in hmmalign_lines_list if not line.startswith("sp|Q9NU22|MDN1_HUMANtarget//325-451")]
 
-    with pytest.raises(ValueError, match="Target ID 'sp|Q9NU22|MDN1_HUMANtarget//325-451' not found in hmmalign_lines."):
-        get_alignment_sequences(hmmalign_lines_list, "sp|Q9NU22|MDN1_HUMANtarget//325-451", "Q7US48_RHOBA/138-284")
+    get_alignment_sequences(
+        hmmalign_lines_list,
+        "sp|Q9NU22|MDN1_HUMANtarget//325-451",
+        "Q7US48_RHOBA/138-284",
+        logger,
+        multi_logger
+    )
 
-def test_get_alignment_sequence_no_conservation(minimal_hmmalign_lines_fixture_Q9NU22):
+    multi_logger.assert_called_once_with(
+        "error",
+        "TRANSFER_ANNOTS --- GET_ALIGN_SEQS --- Target ID '%s' not found in hmmalign_lines.",
+        "sp|Q9NU22|MDN1_HUMANtarget//325-451"
+    )
+
+
+def test_get_alignment_sequence_no_conservation(minimal_hmmalign_lines_fixture_Q9NU22, logger, multi_logger):
     hmmalign_lines_list = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
 
     # Remove the line with the conservation ID
     hmmalign_lines_list = [line for line in hmmalign_lines_list if not line.startswith("Q7US48_RHOBA/138-284")]
 
-    with pytest.raises(ValueError, match="Conservation ID 'Q7US48_RHOBA/138-284' not found in hmmalign_lines."):
-        get_alignment_sequences(hmmalign_lines_list, "sp|Q9NU22|MDN1_HUMANtarget//325-451", "Q7US48_RHOBA/138-284")
+    get_alignment_sequences(
+        hmmalign_lines_list,
+        "sp|Q9NU22|MDN1_HUMANtarget//325-451",
+        "Q7US48_RHOBA/138-284",
+        logger,
+        multi_logger
+    )
 
-
+    multi_logger.assert_called_once_with(
+        "error",
+        "TRANSFER_ANNOTS --- GET_ALIGN_SEQS --- Conservation ID '%s' not found in hmmalign_lines.",
+        "Q7US48_RHOBA/138-284"
+    )
 
 ###T populate_conservation
 
@@ -3654,15 +4052,21 @@ def test_populate_conservation_gap_position(transfer_dict_populated_disulfid_ins
         conservation_end=284,
         logger=logger
     )
-    # Verify warning about missing positions
-    assert logger.warning.called
-    warning_msg = logger.warning.call_args[0][0]
-    assert "Missing conserved positions:" in warning_msg
+    # Verify debug msg about missing pos
+    assert logger.debug.called
+    # Get the format string and arguments separately
+    debug_msg = logger.debug.call_args[0][0]  # Format string
+    debug_args = logger.debug.call_args[0][1:]  # Arguments passed to format string
+    assert "TRANSFER_ANNOTS --- POP_CONS --- Pfam ID: %s - Target Name: %s - Conserv-Rep Name: %s - Missing conserved positions: %s" == debug_msg
 
-    # Extract missing positions and clean them up
-    # Verify that it logs the correct missing positions
+    # The missing positions will be in the last argument
+    missing_positions_str = str(debug_args[3])  # Get the actual missing positions set
+
+    # Parse the missing positions from the set string
+    # The string will be something like "{'149', '283', '284'}"
+    actual_missing = set(pos.strip("'\" {}") for pos in missing_positions_str.split(','))
     expected_missing = {"149", "283", "284"}
-    actual_missing = set(pos.strip().strip("'") for pos in warning_msg.split("{")[1].split("}")[0].split(","))
+
     assert expected_missing == actual_missing
 
     interval_data = transfer_dict_populated_disulfid_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"][interval_key]
@@ -3799,6 +4203,7 @@ def test_populate_go_data_empty_target_gos(
 
 def test_cleanup_improve_transfer_dict_basic(
     logger,
+    multi_logger,
     transfer_dict_populated_disulfid_Q9NU22,
     conservations_content_Q9NU22_PF07728,
     annotations_content_disulfid_fixture_Q9NU22_PF07728,
@@ -3853,6 +4258,7 @@ def test_cleanup_improve_transfer_dict_basic(
     ):
         result = cleanup_improve_transfer_dict(
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
             pfam_id="PF07728",
             hmmalign_lines=[],
@@ -3865,6 +4271,7 @@ def test_cleanup_improve_transfer_dict_basic(
 
 def test_cleanup_improve_transfer_dict_conservations_only(
     logger,
+    multi_logger,
     transfer_dict_populated_disulfid_Q9NU22,
     conservations_content_Q9NU22_PF07728,
     mapping_content_Q9NU22_and_H0YB80_domains,
@@ -3892,6 +4299,7 @@ def test_cleanup_improve_transfer_dict_conservations_only(
     ):
         result = cleanup_improve_transfer_dict(
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
             pfam_id="PF07728",
             hmmalign_lines=[],
@@ -3908,6 +4316,7 @@ def test_cleanup_improve_transfer_dict_conservations_only(
 
 def test_cleanup_improve_transfer_dict_handles_empty_conservations(
     logger,
+    multi_logger,
     transfer_dict_populated_disulfid_Q9NU22,
     mapping_content_Q9NU22_and_H0YB80_domains,
     target_gos_Q9NU22_MCRB_ECOLI,
@@ -3932,6 +4341,7 @@ def test_cleanup_improve_transfer_dict_handles_empty_conservations(
     ):
         result = cleanup_improve_transfer_dict(
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
             pfam_id="PF07728",
             hmmalign_lines=[],
@@ -3949,6 +4359,7 @@ def test_cleanup_improve_transfer_dict_handles_empty_conservations(
 
 def test_cleanup_improve_transfer_dict_only_conservations_valid(
     logger,
+    multi_logger,
     transfer_dict_populated_disulfid_Q9NU22,
     conservations_content_Q9NU22_PF07728,
     mapping_content_Q9NU22_and_H0YB80_domains,
@@ -3977,6 +4388,7 @@ def test_cleanup_improve_transfer_dict_only_conservations_valid(
     ):
         result = cleanup_improve_transfer_dict(
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
             pfam_id="PF07728",
             hmmalign_lines=[],
@@ -3993,6 +4405,7 @@ def test_cleanup_improve_transfer_dict_only_conservations_valid(
 
 def test_cleanup_improve_transfer_dict_only_annotations_valid(
     logger,
+    multi_logger,
     transfer_dict_populated_disulfid_Q9NU22,
     annotations_content_disulfid_fixture_Q9NU22_PF07728,
     mapping_content_Q9NU22_and_H0YB80_domains,
@@ -4020,6 +4433,7 @@ def test_cleanup_improve_transfer_dict_only_annotations_valid(
     ):
         result = cleanup_improve_transfer_dict(
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
             pfam_id="PF07728",
             hmmalign_lines=[],
@@ -4106,14 +4520,14 @@ def test_convert_sets_and_tuples_to_lists_annotation_ranges():
 ###T write_reports
 
 def test_write_reports_with_data(
-    tmp_path, logger,
+    tmp_path, logger, multi_logger,
     transfer_dict_populated_disulfid_post_conservation_Q9NU22
 ):
     """Test write_reports with actual annotation data"""
     mock_dict = transfer_dict_populated_disulfid_post_conservation_Q9NU22
 
     with patch('builtins.open', mock_open()) as mock_file:
-        write_reports(logger, mock_dict, str(tmp_path))
+        write_reports(logger, multi_logger, mock_dict, str(tmp_path))
 
         # Verify correct files were created
         calls = mock_file.call_args_list
@@ -4130,7 +4544,7 @@ def test_write_reports_with_data(
         # Verify debug logs were called
         assert logger.debug.call_count == 3
 
-def test_write_reports_empty_data(tmp_path, logger):
+def test_write_reports_empty_data(tmp_path, logger, multi_logger):
     """Test write_reports with empty transfer dict"""
     transfer_dict = {
         "domain": {
@@ -4143,13 +4557,13 @@ def test_write_reports_empty_data(tmp_path, logger):
     }
 
     with patch('builtins.open', mock_open()) as mock_file:
-        write_reports(logger, transfer_dict, str(tmp_path))
+        write_reports(logger, multi_logger, transfer_dict, str(tmp_path))
 
         calls = mock_file.call_args_list
         assert len(calls) == 2  # Main report + target report
         assert logger.debug.call_count == 3
 
-def test_write_reports_multiple_targets(tmp_path, logger):
+def test_write_reports_multiple_targets(tmp_path, logger, multi_logger):
     """Test write_reports with multiple target sequences"""
     transfer_dict = {
         "domain": {
@@ -4163,13 +4577,13 @@ def test_write_reports_multiple_targets(tmp_path, logger):
     }
 
     with patch('builtins.open', mock_open()) as mock_file:
-        write_reports(logger, transfer_dict, str(tmp_path))
+        write_reports(logger, multi_logger, transfer_dict, str(tmp_path))
 
         calls = mock_file.call_args_list
         assert len(calls) == 3  # Main report + 2 target reports
         assert logger.debug.call_count == 5  # 1 main + 2 data writes + 2 confirmations
 
-def test_write_reports_pipe_in_target_name(tmp_path, logger):
+def test_write_reports_pipe_in_target_name(tmp_path, logger, multi_logger):
     """Test write_reports handles target names with pipes"""
     transfer_dict = {
         "domain": {
@@ -4182,7 +4596,7 @@ def test_write_reports_pipe_in_target_name(tmp_path, logger):
     }
 
     with patch('builtins.open', mock_open()) as mock_file:
-        write_reports(logger, transfer_dict, str(tmp_path))
+        write_reports(logger, multi_logger, transfer_dict, str(tmp_path))
 
         calls = mock_file.call_args_list
         assert len(calls) == 2  # Main report + target report
@@ -4192,14 +4606,16 @@ def test_write_reports_pipe_in_target_name(tmp_path, logger):
         assert any("TEST-A" in path for path in paths)
         assert logger.debug.call_count == 3
 
-def test_write_reports_completely_empty_dict(tmp_path, logger):
+def test_write_reports_completely_empty_dict(tmp_path, logger, multi_logger):
     """Test write_reports with completely empty transfer dict"""
     transfer_dict = {"domain" : {}}
 
-    with pytest.raises(StopIteration):
-        write_reports(logger, transfer_dict, str(tmp_path))
+    write_reports(logger, multi_logger, transfer_dict, str(tmp_path))
+    multi_logger.assert_called_once_with(
+        'warning',
+        "TRANSFER_ANNOTS --- WRITE_REPORT --- Transfer dictionary is empty - no value assigned to 'domain' - skipping report writing")
 
-def test_write_reports_empty_sequence_id(tmp_path, logger):
+def test_write_reports_empty_sequence_id(tmp_path, logger, multi_logger):
     """Test write_reports with empty sequence_id dict"""
     transfer_dict = {
         "domain": {
@@ -4210,13 +4626,13 @@ def test_write_reports_empty_sequence_id(tmp_path, logger):
     }
 
     with patch('builtins.open', mock_open()) as mock_file:
-        write_reports(logger, transfer_dict, str(tmp_path))
+        write_reports(logger, multi_logger, transfer_dict, str(tmp_path))
 
         calls = mock_file.call_args_list
         assert len(calls) == 1  # Only main report
         assert logger.debug.call_count == 1
 
-def test_write_reports_none_target_data(tmp_path, logger):
+def test_write_reports_none_target_data(tmp_path, logger, multi_logger):
     """Test write_reports with None as target data"""
     transfer_dict = {
         "domain": {
@@ -4229,7 +4645,7 @@ def test_write_reports_none_target_data(tmp_path, logger):
     }
 
     with patch('json.dump') as mock_json_dump:
-        write_reports(logger, transfer_dict, str(tmp_path))
+        write_reports(logger, multi_logger, transfer_dict, str(tmp_path))
 
         # Verify number of calls
         assert mock_json_dump.call_count == 2
@@ -4260,7 +4676,7 @@ def test_write_reports_none_target_data(tmp_path, logger):
 ###T map_and_filter_annot_pos
 
 def test_map_and_filter_with_paired_positions(
-    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
+    logger, multi_logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_disulfid_pair, transfer_dict,
     get_annotation_dict, annotations_content_disulfid_fixture_Q9NU22_PF07728
 ):
@@ -4274,6 +4690,7 @@ def test_map_and_filter_with_paired_positions(
         # Call the function under test
         result = map_and_filter_annot_pos(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -4314,7 +4731,7 @@ def test_map_and_filter_with_paired_positions(
         assert result == (True, {'dummy': 'result'})
 
 def test_map_and_filter_without_paired_positions(
-    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
+    logger, multi_logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Unit test for map_and_filter_annot_pos without paired positions."""
@@ -4323,6 +4740,7 @@ def test_map_and_filter_without_paired_positions(
         # Call the function under test
         result = map_and_filter_annot_pos(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -4341,6 +4759,7 @@ def test_map_and_filter_without_paired_positions(
         # Assert that validate_annotations was called with expected arguments
         mock_validate_annotations.assert_called_once_with(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -4363,7 +4782,7 @@ def test_map_and_filter_without_paired_positions(
 ###T add_to_transfer_dict
 
 def test_add_to_transfer_dict_initializes_structure(
-    logger, transfer_dict, target_sequence_continuous_Q9NU22,
+    logger, multi_logger, transfer_dict, target_sequence_continuous_Q9NU22,
     anno_total_disulfid_MCRB_ECOLI_Q9NU22_205
 ):
     """Test dict initialization with minimal data"""
@@ -4372,6 +4791,7 @@ def test_add_to_transfer_dict_initializes_structure(
         add_to_transfer_dict(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -4402,7 +4822,7 @@ def test_add_to_transfer_dict_initializes_structure(
         mock_add_single.assert_called_once()
 
 def test_add_to_transfer_dict_handles_paired_annotations(
-    logger, transfer_dict, target_sequence_continuous_Q9NU22,
+    logger, multi_logger, transfer_dict, target_sequence_continuous_Q9NU22,
     anno_total_disulfid_MCRB_ECOLI_Q9NU22_205, anno_total_disulfid_MCRB_ECOLI_Q9NU22_246
 ):
     """Test proper handling of paired annotations"""
@@ -4410,6 +4830,7 @@ def test_add_to_transfer_dict_handles_paired_annotations(
         add_to_transfer_dict(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -4434,7 +4855,7 @@ def test_add_to_transfer_dict_handles_paired_annotations(
 
 ## Oldies, gotta repurpose into new tests or discard!
 def test_add_to_transfer_dict_disulfid_single_first_addition(
-    logger, transfer_dict,
+    logger, multi_logger, transfer_dict,
     target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     anno_total_disulfid_MCRB_ECOLI_Q9NU22_205
@@ -4448,6 +4869,7 @@ def test_add_to_transfer_dict_disulfid_single_first_addition(
     add_to_transfer_dict(
         hit=True,
         logger=logger,
+        multi_logger=multi_logger,
         transfer_dict=transfer_dict,
         target_name=target_name_mock_Q9NU22,
         target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -4469,7 +4891,7 @@ def test_add_to_transfer_dict_disulfid_single_first_addition(
     assert positions_dict[anno_total['target_position']][anno_id]['essentials']['type'] == 'DISULFID'
 
 def test_add_to_transfer_dict_paired_disulfide(
-    logger, transfer_dict,
+    logger, multi_logger, transfer_dict,
     target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_make_anno_total_disulfid_return_246_P15005,
@@ -4486,6 +4908,7 @@ def test_add_to_transfer_dict_paired_disulfide(
     add_to_transfer_dict(
         hit=True,
         logger=logger,
+        multi_logger=multi_logger,
         transfer_dict=transfer_dict,
         target_name=target_name_mock_Q9NU22,
         target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -4517,7 +4940,7 @@ def test_add_to_transfer_dict_paired_disulfide(
 
 
 def test_add_to_transfer_dict_paired_repeated_anno_id(
-    logger, transfer_dict_populated_disulfid_Q9NU22,
+    logger, multi_logger, transfer_dict_populated_disulfid_Q9NU22,
     target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_Q9NU22,
     mock_make_anno_total_disulfid_return_246_Q9NU22,
@@ -4534,6 +4957,7 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
     add_to_transfer_dict(
         hit=True,
         logger=logger,
+        multi_logger=multi_logger,
         transfer_dict=transfer_dict_populated_disulfid_Q9NU22,
         target_name=target_name_mock_Q9NU22,
         target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -4581,7 +5005,7 @@ def test_add_to_transfer_dict_paired_repeated_anno_id(
     assert positions_dict['373'][paired_anno_id]['hit'] is True
 
 def test_add_to_transfer_dict_hit_miss_pair(
-    logger, transfer_dict,
+    logger, multi_logger, transfer_dict,
     target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_make_anno_total_disulfid_return_246_P15005,
@@ -4598,6 +5022,7 @@ def test_add_to_transfer_dict_hit_miss_pair(
     add_to_transfer_dict(
         hit=True,
         logger=logger,
+        multi_logger=multi_logger,
         transfer_dict=transfer_dict,
         target_name=target_name_mock_Q9NU22,
         target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -4625,7 +5050,7 @@ def test_add_to_transfer_dict_hit_miss_pair(
 
 
 def test_add_to_transfer_dict_disulfid_single_mocked_helper(
-    logger, transfer_dict,
+    logger, multi_logger, transfer_dict,
     target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     anno_total_disulfid_MCRB_ECOLI_Q9NU22_205
@@ -4641,6 +5066,7 @@ def test_add_to_transfer_dict_disulfid_single_mocked_helper(
         add_to_transfer_dict(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -4666,7 +5092,7 @@ def test_add_to_transfer_dict_disulfid_single_mocked_helper(
         )
 
 def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
-    logger, transfer_dict,
+    logger, multi_logger, transfer_dict,
     target_sequence_continuous_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     mock_make_anno_total_disulfid_return_246_P15005,
@@ -4689,6 +5115,7 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
         add_to_transfer_dict(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -5143,7 +5570,7 @@ def test_make_anno_total_dict_no_evidence(
 ###T process_annotation
 
 def test_process_annotation_basic_single(
-    logger, good_eco_codes_all, transfer_dict,
+    logger, multi_logger, good_eco_codes_all, transfer_dict,
     target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, get_annotation_dict,
     annotations_content_binding_fixture_Q9NU22_PF07728
@@ -5175,6 +5602,7 @@ def test_process_annotation_basic_single(
         process_annotation(
             res_hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5210,6 +5638,7 @@ def test_process_annotation_basic_single(
         mock_add_dict.assert_called_once_with(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -5224,7 +5653,7 @@ def test_process_annotation_basic_single(
         assert ('MCRB_ECOLI', 'sp|Q9NU22|MDN1_HUMAN', '201', '329', 'BINDING') in processed_annotations
 
 def test_process_annotation_paired_failure(
-    logger, good_eco_codes_all, transfer_dict,
+    logger, multi_logger, good_eco_codes_all, transfer_dict,
     entry_annotations_disulfid_pair,
     target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
@@ -5258,6 +5687,7 @@ def test_process_annotation_paired_failure(
         process_annotation(
             res_hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5294,6 +5724,7 @@ def test_process_annotation_paired_failure(
         # Verify map_and_filter_annot_pos was called correctly
         mock_map_filter.assert_called_once_with(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_mod_to_fail_73,
             target_name=target_name_mock_Q9NU22,
@@ -5314,6 +5745,7 @@ def test_process_annotation_paired_failure(
         mock_add_transfer.assert_called_once_with(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_mod_to_fail_73_continuous,
@@ -5333,7 +5765,7 @@ def test_process_annotation_paired_failure(
 
 
 def test_process_annotation_paired_success(
-    logger, good_eco_codes_all, transfer_dict,
+    logger, multi_logger, good_eco_codes_all, transfer_dict,
     entry_annotations_disulfid_pair, annotation_dict_205_Q9NU22,
     annotation_dict_246_Q9NU22, mock_make_anno_total_disulfid_return_205_P15005,
     mock_map_filter_disulfid_return,
@@ -5349,6 +5781,7 @@ def test_process_annotation_paired_success(
         process_annotation(
             res_hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5385,6 +5818,7 @@ def test_process_annotation_paired_success(
         # Verify map_and_filter_annot_pos was called correctly
         mock_map_filter.assert_called_once_with(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5405,6 +5839,7 @@ def test_process_annotation_paired_success(
         mock_add_transfer.assert_called_once_with(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -5424,7 +5859,7 @@ def test_process_annotation_paired_success(
 
 
 def test_process_annotation_paired_no_paired_dict(
-    logger, good_eco_codes_all, transfer_dict,
+    logger, multi_logger, good_eco_codes_all, transfer_dict,
     entry_annotations_disulfid_pair, annotation_dict_205_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
     target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22
@@ -5444,6 +5879,7 @@ def test_process_annotation_paired_no_paired_dict(
         process_annotation(
             res_hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5481,6 +5917,7 @@ def test_process_annotation_paired_no_paired_dict(
         mock_add_transfer.assert_called_once_with(
             hit=True,
             logger=logger,
+            multi_logger=multi_logger,
             transfer_dict=transfer_dict,
             target_name=target_name_mock_Q9NU22,
             target_sequence_continuous=target_sequence_continuous_Q9NU22,
@@ -5691,7 +6128,7 @@ def test_validate_paired_annotations_missing_paired_position(
 ###T validate_annotations
 
 def test_validate_annotations_process_annotation_parameters(
-    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
+    logger, multi_logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test that process_annotation is called with correct parameters"""
@@ -5699,6 +6136,7 @@ def test_validate_annotations_process_annotation_parameters(
     with patch('transfer_annotations.process_annotation') as mock_process:
         validate_annotations(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5719,6 +6157,7 @@ def test_validate_annotations_process_annotation_parameters(
             call(
                 res_hit=True,
                 logger=logger,
+                multi_logger=multi_logger,
                 good_eco_codes=good_eco_codes_all,
                 entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
                 target_name=target_name_mock_Q9NU22,
@@ -5741,6 +6180,7 @@ def test_validate_annotations_process_annotation_parameters(
             call(
                 res_hit=True,
                 logger=logger,
+                multi_logger=multi_logger,
                 good_eco_codes=good_eco_codes_all,
                 entry_mnemo_name=entry_mnemo_name_mock_Q9NU22,
                 target_name=target_name_mock_Q9NU22,
@@ -5765,7 +6205,7 @@ def test_validate_annotations_process_annotation_parameters(
         mock_process.assert_has_calls(expected_calls, any_order=False)
 
 def test_validate_annotations_multiple_annotations(
-    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
+    logger, multi_logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     transfer_dict
 ):
     """Test case where a single position has multiple annotations."""
@@ -5779,6 +6219,7 @@ def test_validate_annotations_multiple_annotations(
     with patch('transfer_annotations.process_annotation') as mock_process:
         validate_annotations(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5799,7 +6240,7 @@ def test_validate_annotations_multiple_annotations(
         assert mock_process.call_count == 2
 
 def test_validate_annotations_skip_processed(
-    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
+    logger, multi_logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test case 1.2 - Skip when annotation was already processed"""
@@ -5824,6 +6265,7 @@ def test_validate_annotations_skip_processed(
     with patch('transfer_annotations.process_annotation') as mock_process:
         validate_annotations(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5845,13 +6287,14 @@ def test_validate_annotations_skip_processed(
         assert transfer_dict == {}
 
 def test_validate_annotations_no_positions_in_range(
-    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
+    logger, multi_logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test case 2 - No annotations in offset range (201 and 202 don't fit in 500-600)"""
     with patch('transfer_annotations.process_annotation') as mock_process:
         validate_annotations(
             logger=logger,
+            multi_logger=multi_logger,
             good_eco_codes=good_eco_codes_all,
             target_sequence=target_sequence_Q9NU22,
             target_name=target_name_mock_Q9NU22,
@@ -5872,7 +6315,7 @@ def test_validate_annotations_no_positions_in_range(
         assert transfer_dict == {}
 
 def test_validate_annotations_sequence_end_reached(
-    logger, good_eco_codes_all,
+    logger, multi_logger, good_eco_codes_all,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test case where sequence reaches end condition (line 633)"""
@@ -5881,6 +6324,7 @@ def test_validate_annotations_sequence_end_reached(
 
     validate_annotations(
         logger=logger,
+        multi_logger=multi_logger,
         good_eco_codes=good_eco_codes_all,
         target_sequence=test_short_sequence,
         target_name=target_name_mock_Q9NU22,
@@ -5898,7 +6342,7 @@ def test_validate_annotations_sequence_end_reached(
     )
 
 def test_validate_annotations_logging(
-    logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
+    logger, multi_logger, good_eco_codes_all, target_sequence_Q9NU22, annot_sequence_Q9NU22,
     entry_annotations_binding_only, transfer_dict
 ):
     """Test that error logs are written when process_annotation fails."""
@@ -5908,6 +6352,7 @@ def test_validate_annotations_logging(
         try:
             validate_annotations(
                 logger=logger,
+                multi_logger=multi_logger,
                 good_eco_codes=good_eco_codes_all,
                 target_sequence=target_sequence_Q9NU22,
                 target_name=target_name_mock_Q9NU22,
@@ -5926,16 +6371,25 @@ def test_validate_annotations_logging(
         except Exception:
             pass
 
-        # Verify error log was written
-        logger.error.assert_any_call("---> ERROR --- VAL_ANNOTS --- Error in validate_annotations: Test error")
+        # Verify the call was made
+        multi_logger.assert_called_once()
+
+        # Get the actual call arguments
+        call_args = multi_logger.call_args
+
+        # Verify the arguments individually
+        assert call_args[0][0] == 'error'  # First arg should be level
+        assert call_args[0][1] == 'TRANSFER_ANNOTS --- VAL_ANNOTS --- Downstream error in process_annotation: %s'  # Second arg should be message format
+        assert str(call_args[0][2]) == str(mock_error)  # Compare string representations of exceptions
 
 ###T main
 
-def test_main_success(logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_disulfid_list_Q9NU22, transfer_dict_populated_disulfid_post_gos_list_Q9NU22):
+def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_disulfid_list_Q9NU22, transfer_dict_populated_disulfid_post_gos_list_Q9NU22):
     """Test main function success path"""
     mock_args = Namespace(
         dom_align=hmmalign_result_mock,
         resource_dir=resource_dir_mock,
+        domain_accession=domain_accession_mock,
         output_dir=output_dir_mock,
         eco_codes=good_eco_codes_mock,
         log=log_filepath_mock
@@ -5946,9 +6400,13 @@ def test_main_success(logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_di
          patch('transfer_annotations.read_files', return_value=(minimal_hmmalign_lines_fixture_Q9NU22, {})) as mock_read, \
          patch('transfer_annotations.find_and_map_annots', return_value=transfer_dict_populated_disulfid_list_Q9NU22) as mock_find, \
          patch('transfer_annotations.cleanup_improve_transfer_dict', return_value=transfer_dict_populated_disulfid_post_gos_list_Q9NU22) as mock_cleanup, \
-         patch('transfer_annotations.write_reports') as mock_write:
+         patch('transfer_annotations.write_reports') as mock_write, \
+         patch('transfer_annotations.get_logger', return_value=(logger, None)) as mock_get_logger, \
+         patch('transfer_annotations.get_multi_logger') as mock_get_multi_logger:
 
-        main(logger)
+        mock_get_multi_logger.return_value = multi_logger
+
+        main()
 
         mock_parse.assert_called_once()
         mock_get_pfam.assert_called_once_with(hmmalign_result_mock)
@@ -5956,6 +6414,7 @@ def test_main_success(logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_di
         mock_find.assert_called_once()
         mock_cleanup.assert_called_once_with(
             logger,
+            multi_logger,
             transfer_dict_populated_disulfid_list_Q9NU22,
             "PF07728",
             minimal_hmmalign_lines_fixture_Q9NU22,
@@ -5966,10 +6425,11 @@ def test_main_success(logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_di
         )
         mock_write.assert_called_once_with(
             logger,
+            multi_logger,
             transfer_dict_populated_disulfid_post_gos_list_Q9NU22,
             output_dir_mock
         )
-        logger.info.assert_any_call("---> MAIN --- Transfer Dict FILLED")
+        logger.info.assert_any_call("TRANSFER_ANNOTS --- MAIN --- Transfer Dict FILLED")
 
 
 # Integration tests
@@ -6016,6 +6476,7 @@ def test_main_integration_binding_Q9NU22_PF07728(
         args = Namespace(
             dom_align=hmmalign_path,
             resource_dir=resource_dir,
+            domain_accession=domain_accession_mock,
             output_dir=output_dir,
             eco_codes=good_eco_codes_mock,
             log=os.path.join(tmp_dir, "test.log")
@@ -6023,7 +6484,7 @@ def test_main_integration_binding_Q9NU22_PF07728(
 
         with patch('transfer_annotations.parse_arguments', return_value=args):
             logger, _ = get_logger(args.log)
-            main(logger)
+            main()
 
         # with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
         #     transfer_dict = json.load(f)
@@ -6078,6 +6539,7 @@ def test_main_integration_disulfid_Q9NU22_PF07728(
         args = Namespace(
             dom_align=hmmalign_path,
             resource_dir=resource_dir,
+            domain_accession=domain_accession_mock,
             output_dir=output_dir,
             eco_codes=good_eco_codes_mock,
             log=os.path.join(tmp_dir, "test.log")
@@ -6085,7 +6547,7 @@ def test_main_integration_disulfid_Q9NU22_PF07728(
 
         with patch('transfer_annotations.parse_arguments', return_value=args):
             logger, _ = get_logger(args.log)
-            main(logger)
+            main()
 
         # with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
         #     transfer_dict = json.load(f)
@@ -6140,6 +6602,7 @@ def test_main_integration_all_types_H0YB80(
         args = Namespace(
             dom_align=hmmalign_path,
             resource_dir=resource_dir,
+            domain_accession=domain_accession_mock,
             output_dir=output_dir,
             eco_codes=good_eco_codes_mock,
             log=os.path.join(tmp_dir, "test.log")
@@ -6147,7 +6610,7 @@ def test_main_integration_all_types_H0YB80(
 
         with patch('transfer_annotations.parse_arguments', return_value=args):
             logger, _ = get_logger(args.log)
-            main(logger)
+            main()
 
         # with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
         #     transfer_dict = json.load(f)
