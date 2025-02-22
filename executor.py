@@ -164,7 +164,14 @@ def parse_arguments():
 
     return argparse.Namespace(**config)
 
-def run_command(command, logger):
+def run_command(command: list, logger: logging.Logger):
+    """Run command, capture output and log any errors. Exit if command fails.
+
+    Args:
+        command: List comprised of the command and its arguments
+        logger: Logger instance
+        is_parallel: If True, run command in parallel mode
+    """
     try:
         result = subprocess.run(
             command,
@@ -401,7 +408,10 @@ def main():
             ])
             run_iprscan_tasks.append(cmd)
 
-        Parallel(n_jobs=number_jobs_iprscan)(delayed(run_command)(task, logger) for task in run_iprscan_tasks)
+        Parallel(n_jobs=number_jobs_iprscan)(
+            delayed(run_command)(task, logger)
+            for task in run_iprscan_tasks
+        )
         with open(run_iprscan_done, "w", encoding="utf-8") as f:
             # Write the names of all sequences in the batch, open each batch *done file to know which sequences should not be in a new batch.
             f.write("")
@@ -428,7 +438,10 @@ def main():
             for dom_accession in hits_per_domain
         ]
 
-        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in prepare_fasta_tasks)
+        Parallel(n_jobs=threads)(
+            delayed(run_command)(task, logger)
+            for task in prepare_fasta_tasks
+        )
         with open(prepare_fasta_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("EXECUTOR --- PREPARE_FASTA_PER_DOMAIN.PY --- Executed.")
@@ -451,7 +464,10 @@ def main():
                         "-d", subdir,
                         "-l", timestamped_log
                     ])
-        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in run_hmmalign_tasks)
+        Parallel(n_jobs=threads)(
+            delayed(run_command)(task, logger)
+            for task in run_hmmalign_tasks
+        )
         with open(run_hmmalign_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("EXECUTOR --- RUN_HMMALIGN.PY --- Executed.")
@@ -478,7 +494,10 @@ def main():
                         "-l", timestamped_log
                     ])
         logger.debug("EXECUTOR --- TRANSFER_ANNOTATIONS.PY --- Number of Transfer annotations tasks: %s", len(transfer_annotations_tasks))
-        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in transfer_annotations_tasks)
+        Parallel(n_jobs=threads)(
+            delayed(run_command)(task, logger)
+            for task in transfer_annotations_tasks
+        )
         with open(transfer_annotations_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("EXECUTOR --- TRANSFER_ANNOTATIONS.PY --- Executed.")
@@ -499,7 +518,10 @@ def main():
                     "-sd", subdir_path,
                     "-l", timestamped_log
                 ])
-        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in merge_reports_in_sequences_tasks)
+        Parallel(n_jobs=threads)(
+            delayed(run_command)(task, logger)
+            for task in merge_reports_in_sequences_tasks
+        )
         with open(merge_reports_in_sequences, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("EXECUTOR --- MERGE_REPORT_SEQUENCES --- Executed.")
@@ -520,7 +542,10 @@ def main():
                     "-s", subdir,
                     "-l", timestamped_log
                 ])
-        Parallel(n_jobs=threads)(delayed(run_command)(task, logger) for task in make_view_jsons_tasks)
+        Parallel(n_jobs=threads)(
+            delayed(run_command)(task, logger)
+            for task in make_view_jsons_tasks
+        )
         with open(make_view_jsons_done, "w", encoding="utf-8") as f:
             f.write("")
         logger.info("EXECUTOR --- MAKE_VIEW_JSONS.PY --- Executed.")

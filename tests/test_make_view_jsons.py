@@ -58,6 +58,17 @@ def logger():
     return mock_logger
 
 @pytest.fixture
+def multi_logger():
+    """Create a mock multi_logger that matches the get_multi_logger behavior"""
+    def multi_log(level: str, message: str, *args):
+        # This simulates the behavior of the actual multi_logger
+        # which formats the message with args and logs to multiple loggers
+        return getattr(logging.getLogger(), level)(message, *args)
+
+    mock = MagicMock(side_effect=multi_log)
+    return mock
+
+@pytest.fixture
 def mock_report_data():
     return {
         "sequence_id": "sp|Q9NU22|MDN1_HUMAN",
@@ -238,7 +249,8 @@ def mock_conservation_subset():
 def test_parse_arguments_required():
     output_dir_mock = "/home/user/results/views/"
     test_args = [
-        "-o", output_dir_mock
+        "-o", output_dir_mock,
+        "-s", "sp|Q9NU22|MDN1_HUMAN"
     ]
 
     with pytest.raises(SystemExit):
@@ -250,6 +262,7 @@ def test_parse_arguments_required():
 
     expected = Namespace(
         output_dir="/home/user/results/views/",
+        sequence="sp|Q9NU22|MDN1_HUMAN",
         log="logs/make_views_jsons.log"
     )
     assert vars(args) == vars(expected)
@@ -260,6 +273,7 @@ def test_parse_arguments_optional():
 
     test_args = [
         "-o", output_dir_mock,
+        "-s", "sp|Q9NU22|MDN1_HUMAN",
         "-l", log_filepath_mock
     ]
 
@@ -280,9 +294,9 @@ def test_merge_nested_data(mock_report_data):
     merge_nested_data(source, target, "333", "DISULFID | Intrachain (with C-246); in linked form")
 
     assert target["essentials"]["type"] == "DISULFID"
-    assert "333_DISULFID | Intrachain (with C-246); in linked form" in target["essentials"]["count"]
-    assert target["essentials"]["count"]["333_DISULFID | Intrachain (with C-246); in linked form"] == 1
-
+    assert "count" in target["essentials"]
+    assert isinstance(target["essentials"]["count"], dict)
+    assert target["essentials"]["count"]["333"] == 1
 
 def test_merge_nested_data_empty():
     """Test merging with empty source"""
@@ -305,7 +319,8 @@ def test_aggregate_range_positions_annotations(mock_annotation_subset):
 
     # Verify data structure
     assert result["essentials"]["type"] == "DISULFID"
-    assert "333_DISULFID | Intrachain (with C-246); in linked form" in result["essentials"]["count"]
+    assert "count" in result["essentials"]
+    assert result["essentials"]["count"]["333"] == 1
 
 def test_aggregate_range_positions_conservations(mock_conservation_subset):
     """Test conservation data aggregation"""
@@ -334,11 +349,12 @@ def test_aggregate_range_positions_invalid_type(mock_report_data):
 
 ###T transform_to_ranges
 
-def test_transform_to_ranges_integration(mock_report_data, logger):
+def test_transform_to_ranges_integration(mock_report_data, multi_logger):
     """Test full range transformation"""
     interval = mock_report_data["domain"]["PF07728"]["hit_intervals"]["325-451"]
-    result = transform_to_ranges(interval, logger)
+    result = transform_to_ranges(interval, multi_logger)
 
+    print(json.dumps(result, indent=2))
     # Check annotation ranges
     disulfid_data = result["DISULFID | Intrachain (with C-246); in linked form"]["333-333"]
     assert disulfid_data["essentials"]["type"] == "DISULFID"
@@ -349,10 +365,10 @@ def test_transform_to_ranges_integration(mock_report_data, logger):
     assert 0.90 <= cons_data["conservation"] <= 0.99
     assert not cons_data["hit"]  # Some positions are misses
 
-def test_transform_to_ranges_full(mock_report_data, logger):
+def test_transform_to_ranges_full(mock_report_data, multi_logger):
     """Integration test for range transformation"""
     interval_data = mock_report_data["domain"]["PF07728"]["hit_intervals"]["325-451"]
-    result = transform_to_ranges(interval_data, logger)
+    result = transform_to_ranges(interval_data, multi_logger)
 
     # Check DISULFID annotation
     disulfid_id = "DISULFID | Intrachain (with C-246); in linked form"
@@ -368,10 +384,10 @@ def test_transform_to_ranges_full(mock_report_data, logger):
     assert "conservations" in result
 
 
-def test_transform_to_ranges_basic(mock_report_data):
+def test_transform_to_ranges_basic(mock_report_data, multi_logger):
     """Test basic range transformation functionality"""
     interval = mock_report_data["domain"]["PF07728"]["hit_intervals"]["325-451"]
-    result = transform_to_ranges(interval)
+    result = transform_to_ranges(interval, multi_logger)
 
     # Test correct annotation ID
     disulfid_id = "DISULFID | Intrachain (with C-246); in linked form"
@@ -384,10 +400,10 @@ def test_transform_to_ranges_basic(mock_report_data):
     assert anno_data["hit"] is True
 
 
-def test_transform_to_ranges_conservation(mock_report_data):
+def test_transform_to_ranges_conservation(mock_report_data, multi_logger):
     """Test conservation data transformation"""
     interval = mock_report_data["domain"]["PF07728"]["hit_intervals"]["325-451"]
-    result = transform_to_ranges(interval)
+    result = transform_to_ranges(interval, multi_logger)
 
     # Test conservation range presence
     assert "conserved_positions" in result
@@ -398,10 +414,10 @@ def test_transform_to_ranges_conservation(mock_report_data):
     assert 0.90 <= cons_data["conservation"] <= 0.99
     assert cons_data["hit"] is False  # Contains misses
 
-def test_transform_to_ranges_metadata(mock_report_data):
+def test_transform_to_ranges_metadata(mock_report_data, multi_logger):
     """Test metadata handling in transformation"""
     interval = mock_report_data["domain"]["PF07728"]["hit_intervals"]["325-451"]
-    result = transform_to_ranges(interval)
+    result = transform_to_ranges(interval, multi_logger)
 
     # Test metadata placement
     assert "annotations" in result
@@ -412,49 +428,49 @@ def test_transform_to_ranges_metadata(mock_report_data):
     assert "364" in result["conservations"]["indices"]["matches"]
     assert "366" in result["conservations"]["indices"]["misses"]
 
-def test_transform_to_ranges_error_handling(mock_report_data, logger):
+def test_transform_to_ranges_error_handling(mock_report_data, multi_logger):
     """Test error handling in range transformation"""
     interval = mock_report_data["domain"]["PF07728"]["hit_intervals"]["325-451"]
 
     # Corrupt ranges data
     interval["annotation_ranges"]["DISULFID | Intrachain (with C-246); in linked form"]["ranges"] = "invalid"
 
-    result = transform_to_ranges(interval, logger)
+    result = transform_to_ranges(interval, multi_logger)
 
     # Verify warning logged
-    logger.warning.assert_called_with(
-        "MAKE VIEW - %s invalid format for %s",
-        "annotation_ranges",
-        "DISULFID | Intrachain (with C-246); in linked form"
-    )
+    multi_logger.assert_called_with(
+    'warning',
+    'MAKE_VIEW - TRANSFORM_2_RANGES - %s invalid format for %s',
+    'annotation_ranges', 'DISULFID | Intrachain (with C-246); in linked form'
+)
 
     # Verify empty result for corrupted range
     assert "DISULFID | Intrachain (with C-246); in linked form" not in result
 
-def test_transform_to_ranges_empty():
+def test_transform_to_ranges_empty(multi_logger):
     """Test transformation with empty input"""
-    result = transform_to_ranges({})
+    result = transform_to_ranges({}, multi_logger)
     assert result == {}
 
 ###T process_sequence_report
 
-def test_process_sequence_report_file_not_found(tmp_path, logger):
+def test_process_sequence_report_file_not_found(tmp_path, logger, multi_logger):
     """Test handling of missing input file"""
     non_existent_path = tmp_path / "non_existent.json"
 
     with pytest.raises(FileNotFoundError):
-        process_sequence_report(str(non_existent_path), logger)
+        process_sequence_report(str(non_existent_path), logger, multi_logger)
 
     logger.error.assert_called()
 
-def test_process_sequence_report_integration(tmp_path, mock_report_data, logger):
+def test_process_sequence_report_integration(tmp_path, mock_report_data, logger, multi_logger):
     """Test full sequence report processing"""
     # Setup
     report_path = tmp_path / "PF07728_report.json"
     with open(report_path, "w") as f:
         json.dump(mock_report_data, f)
 
-    result = process_sequence_report(str(report_path), logger)
+    result = process_sequence_report(str(report_path), logger, multi_logger)
 
     # Verify structure
     assert result["sequence_id"] == "sp|Q9NU22|MDN1_HUMAN"
@@ -466,12 +482,12 @@ def test_process_sequence_report_integration(tmp_path, mock_report_data, logger)
     assert "DISULFID | Intrachain (with C-246); in linked form" in ranges
     assert "conserved_positions" in ranges
 
-def test_process_sequence_report(tmp_path, mock_report_data):
+def test_process_sequence_report(tmp_path, mock_report_data, logger, multi_logger):
     report_path = tmp_path / "PF07728_report.json"
     with open(report_path, "w") as f:
         json.dump(mock_report_data, f)
 
-    result = process_sequence_report(str(report_path))
+    result = process_sequence_report(str(report_path), logger, multi_logger)
 
     assert result["sequence_id"] == "sp|Q9NU22|MDN1_HUMAN"
     assert "PF07728" in result["domain"]
@@ -480,19 +496,19 @@ def test_process_sequence_report(tmp_path, mock_report_data):
 
 ###T write_range_views
 
-def test_write_range_views_debug_logging(tmp_path, mock_report_data, logger):
+def test_write_range_views_debug_logging(tmp_path, mock_report_data, logger, multi_logger):
     """Test debug logs for directory and file path info."""
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    write_range_views(mock_report_data, str(output_dir), logger)
+    write_range_views(mock_report_data, str(output_dir), logger, multi_logger)
 
     debug_msgs = [str(call) for call in logger.debug.call_args_list]
     assert any("Created or verified directory:" in msg for msg in debug_msgs)
     assert any("Writing data to:" in msg for msg in debug_msgs)
 
 
-def test_write_range_views_permission_error(tmp_path, mock_report_data, logger):
+def test_write_range_views_permission_error(tmp_path, mock_report_data, logger, multi_logger):
     """Test handling of permission errors during writing"""
     # Create a readonly directory
     output_dir = tmp_path / "readonly"
@@ -500,16 +516,16 @@ def test_write_range_views_permission_error(tmp_path, mock_report_data, logger):
     os.chmod(output_dir, 0o444)  # Read-only
 
     with pytest.raises(PermissionError):
-        write_range_views(mock_report_data, str(output_dir), logger)
+        write_range_views(mock_report_data, str(output_dir), logger, multi_logger)
 
     logger.error.assert_called()
 
-def test_write_range_views_file_paths(tmp_path, mock_report_data, logger):
+def test_write_range_views_file_paths(tmp_path, mock_report_data, logger, multi_logger):
     """Test file path construction in write_range_views"""
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    write_range_views(mock_report_data, str(output_dir), logger)
+    write_range_views(mock_report_data, str(output_dir), logger, multi_logger)
 
     # Check directory structure
     sequence_dir = output_dir / "sp|Q9NU22|MDN1_HUMAN"
@@ -524,12 +540,12 @@ def test_write_range_views_file_paths(tmp_path, mock_report_data, logger):
     logger.debug(f"Sequence dir: {sequence_dir}")
     logger.debug(f"Range file: {range_file}")
 
-def test_write_range_views_json_content(tmp_path, mock_report_data, logger):
+def test_write_range_views_json_content(tmp_path, mock_report_data, logger, multi_logger):
     """Test JSON content written by write_range_views"""
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    write_range_views(mock_report_data, str(output_dir), logger)
+    write_range_views(mock_report_data, str(output_dir), logger, multi_logger)
     range_file = output_dir / "sp|Q9NU22|MDN1_HUMAN" / "PF07728_ranges.json"
 
     with open(range_file) as f:
@@ -544,7 +560,7 @@ def test_write_range_views_json_content(tmp_path, mock_report_data, logger):
     logger.debug(f"Written content: {json.dumps(content, indent=2)}")
     logger.debug(f"Expected content: {json.dumps(mock_report_data, indent=2)}")
 
-def test_write_range_views_data_transformation(tmp_path, mock_report_data, logger):
+def test_write_range_views_data_transformation(tmp_path, mock_report_data, logger, multi_logger):
     """Test data transformation during write"""
     # Create basic test data with sets/tuples
     test_data = {
@@ -560,7 +576,7 @@ def test_write_range_views_data_transformation(tmp_path, mock_report_data, logge
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    write_range_views(test_data, str(output_dir), logger)
+    write_range_views(test_data, str(output_dir), logger, multi_logger)
     range_file = output_dir / "test" / "PF00001_ranges.json"
 
     with open(range_file) as f:
@@ -572,11 +588,11 @@ def test_write_range_views_data_transformation(tmp_path, mock_report_data, logge
 
     logger.debug(f"Transformed content: {json.dumps(content, indent=2)}")
 
-def test_write_range_views(tmp_path, mock_report_data, logger):
+def test_write_range_views(tmp_path, mock_report_data, logger, multi_logger):
     output_dir = tmp_path / "output"
     output_dir.mkdir()
 
-    write_range_views(mock_report_data, str(output_dir), logger)
+    write_range_views(mock_report_data, str(output_dir), logger, multi_logger)
 
     expected_file = output_dir / "sp|Q9NU22|MDN1_HUMAN" / "PF07728_ranges.json"
     assert expected_file.exists()
@@ -585,7 +601,7 @@ def test_write_range_views(tmp_path, mock_report_data, logger):
         written_data = json.load(f)
         assert written_data["sequence_id"] == "sp|Q9NU22|MDN1_HUMAN"
 
-def test_process_and_write_integration(tmp_path, mock_report_data, logger):
+def test_process_and_write_integration(tmp_path, mock_report_data, logger, multi_logger):
     """Test full workflow from processing to file writing"""
     # Setup
     report_path = tmp_path / "test_target" / "PF07728_report.json"
@@ -594,8 +610,8 @@ def test_process_and_write_integration(tmp_path, mock_report_data, logger):
         json.dump(mock_report_data, f)
 
     # Process
-    transformed = process_sequence_report(str(report_path), logger)
-    write_range_views(transformed, str(tmp_path), logger)
+    transformed = process_sequence_report(str(report_path), logger, multi_logger)
+    write_range_views(transformed, str(tmp_path), logger, multi_logger)
 
     # Verify
     output_file = tmp_path / "sp|Q9NU22|MDN1_HUMAN" / "PF07728_ranges.json"
@@ -619,7 +635,7 @@ def test_process_and_write_integration(tmp_path, mock_report_data, logger):
 
 ###T main
 
-def test_main_workflow_integration(tmp_path, mock_report_data, logger):
+def test_main_workflow_integration(tmp_path, mock_report_data, logger, multi_logger):
     """Test entire workflow from processing to file writing"""
     # Setup directory structure
     sequence_dir = tmp_path / "sp|Q9NU22|MDN1_HUMAN"
@@ -629,8 +645,8 @@ def test_main_workflow_integration(tmp_path, mock_report_data, logger):
         json.dump(mock_report_data, f)
 
     # Run workflow
-    transformed = process_sequence_report(str(report_path), logger)
-    write_range_views(transformed, str(tmp_path), logger)
+    transformed = process_sequence_report(str(report_path), logger, multi_logger)
+    write_range_views(transformed, str(tmp_path), logger, multi_logger)
 
     # Verify output
     output_file = tmp_path / "sp|Q9NU22|MDN1_HUMAN" / "PF07728_ranges.json"
@@ -649,7 +665,7 @@ def test_main_workflow_integration(tmp_path, mock_report_data, logger):
     assert disulfid["essentials"]["type"] == "DISULFID"
     assert "333_DISULFID | Intrachain (with C-246); in linked form" in disulfid["essentials"]["count"]
 
-def test_end_to_end_workflow(tmp_path, mock_report_data, logger):
+def test_end_to_end_workflow(tmp_path, mock_report_data, logger, multi_logger):
     """Test the entire workflow with detailed logging verification"""
     # Setup
     output_dir = tmp_path / "output"
@@ -664,14 +680,14 @@ def test_end_to_end_workflow(tmp_path, mock_report_data, logger):
         json.dump(mock_report_data, f)
 
     # Process the report
-    transformed_data = process_sequence_report(str(report_path), logger)
+    transformed_data = process_sequence_report(str(report_path), logger, multi_logger)
 
     # Verify processing logs
     assert logger.info.call_args_list, "No logging calls were made"
     assert any("Starting to process report" in str(call) for call in logger.info.call_args_list)
 
     # Write the views
-    write_range_views(transformed_data, str(output_dir), logger)
+    write_range_views(transformed_data, str(output_dir), logger, multi_logger)
 
     # Check output file
     expected_file = output_dir / transformed_data["sequence_id"] / f"{list(transformed_data['domain'].keys())[0]}_ranges.json"

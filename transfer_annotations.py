@@ -66,8 +66,8 @@ import argparse
 import logging
 import traceback
 import copy
-import pandas as pd
 from typing import Any, Dict, Optional, Generator, Tuple, Callable
+import pandas as pd
 from utils import get_logger, get_multi_logger
 # from modules.decorators import measure_time_and_memory
 # from memory_profiler import profile
@@ -83,7 +83,7 @@ def parse_arguments():
         argparse.Namespace: Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(description=
-    'Generates a temporary multifasta for running hmmalign using a hits per domain JSON.')
+    "Generates a temporary multifasta for running hmmalign using a hits per domain JSON.")
     parser.add_argument("-iA", "--dom-align", required=True, type=str, help="Path to domain's hmmalign alignment")
     parser.add_argument("-r", "--resource-dir", required=True, type=str, help="Resource dir path")
     parser.add_argument("-d", "--domain-accession", help="Domain accession for scoped logging", required=True, type=str)
@@ -142,13 +142,14 @@ def iterate_aligned_sequences(
     """
     Yields index, current positions (source_pos, target_pos), and characters (source_char, target_char).
     Positions are incremented only when the respective character is alphabetic.
-    For sequence b (target), positions are None when encountering deletion relative to consensus ('-') or insertion gap markers ('.').
+    For target sequence, positions are None when encountering deletion relative to consensus ('-') or insertion gap markers ('.').
     """
     source_pos = None
     target_pos = None
     last_valid_target_pos = None
 
     for index, (source_char, target_char) in enumerate(zip(source_sequence, target_sequence)):
+        # Increment counters for any letter
         # Handle conservation or annotated sequence
         if source_char.isalpha():
             source_pos = source_start if source_pos is None else source_pos + 1
@@ -156,8 +157,7 @@ def iterate_aligned_sequences(
         if target_char.isalpha():
             target_pos = target_start if last_valid_target_pos is None else last_valid_target_pos + 1
             last_valid_target_pos = target_pos
-        # Deletion ("-") or Insertion (".") gap, don't increment position
-        else:
+        else: # Deletion ("-") or Insertion (".") gap - set None
             target_pos = None
 
         yield index, source_pos, target_pos, source_char, target_char
@@ -259,10 +259,11 @@ def find_and_map_annots(
     annotations: dict,
     good_eco_codes: list) -> dict:
     """
-    From the hmmalign alignment lines, finds target lines and stores data for them in target_info,
+    -> extract_target_info_from_hmmalign() = From the hmmalign alignment lines,
+    finds target lines and stores data for them in target_info,
     organized by target name and hit interval. Then, finds seed sequences in hmmalign alignment
-    for which we have annotations and calls map_and_filter_annot_pos to map positions
-    by iteratin on both target and seed sequences. Makes processed_annotations set
+    for which we have annotations and calls map_and_filter_annot_pos() to map positions
+    by iterating on both target and seed sequences. Makes processed_annotations set
     to keep track of visited positions across calls, where relevant, and sends it to map_and_filter_annot_pos.
 
     Args:
@@ -630,9 +631,9 @@ def populate_go_data_for_annotations(
         target_gos: Set of GO terms found for the target sequence
     """
     go_info_cache = {}
-    for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
-        interval_data = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]
-        for _, position_data in interval_data['annotations']['positions'].items():
+    for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
+        interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
+        for _, position_data in interval_data["annotations"]["positions"].items():
             for _, anno_data in position_data.items():
                 go_data_for_annotation = {}
                 for _, evidence_data in anno_data.get("evidence", {}).items():
@@ -710,14 +711,14 @@ def cleanup_improve_transfer_dict(
         pfam_data = transfer_dict[pfam_id]
         return {"domain": {pfam_id: pfam_data}}
 
-    mapping = pd.read_csv(pfam_interpro_map_filepath, sep='\t', header=0)
-    interpro_conv_id = mapping.loc[mapping['Pfam_ID'] == pfam_id, 'InterPro_ID'].values[0]
+    mapping = pd.read_csv(pfam_interpro_map_filepath, sep="\t", header=0)
+    interpro_conv_id = mapping.loc[mapping["Pfam_ID"] == pfam_id, "InterPro_ID"].values[0]
 
     # For each target in the dictionary, gather GO terms, get aligned sequences and fill conservation and GO data
-    for target_name in transfer_dict[pfam_id]['sequence_id']:
-        for interval_key in transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals']:
-            target_hit_start = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]['hit_start']
-            target_hit_end = transfer_dict[pfam_id]['sequence_id'][target_name]['hit_intervals'][interval_key]['hit_end']
+    for target_name in transfer_dict[pfam_id]["sequence_id"]:
+        for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
+            target_hit_start = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["hit_start"]
+            target_hit_end = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]["hit_end"]
             target_id = f"{target_name}target//{target_hit_start}-{target_hit_end}"
 
             if has_valid_conservations:
@@ -788,10 +789,10 @@ def convert_sets_and_tuples_to_lists(data):
     """
     if isinstance(data, dict):
         # Special handling for annotation_ranges structure
-        if 'positions' in data and 'ranges' in data:
+        if "positions" in data and "ranges" in data:
             return {
-                'positions': sorted(list(data['positions'])),
-                'ranges': [list(r) for r in data['ranges']]
+                "positions": sorted(list(data["positions"])),
+                "ranges": [list(r) for r in data["ranges"]]
             }
         return {k: convert_sets_and_tuples_to_lists(v) for k, v in data.items()}
     elif isinstance(data, tuple):
@@ -835,12 +836,12 @@ def write_reports(
         return
 
     # Get the pfam_id - either literal "pfam_id" or actual ID
-    pfam_id = next(iter(transfer_dict['domain'].keys()))
+    pfam_id = next(iter(transfer_dict["domain"].keys()))
     if transfer_dict["domain"][pfam_id] == {}:
         multi_logger("warning", "TRANSFER_ANNOTS --- WRITE_REPORT --- Transfer dictionary is empty - no value assigned to pfam_id %s - skipping report writing", pfam_id)
         return
 
-    sequence_data = transfer_dict['domain'][pfam_id]['sequence_id']
+    sequence_data = transfer_dict["domain"][pfam_id]["sequence_id"]
 
     # Write the entire transfer_dict to the pfam_id subdir
     pfam_dir = os.path.join(output_dir, pfam_id)
@@ -948,6 +949,7 @@ def map_and_filter_annot_pos(
             counter_annot_pos=counter_annot_pos,
             paired_annot_pos_str=paired_annot_pos_str,
             caller_target_pos_str=caller_target_pos_str,
+            processed_annotations=processed_annotations
         )
         return paired_tuple_res_hit_result_dict
     try:
@@ -977,7 +979,6 @@ def map_and_filter_annot_pos(
 
 def add_to_transfer_dict(
     hit: bool,
-    logger: logging.Logger,
     multi_logger: Callable,
     transfer_dict: dict,
     target_name: str,
@@ -1019,17 +1020,22 @@ def add_to_transfer_dict(
             annotations/continuous ranges
         }
     """
-    try:
-        additional_keys = {k: v for k, v in anno_total.items()
-                           if k not in ['type', 'description', 'count', 'evidence',
-                                         'target_position', 'annot_position', 'paired_target_position', 'annot_amino_acid', 'target_amino_acid', 'index_position']}
-    except AttributeError as ae:
-        multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError for Anno_Total %s", anno_total)
-        multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError: %s - target_name: %s, entry_mnemo_name: %s\n %s",
-                    ae, target_name, entry_mnemo_name, traceback.format_exc())
-        raise
+    def extract_additional_keys(anno_total: dict, multi_logger: Callable) -> dict:
+        try:
+            return {
+            k: v for k, v in anno_total.items()
+            if k not in ["type", "description", "count", "evidence",
+            "target_position", "annot_position", "paired_target_position",
+            "annot_amino_acid", "target_amino_acid", "index_position",
+            "gapped_paired", "insert_column_paired"]}
+        except AttributeError as ae:
+            multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError for Anno_Total %s", anno_total)
+            multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError: %s - target_name: %s, entry_mnemo_name: %s\n %s",
+                        ae, target_name, entry_mnemo_name, traceback.format_exc())
+            raise
 
-    paired_target_position_str = anno_total.get('paired_target_position', None)
+    additional_keys = extract_additional_keys(anno_total, multi_logger)
+    paired_target_position_str = anno_total.get("paired_target_position", "0")
 
     # Initialize transfer_dict structure if needed
     transfer_dict.setdefault("DOMAIN", {})
@@ -1047,8 +1053,8 @@ def add_to_transfer_dict(
             "length": len(target_sequence_continuous),
             "hit_start": target_hit_start,
             "hit_end": target_hit_end,
-            "annotations": {'positions': {}, 'indices': {'matches': set(), 'misses': set()}},
-            "conservations": {'positions': {}, 'indices': {'matches': set(), 'misses': set()}},
+            "annotations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
+            "conservations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
             "position_conversion": {
                 "target_to_aln": {},
                 "aln_to_target": {}
@@ -1071,16 +1077,8 @@ def add_to_transfer_dict(
     )
 
     # Process paired annotation if provided
-    if all(v is not None for v in [paired_position_res_hit, paired_anno_id, paired_anno_total, paired_target_position_str]):
-        try:
-            paired_additional_keys = {k: v for k, v in paired_anno_total.items()
-                                    if k not in ['type', 'description', 'count', 'evidence',
-                                                 'target_position', 'annot_position', 'paired_target_position', 'annot_amino_acid', 'target_amino_acid', 'index_position']}
-        except AttributeError as ae:
-            multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError for Anno_Total %s", paired_anno_total)
-            multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError: %s - target_name: %s, entry_mnemo_name: %s\n %s",
-                        ae, target_name, entry_mnemo_name, traceback.format_exc())
-            raise
+    if all(v is not None for v in [paired_anno_id, paired_anno_total]) and paired_target_position_str.isdigit():
+        paired_additional_keys = extract_additional_keys(paired_anno_total, multi_logger)
 
         _add_single_annotation(
             hit=paired_position_res_hit,
@@ -1112,48 +1110,48 @@ def _add_single_annotation(
     """
     ranges_dict_key = "annotation_ranges"
     # Extract positions in target and annotated numbering - for early pair data
-    target_position_str = anno_total.get('target_position', None)
-    annot_position_str = anno_total.get('annot_position', None)
-    index_position_str = anno_total.get('index_position', None)
-    paired_target_position_str = anno_total.get('paired_target_position', None)
+    target_position_str = anno_total.get("target_position", None)
+    annot_position_str = anno_total.get("annot_position", None)
+    index_position_str = anno_total.get("index_position", None)
+    paired_target_position_str = anno_total.get("paired_target_position", None)
 
     # Information to use in basic populating
-    evidence_value = anno_total.get('evidence', None)
-    type_value = anno_total.get('type', None)
-    description_value = anno_total.get('description', None)
-    count_value = anno_total.get('count', None)
-    annot_amino_value = anno_total.get('annot_amino_acid', None)
-    target_amino_value = anno_total.get('target_amino_acid', None)
+    evidence_value = anno_total.get("evidence", None)
+    type_value = anno_total.get("type", None)
+    description_value = anno_total.get("description", None)
+    count_value = anno_total.get("count", None)
+    annot_amino_value = anno_total.get("annot_amino_acid", None)
+    target_amino_value = anno_total.get("target_amino_acid", None)
 
     interval_dict = transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval_key]
 
     # Initial setup for target position, including all references to it (annotations-positions,
     # annotations-indices-index_type, position_conversion-target_to_aln, position_conversion-aln_to_target)
-    if target_position_str not in interval_dict['annotations']['positions']:
-        interval_dict['annotations']['positions'][target_position_str] = {}
-        index_type = 'matches' if hit else 'misses'
-        interval_dict['annotations']['indices'][index_type].add(target_position_str)
-        interval_dict['position_conversion']['target_to_aln'][target_position_str] = index_position_str
-        if index_position_str not in interval_dict['position_conversion']['aln_to_target']:
-            interval_dict['position_conversion']['aln_to_target'][index_position_str] = target_position_str
+    if target_position_str not in interval_dict["annotations"]["positions"]:
+        interval_dict["annotations"]["positions"][target_position_str] = {}
+        index_type = "matches" if hit else "misses"
+        interval_dict["annotations"]["indices"][index_type].add(target_position_str)
+        interval_dict["position_conversion"]["target_to_aln"][target_position_str] = index_position_str
+        if index_position_str not in interval_dict["position_conversion"]["aln_to_target"]:
+            interval_dict["position_conversion"]["aln_to_target"][index_position_str] = target_position_str
 
-    positions_dict = interval_dict['annotations']['positions'][target_position_str]
+    positions_dict = interval_dict["annotations"]["positions"][target_position_str]
 
     # Populate essentials under anno_id for the position
     if anno_id not in positions_dict:
         essentials = {
-            'type': type_value,
-            'description': description_value,
-            'count': count_value,
-            'annot_amino_acid': annot_amino_value,
-            'target_amino_acid': target_amino_value
+            "type": type_value,
+            "description": description_value,
+            "count": count_value,
+            "annot_amino_acid": annot_amino_value,
+            "target_amino_acid": target_amino_value
         }
         positions_dict[anno_id] = {}
-        positions_dict[anno_id].setdefault('essentials', essentials)
+        positions_dict[anno_id].setdefault("essentials", essentials)
     else:
-        positions_dict[anno_id]['essentials']['count'] += 1
+        positions_dict[anno_id]["essentials"]["count"] += 1
 
-    positions_dict[anno_id].setdefault('hit', hit)
+    positions_dict[anno_id].setdefault("hit", hit)
 
     update_position_ranges(
         interval_dict=interval_dict,
@@ -1163,49 +1161,55 @@ def _add_single_annotation(
         )
 
     if evidence_value:
-        if 'evidence' not in positions_dict[anno_id]:
-            positions_dict[anno_id].setdefault('evidence', {})
-        if evidence_value not in positions_dict[anno_id]['evidence']:
-            positions_dict[anno_id]['evidence'][evidence_value] = {
+        if "evidence" not in positions_dict[anno_id]:
+            positions_dict[anno_id].setdefault("evidence", {})
+        if evidence_value not in positions_dict[anno_id]["evidence"]:
+            positions_dict[anno_id]["evidence"][evidence_value] = {
                 "rep_primary_accession": entry_primary_accession,
                 "rep_mnemo_name": entry_mnemo_name,
                 "count": 1
             }
         else:
-            positions_dict[anno_id]['evidence'][evidence_value]["count"] += 1
+            positions_dict[anno_id]["evidence"][evidence_value]["count"] += 1
 
-    if paired_target_position_str:
-        if 'paired_position' not in positions_dict[anno_id]:
-            positions_dict[anno_id].setdefault('paired_position', {})
-        if paired_target_position_str not in positions_dict[anno_id]['paired_position']:
-            positions_dict[anno_id]['paired_position'][paired_target_position_str] = {
+    if "paired_target_position" in anno_total:
+        if "paired_position" not in positions_dict[anno_id]:
+            positions_dict[anno_id].setdefault("paired_position", {})
+        if paired_target_position_str not in positions_dict[anno_id]["paired_position"]:
+            pair_info = {
                 "rep_primary_accession": entry_primary_accession,
                 "rep_mnemo_name": entry_mnemo_name,
                 "count": 1
             }
+            # Only add gap status if this is the second member and first had a gap
+            if anno_total.get("gapped_paired", False):
+                pair_info["gapped_target"] = True
+            elif anno_total.get("insert_column_paired", False):
+                pair_info["insert_column"] = True
+            positions_dict[anno_id]["paired_position"][paired_target_position_str] = pair_info
         else:
-            positions_dict[anno_id]['paired_position'][paired_target_position_str]["count"] += 1
+            positions_dict[anno_id]["paired_position"][paired_target_position_str]["count"] += 1
 
     # Helps analyze annotations that, in their description,
     # relate positions in annotated sequence uniprot numbering.
-    # Note that those with sequence ranges are a bit tricky yet, but I'll leave it as is for now
-    if type_value in ['CROSSLNK', 'DISULFID', 'MUTAGEN'] and description_value and re.search(r'\b[A-Z]-\d+', description_value):
-        additional_keys['annot_position'] = annot_position_str
+    # Note that those with sequence ranges are a bit tricky yet, but I"ll leave it as is for now
+    if type_value in ["CROSSLNK", "DISULFID", "MUTAGEN"] and description_value and re.search(r"\b[A-Z]-\d+", description_value):
+        additional_keys["annot_position"] = annot_position_str
 
-    if additional_keys and type_value in ['BINDING', 'ACT_SITE', 'CROSSLNK', 'DISULFID', 'MUTAGEN']:
-        if 'additional_keys' not in positions_dict[anno_id]:
-            positions_dict[anno_id].setdefault('additional_keys', {})
+    if additional_keys and type_value in ["BINDING", "ACT_SITE", "CROSSLNK", "DISULFID", "MUTAGEN"]:
+        if "additional_keys" not in positions_dict[anno_id]:
+            positions_dict[anno_id].setdefault("additional_keys", {})
         for key, value in additional_keys.items():
-            if key not in positions_dict[anno_id]['additional_keys']:
-                positions_dict[anno_id]['additional_keys'][key] = {}
-            if value not in positions_dict[anno_id]['additional_keys'][key]:
-                positions_dict[anno_id]['additional_keys'][key][value] = {
+            if key not in positions_dict[anno_id]["additional_keys"]:
+                positions_dict[anno_id]["additional_keys"][key] = {}
+            if value not in positions_dict[anno_id]["additional_keys"][key]:
+                positions_dict[anno_id]["additional_keys"][key][value] = {
                     "rep_primary_accession": entry_primary_accession,
                     "rep_mnemo_name": entry_mnemo_name,
                     "count": 1
                 }
             else:
-                positions_dict[anno_id]['additional_keys'][key][value]["count"] += 1
+                positions_dict[anno_id]["additional_keys"][key][value]["count"] += 1
 
 def update_position_ranges(interval_dict: dict, target_position_str: str, ranges_dict_key: str = "annotation_ranges", range_id: str = "") -> None:
     """Generic function for maintaining continuous position ranges.
@@ -1317,13 +1321,13 @@ def make_anno_total_dict(
     logger.debug(f"TRANSFER_ANNOTS --- MAKE_ANNO --- Entry Annotations List: {entry_annotations.get(counter_annot_pos_str)}")
     logger.debug(f"TRANSFER_ANNOTS --- MAKE_ANNO --- Good ECO codes : {good_eco_codes}")
 
-    paired_annot_pos_str = annotation.get('paired_position', None)
-    anno_type = annotation['type']
-    anno_desc = annotation.get('description', None)
+    paired_annot_pos_str = annotation.get("paired_position", None)
+    anno_type = annotation["type"]
+    anno_desc = annotation.get("description", None)
     anno_id = f"{anno_type} | {anno_desc}"
     anno_count = 1
-    anno_evidence = {entry_mnemo_name: annotation.get('evidence', None)}
-    annot_amino_acid = annotation.get('aminoacid', None)
+    anno_evidence = {entry_mnemo_name: annotation.get("evidence", None)}
+    annot_amino_acid = annotation.get("aminoacid", None)
 
     if anno_evidence[entry_mnemo_name] and good_eco_codes:
         if isinstance(anno_evidence[entry_mnemo_name], list):
@@ -1351,11 +1355,11 @@ def make_anno_total_dict(
             "target_amino_acid": target_amino
         }
         if paired_annot_pos_str and caller_target_pos_str:
-            anno_total['paired_target_position'] = caller_target_pos_str
+            anno_total["paired_target_position"] = caller_target_pos_str
         # Changed to include ACT_SITE, because of ligand_ccd_id in BioLiP sourced annotations
-        if anno_type in ['BINDING', 'ACT_SITE']:
-            keys_to_exclude = {'type', 'description', 'count', 'evidence',
-                               'paired_position', 'aminoacid', 'entry'}
+        if anno_type in ["BINDING", "ACT_SITE"]:
+            keys_to_exclude = {"type", "description", "count", "evidence",
+                               "paired_position", "aminoacid", "entry"}
             for key, value in annotation.items():
                 if key not in keys_to_exclude:
                     anno_total[key] = value
@@ -1394,11 +1398,11 @@ def process_annotation(
     annotation_key: tuple
 ) -> None:
     """
-    Directs annotations to preview if we should add them to transfer_dict by calling make_anno_total_dict
-    returning anno_total containing type, description, count, evidence,
-    target/annot/index positions and target/annot amino acids data.
-    Additionally, make_anno also adds paired position if the other member also hits (successfull map_and_filter_annot_pos for it).
-    May also add additional keys for special annotation types/cases in add_to_transfer_dict and helpers.
+    Directs annotations to preview if we should add them to transfer_dict by calling make_anno_total_dict()
+    returning anno_total containing type, description, count, evidence, target/annot/index positions
+    and target/annot amino acids data. If so, call add_to_transfer_dict().
+    We may also add paired position information in much the same way, if it hits
+    (map_and_filter_annot_pos() attempts to validate_paired_positions()).
 
     Args:
         logger: Process logging handler
@@ -1425,19 +1429,19 @@ def process_annotation(
         logger=logger, # Delete in production
         entry_annotations=entry_annotations
     )
-    annotation = result_dict['annotation']
-    anno_type = result_dict['anno_type']
-    anno_id = result_dict['anno_id']
-    anno_total = result_dict['anno_total']
-    paired_annot_pos_str = result_dict['paired_annot_pos_str']
+    annotation = result_dict["annotation"]
+    anno_type = result_dict["anno_type"]
+    anno_id = result_dict["anno_id"]
+    anno_total = result_dict["anno_total"]
+    paired_annot_pos_str = result_dict["paired_annot_pos_str"]
 
     if anno_total:
-        entry_primary_accession = annotation.get('entry', None)
+        entry_primary_accession = annotation.get("entry", None)
         target_sequence_continuous = ''.join([char.upper() for char in target_sequence if char.isalpha()])
-        if anno_type in ['DISULFID', 'CROSSLNK', 'SITE', 'BINDING'] and paired_annot_pos_str is not None:
+        if anno_type in ["DISULFID", "CROSSLNK", "SITE", "BINDING"] and paired_annot_pos_str is not None:
             paired_annotations = entry_annotations.get(paired_annot_pos_str, [])
             paired_annotation_dict = next(
-                (annotation for annotation in paired_annotations if annotation['type'] == anno_type), None
+                (annotation for annotation in paired_annotations if annotation["type"] == anno_type), None
             )
             if paired_annotation_dict:
                 paired_position_res_hit, paired_result_dict = map_and_filter_annot_pos(
@@ -1454,19 +1458,41 @@ def process_annotation(
                     entry_mnemo_name=entry_mnemo_name,
                     entry_annotations=entry_annotations,
                     transfer_dict=transfer_dict,
+                    processed_annotations=processed_annotations,
                     paired_annot_pos_str=paired_annot_pos_str,
                     caller_target_pos_str=counter_target_pos_str,
                     paired_annotation_dict=paired_annotation_dict
                 )
-                paired_anno_total = paired_result_dict['anno_total']
-                paired_anno_id = paired_result_dict['anno_id']
-                paired_target_position_str = paired_anno_total['target_position']
+                if paired_result_dict.get("gapped_paired", False):
+                    # Gapped paired position, will only add caller position
+                    # in add_to_transfer_dict(), mentioning the missing paired
+                    anno_total["gapped_paired"] = True
+                    anno_total["insert_column_paired"] = False
+                    paired_anno_total = None
+                    paired_anno_id = None
+                    paired_target_position_str = "0"
+                elif paired_result_dict.get("insert_column_paired", False):
+                    # Insert column in paired position, will only add caller position
+                    # in add_to_transfer_dict(), mentioning the missing paired
+                    anno_total["insert_column_paired"] = True
+                    anno_total["gapped_paired"] = False
+                    paired_anno_total = None
+                    paired_anno_id = None
+                    paired_target_position_str = "0"
+                else:
+                    anno_total["gapped_paired"] = False
+                    anno_total["insert_column_paired"] = False
+                    paired_anno_total = paired_result_dict.get("anno_total", None)
+                    paired_target_position_str = paired_anno_total.get("target_position", "0")
+                    paired_anno_id = paired_result_dict["anno_id"]
             else:
+                anno_total["gapped_paired"] = False
+                anno_total["insert_column_paired"] = False
                 paired_position_res_hit = False
                 paired_anno_total = None
                 paired_anno_id = None
-                paired_target_position_str = None
-            anno_total['paired_target_position'] = paired_target_position_str
+                paired_target_position_str = "0"
+            anno_total["paired_target_position"] = paired_target_position_str
             logger.debug(
                 f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- Paired Position Valid (Present in Entry Annotations) with "
                 f"target---caller_pos-hit_status-paired_pos-hit_status {target_name}---{counter_target_pos_str}-{res_hit}-"
@@ -1476,7 +1502,6 @@ def process_annotation(
             try:
                 add_to_transfer_dict(
                     hit=res_hit,
-                    logger=logger,
                     multi_logger=multi_logger,
                     transfer_dict=transfer_dict,
                     target_name=target_name,
@@ -1492,22 +1517,50 @@ def process_annotation(
                     paired_anno_total=paired_anno_total,
                 )
                 processed_annotations.add(annotation_key)
-                if paired_target_position_str:
+                if anno_total["gapped_paired"]:
                     paired_annotation_key = (
                         entry_mnemo_name,
                         target_name,
                         paired_annot_pos_str,
                         paired_target_position_str,
-                        anno_type
+                        anno_type,
+                        "gapped_target_position"
                     )
-                    processed_annotations.add(paired_annotation_key)
-                logger.debug(
+                elif anno_total["insert_column_paired"]:
+                    paired_annotation_key = (
+                        entry_mnemo_name,
+                        target_name,
+                        paired_annot_pos_str,
+                        paired_target_position_str,
+                        anno_type,
+                        "insert_column"
+                    )
+                else:
+                    paired_annotation_key = (
+                        entry_mnemo_name,
+                        target_name,
+                        paired_annot_pos_str,
+                        paired_target_position_str,
+                        anno_type,
+                        "match_column"
+                    )
+                processed_annotations.add(paired_annotation_key)
+                log_base = (
                     f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- SUCCESS - ROUTE: Paired - "
                     f"Added to transfer_dict for target {target_name} and "
-                    f"annotated {entry_mnemo_name} at target_caller-paired {counter_target_pos_str}-{paired_target_position_str} and "
-                    f"annotated_caller-paired {counter_annot_pos_str}-{paired_anno_total.get("annot_position", None)} "
-                    f"--- ORIGIN: Type {anno_type} and Evidence {anno_total['evidence']}"
+                    f"annotated {entry_mnemo_name} at target_caller {counter_target_pos_str}"
                 )
+                if paired_anno_total:
+                    logger.debug(
+                        f"{log_base} with paired {paired_target_position_str} --- "
+                        f"Caller-paired positions: {counter_annot_pos_str}-{paired_anno_total["annot_position"]} --- "
+                        f"ORIGIN: Type {anno_type} and Evidence {anno_total["evidence"]}"
+                    )
+                else:
+                    logger.debug(
+                        f"{log_base} --- No valid paired annotation found at position {paired_annot_pos_str} --- "
+                        f"ORIGIN: Type {anno_type} and Evidence {anno_total["evidence"]}"
+                    )
             except Exception as e:
                 multi_logger("error",
                 "TRANSFER_ANNOTS --- PROCESS_ANNOT --- FAILURE - ROUTE: Paired - Error in add_to_transfer_dict: %s", e)
@@ -1516,7 +1569,6 @@ def process_annotation(
         else:
             add_to_transfer_dict(
                 hit=res_hit,
-                logger=logger,
                 multi_logger=multi_logger,
                 transfer_dict=transfer_dict,
                 target_name=target_name,
@@ -1534,7 +1586,7 @@ def process_annotation(
                 f"Added to transfer_dict for target {target_name} and "
                 f"annotated {entry_mnemo_name} at target {counter_target_pos_str} and "
                 f"annotated {counter_annot_pos_str} --- ORIGIN: Type {anno_type} and "
-                f"Evidence {anno_total['evidence']}"
+                f"Evidence {anno_total["evidence"]}"
             )
     else:
         logger.debug(
@@ -1564,12 +1616,16 @@ def validate_paired_annotations(
     counter_annot_pos: Optional[None],
     paired_annot_pos_str: str,
     caller_target_pos_str: str,
-) -> tuple[bool, dict | None]:
+    processed_annotations: set
+) -> tuple[bool, dict]:
     """
     Validates the 2nd member of a paired position by checking
     if the target paired annot position from caller is a valid match.
     Success and failure both mean adding the annotation to the transfer dictionary
     in the process_annotation parent function, difference lies in where (match | miss).
+    The caller_target_pos_str is the first member of the pair in the target sequence,
+    and, if it was a gap, the paired result dict will have a key "gapped_paired" set to True,
+    used in adding to transfer_dict to track this failure.
 
     Args:
         logger: Process logging handler
@@ -1580,19 +1636,49 @@ def validate_paired_annotations(
         paired_*: Paired position info (annotation dict, position str)
         entry_annotations: Position-based annotation dictionary
         counter_*: Current positions in sequences
-        caller_target_pos_str: First position of pair in target
+        caller_target_pos_str: ideally first position (or second if the former was a gap in target_sequence) of pair in target_sequence
+        processed_annotations: Set of handled annotations
 
     Returns:
-        tuple: (match_status, annotation_dict | None)
+        tuple: (match_status, paired_result_dict)
     """
+    earlier_annotation_key_gapped = (
+        entry_mnemo_name,
+        target_name,
+        paired_annot_pos_str,
+        "0",
+        paired_annotation_dict["type"],
+        "gapped_target_position"
+    )
+
+    earlier_annotation_key_insert = (
+        entry_mnemo_name,
+        target_name,
+        paired_annot_pos_str,
+        "0",
+        paired_annotation_dict["type"],
+        "insert_column"
+    )
+
+    has_gap_in_first_pos = earlier_annotation_key_gapped in processed_annotations
+    first_pos_in_insert_col = earlier_annotation_key_insert in processed_annotations
+    paired_result_dict = {"gapped_paired": has_gap_in_first_pos, "insert_column_paired": first_pos_in_insert_col}
     paired_position_res_hit = False
-    paired_result_dict = {}
+
+    # Paired pos. came earlier than caller, and paired was a gap in target_sequence
+    # or located in an insert column - Sent to processed_annotations(),
+    # and previously flagged in validate_annotations()
+    if has_gap_in_first_pos or first_pos_in_insert_col:
+        return paired_position_res_hit, paired_result_dict
+
     paired_annot_pos_int = int(paired_annot_pos_str)
 
     logger.debug(
-        f"TRANSFER_ANNOTS --- VAL_PAIRED --- Running for target {target_name}/{target_hit_start}-{target_hit_end}"
+        f"TRANSFER_ANNOTS --- VAL_PAIRED --- Running for target "
+        f"{target_name}/{target_hit_start}-{target_hit_end}"
         f"and annotated {entry_mnemo_name}/{offset_start}-{offset_end} -"
-        f"Target: Caller Position {caller_target_pos_str} and Paired Position {paired_annot_pos_str}"
+        f"Target Caller Position {caller_target_pos_str}"
+        f"and Paired Annot Position {paired_annot_pos_str}"
     )
 
     for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
@@ -1603,10 +1689,21 @@ def validate_paired_annotations(
         source_end=offset_end,
         target_end=target_hit_end
         ):
-        if counter_annot_pos is None or counter_target_pos is None:
+        if counter_annot_pos is None:
             continue
 
         if counter_annot_pos == paired_annot_pos_int:
+            if char_annot.islower() or char_target.islower() or char_target == ".":
+                paired_result_dict["insert_column_paired"] = True
+                # I think we oughta add a paired_annotation_key inside of process_annotation(),
+                # after the respective call to add_to_transfer_dict() containing the pair.
+                return paired_position_res_hit, paired_result_dict
+
+        if counter_annot_pos == paired_annot_pos_int and counter_target_pos is None:
+            paired_result_dict["gapped_paired"] = True
+            return paired_position_res_hit, paired_result_dict
+
+        if counter_annot_pos == paired_annot_pos_int and counter_target_pos is not None:
             counter_target_pos_str = str(counter_target_pos)
 
             # DEBUGGING INFO
@@ -1621,7 +1718,7 @@ def validate_paired_annotations(
             paired_target_amino = target_sequence[index]
             paired_position_res_hit = bool(char_target == char_annot)
 
-            paired_result_dict = make_anno_total_dict(
+            paired_result_dict.update(make_anno_total_dict(
                 good_eco_codes=good_eco_codes,
                 entry_mnemo_name=entry_mnemo_name,
                 annotation_dict=paired_annotation_dict,
@@ -1632,7 +1729,7 @@ def validate_paired_annotations(
                 logger=logger, # Delete in production
                 entry_annotations=entry_annotations,
                 caller_target_pos_str=caller_target_pos_str,
-            )
+            ))
 
             return paired_position_res_hit, paired_result_dict
 
@@ -1676,10 +1773,11 @@ def validate_annotations(
         processed_annotations: Set of already handled annotations
         counter_*: Current position counters (target/annot)
     """
-    annotated_annot_pos_list = [int(key) for key in entry_annotations.keys() if key != '0']
+    annotated_annot_pos_list = [int(key) for key in entry_annotations.keys() if key != "0"]
     if not any(pos in range(offset_start, offset_end + 1) for pos in annotated_annot_pos_list):
         logger.debug(f"TRANSFER_ANNOTS --- VAL_ANNOTS --- No annotations found for target {target_name} and annotated {entry_mnemo_name} in offset range {offset_start}-{offset_end}")
         return
+    failure_target_pos = "0"
 
     for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
         source_sequence=annot_sequence,
@@ -1689,9 +1787,43 @@ def validate_annotations(
         source_end=offset_end,
         target_end=target_hit_end):
 
-        if counter_annot_pos is None or counter_target_pos is None:
+        if counter_annot_pos is None:
             continue
+
         counter_annot_pos_str = str(counter_annot_pos)
+
+        if char_annot.islower() or char_target.islower() or char_target == ".":
+            if counter_annot_pos_str in entry_annotations:
+                for annotation_dict in entry_annotations[counter_annot_pos_str]:
+                    anno_type = annotation_dict.get("type", None)
+                    paired_annot_pos_str = annotation_dict.get("paired_position", None)
+                    if anno_type in ["DISULFID", "CROSSLNK", "SITE", "BINDING"] and paired_annot_pos_str is not None:
+                        insert_col_annotation_key = (
+                            entry_mnemo_name,
+                            target_name,
+                            counter_annot_pos_str,
+                            failure_target_pos,
+                            anno_type,
+                            "insert_column"  # Field to track insert col. failures
+                        )
+                        processed_annotations.add(insert_col_annotation_key)
+                continue
+
+        if counter_annot_pos_str in entry_annotations and counter_target_pos is None:
+            for annotation_dict in entry_annotations[counter_annot_pos_str]:
+                anno_type = annotation_dict.get("type", None)
+                paired_annot_pos_str = annotation_dict.get("paired_position", None)
+                if anno_type in ["DISULFID", "CROSSLNK", "SITE", "BINDING"] and paired_annot_pos_str is not None:
+                    gapped_annotation_key = (
+                        entry_mnemo_name,
+                        target_name,
+                        counter_annot_pos_str,
+                        failure_target_pos,
+                        anno_type,
+                        "gapped_target_position" # Field to track gapped target failures
+                    )
+                    processed_annotations.add(gapped_annotation_key)
+            continue
 
         if counter_annot_pos_str in entry_annotations:
             counter_target_pos_str = str(counter_target_pos)
@@ -1708,15 +1840,16 @@ def validate_annotations(
             target_amino = target_sequence[index]
             res_hit = bool(char_target == char_annot)
             for annotation_dict in entry_annotations[counter_annot_pos_str]:
-                anno_type = annotation_dict.get('type', None)
-                annotation_key = (
+                anno_type = annotation_dict.get("type", None)
+                match_annotation_key = (
                     entry_mnemo_name,
                     target_name,
                     counter_annot_pos_str,
                     counter_target_pos_str,
-                    anno_type
+                    anno_type,
+                    "match_column" # Field to track match successes
                 )
-                if annotation_key in processed_annotations:
+                if match_annotation_key in processed_annotations:
                     continue
                 try:
                     process_annotation(
@@ -1740,7 +1873,7 @@ def validate_annotations(
                         index=index,
                         target_amino=target_amino,
                         processed_annotations=processed_annotations,
-                        annotation_key=annotation_key
+                        annotation_key=match_annotation_key
                     )
                 except Exception as e:
                     multi_logger("error", "TRANSFER_ANNOTS --- VAL_ANNOTS --- Downstream error in process_annotation: %s", e)
@@ -1773,7 +1906,7 @@ def main():
             transfer_dict = setup_for_conservations_only(domain_logger, multi_logger, hmmalign_lines, pfam_id)
         else:
             # ANNOTATIONS + CONSERVATIONS PATH
-            domain_logger.debug("TRANSFER_ANNOTS --- MAIN --- Good ECO Codes to Filter by %s", good_eco_codes)
+            domain_logger.debug("TRANSFER_ANNOTS --- MAIN --- Anno. + Cons. mode - Good ECO Codes to Filter by %s", good_eco_codes)
             transfer_dict = find_and_map_annots(domain_logger, multi_logger, hmmalign_lines, annotations, good_eco_codes)
         if not transfer_dict:
             domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Transfer Dict was EMPTY")
@@ -1791,5 +1924,5 @@ def main():
         )
     write_reports(domain_logger, multi_logger, improved_transfer_dict, output_dir)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

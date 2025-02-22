@@ -115,9 +115,6 @@ def get_multi_logger(loggers: List[logging.Logger]) -> Callable[[LogLevel, str, 
             getattr(logger, level)(message, *args)
     return log
 
-T = TypeVar('T')
-R = TypeVar('R')
-
 def get_querynames(fasta: str) -> List[str]:
     """Parses a FASTA file and returns a list of sequence "query names"."""
     sequences = []
@@ -162,6 +159,9 @@ def seqrecord_yielder(fasta: str, is_nucleotide: bool = False, logger: logging.L
             yield translate_sequence(record, logger)
         else:
             yield record
+
+T = TypeVar('T')
+R = TypeVar('R')
 
 def parallelize(func: Callable[[T], R], inputs: List[T], num_workers: int | None = None) -> List[R]:
     """

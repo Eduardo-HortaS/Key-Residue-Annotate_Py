@@ -56,6 +56,10 @@ def track_position_data(target: Dict, key: str, pos_str: str, value: Dict, track
 
 def merge_nested_data(source: Dict, target: Dict, pos_str: str, range_id: str) -> None:
     """Recursively merge nested dictionaries at range_id, tracking counts and hits per position."""
+    if "hit" in source:
+        if "hit" not in target:
+            target["hit"] = source["hit"]
+
     for key, value in source.items():
         if isinstance(value, dict):
             if key not in target:
@@ -125,6 +129,9 @@ def transform_to_ranges(interval_dict: Dict, multi_logger: Callable) -> Dict:
     """Transform position-based data to range-based format."""
     range_based = defaultdict(lambda: defaultdict(dict))
 
+    if not interval_dict:
+        return {}
+
     for data_type, ranges_field in [
         ("annotations", "annotation_ranges"),
         ("conservations", "conservation_ranges")
@@ -193,7 +200,7 @@ def process_sequence_report(report_path: str, logger: logging.Logger, multi_logg
 
     return transformed
 
-def write_range_views(transformed_data: Dict, output_dir: str, logger: logging.Logger) -> None:
+def write_range_views(transformed_data: Dict, output_dir: str, logger: logging.Logger, multi_logger: Callable) -> None:
     """Write range-based views to files."""
     clean_sequence_id = transformed_data["sequence_id"].replace("|", "-")
     try:
@@ -211,7 +218,7 @@ def write_range_views(transformed_data: Dict, output_dir: str, logger: logging.L
             logger.info("MAKE VIEW - Successfully wrote range view for %s - %s", clean_sequence_id, domain_id)
 
     except (PermissionError, OSError) as e:
-        logger.error("MAKE VIEW - Failed to write range view for %s: %s", clean_sequence_id, e)
+        multi_logger("error", "MAKE VIEW - Failed to write range view for %s: %s", clean_sequence_id, e)
         raise
 
 def main():
@@ -220,16 +227,15 @@ def main():
     main_logger, _ = get_logger(args.log, scope="main")
     sequence_logger, _ = get_logger(args.log, scope="sequence", identifier=args.sequence)
     output_dir = args.output_dir
-    sequence_dir = os.path.join(output_dir, args.sequence)
     sequence_logger.info("MAKE VIEW - Starting to process sequence reports in %s", output_dir)
 
     log_to_both = get_multi_logger([main_logger, sequence_logger])
 
-    for file in os.scandir(sequence_dir):
+    for file in os.scandir(output_dir):
         if file.name.endswith('_report.json'):
             try:
                 transformed_data = process_sequence_report(file.path, sequence_logger, log_to_both)
-                write_range_views(transformed_data, output_dir, sequence_logger)
+                write_range_views(transformed_data, output_dir, sequence_logger, log_to_both)
             except (IOError, json.JSONDecodeError) as e:
                 log_to_both("error", "Error processing %s: %s", file.path, str(e))
                 continue
