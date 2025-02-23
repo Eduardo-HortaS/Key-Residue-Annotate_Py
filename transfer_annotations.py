@@ -576,8 +576,6 @@ def populate_conservation(
             counter_target_pos_str = str(counter_target_pos)
             index_str = str(index)
 
-            # Get conserved aa and conservation score from new conservations structure,
-            # Allowing conserved positions other than matching the reference sequence
             conserved_data = conservations[conservation_key][counter_cons_pos_str]
             conserved_amino = conserved_data["amino_acid"]
             score_data = conserved_data["conservation"]
@@ -1060,7 +1058,7 @@ def add_to_transfer_dict(
                 "aln_to_target": {}
             },
             "annotation_ranges": {},
-            "conservation_ranges": {} # New field for tracking conservation ranges
+            "conservation_ranges": {}
         }
 
     # Process main annotation
@@ -1181,7 +1179,7 @@ def _add_single_annotation(
                 "rep_mnemo_name": entry_mnemo_name,
                 "count": 1
             }
-            # Only add gap status if this is the second member and first had a gap
+            # Possibly add gap or insert status to paired position
             if anno_total.get("gapped_paired", False):
                 pair_info["gapped_target"] = True
             elif anno_total.get("insert_column_paired", False):
@@ -1286,7 +1284,7 @@ def make_anno_total_dict(
     counter_annot_pos_str: str,
     index: int,
     target_amino: str,
-    logger: Optional[logging.Logger] = None, # Delete in production
+    logger: Optional[logging.Logger] = None, # DEBUGGING, delete in production
     entry_annotations: Optional[Dict[str, Any]] = None,
     caller_target_pos_str: Optional[str] = None) -> Dict[str, Any]:
     """
@@ -1695,8 +1693,6 @@ def validate_paired_annotations(
         if counter_annot_pos == paired_annot_pos_int:
             if char_annot.islower() or char_target.islower() or char_target == ".":
                 paired_result_dict["insert_column_paired"] = True
-                # I think we oughta add a paired_annotation_key inside of process_annotation(),
-                # after the respective call to add_to_transfer_dict() containing the pair.
                 return paired_position_res_hit, paired_result_dict
 
         if counter_annot_pos == paired_annot_pos_int and counter_target_pos is None:

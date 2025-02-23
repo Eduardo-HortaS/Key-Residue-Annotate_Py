@@ -538,7 +538,7 @@ def main():
                 make_view_jsons_tasks.append([
                     python_executable,
                     "make_view_jsons.py",
-                    "-o", subdir_path,
+                    "-sD", subdir_path,
                     "-s", subdir,
                     "-l", timestamped_log
                 ])

@@ -33,6 +33,7 @@ Output: Range-based JSON views for Nightingale visualization
 
 
 import os
+import sys
 import json
 import logging
 import argparse
@@ -43,16 +44,17 @@ from utils import convert_lists_to_original_types, convert_sets_and_tuples_to_li
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Transform position-based annotations into range-based views")
-    parser.add_argument("-o", "--output-dir", help="Path to output directory where sequence subdirs are", required=True)
+    parser.add_argument("-sD", "--sequence-dir", help="Path to sequence directory with report.jsons", required=True)
     parser.add_argument("-s", "--sequence", help="Sequence to process", required=True)
     parser.add_argument("-l", "--log", help="Log file path", default="logs/make_views_jsons.log")
     return parser.parse_args()
 
-def track_position_data(target: Dict, key: str, pos_str: str, value: Dict, track_key: str) -> None:
+def track_position_data(target: Dict, key: str, pos_str: str, value: Dict, track_key: str, range_id: str = None) -> None:
     """Helper to track per-position data like counts and hits."""
     if track_key not in target[key]:
         target[key][track_key] = {}
-    target[key][track_key][pos_str] = value[track_key]
+    position_key = f"{pos_str}_{range_id}" if range_id else pos_str
+    target[key][track_key][position_key] = value[track_key]
 
 def merge_nested_data(source: Dict, target: Dict, pos_str: str, range_id: str) -> None:
     """Recursively merge nested dictionaries at range_id, tracking counts and hits per position."""
@@ -67,9 +69,9 @@ def merge_nested_data(source: Dict, target: Dict, pos_str: str, range_id: str) -
 
             # Track position-specific data
             if "count" in value:
-                track_position_data(target, key, pos_str, value, "count")
+                track_position_data(target, key, pos_str, value, "count", range_id)
             if "hit" in value:
-                track_position_data(target, key, pos_str, value, "hit")
+                track_position_data(target, key, pos_str, value, "hit", range_id)
 
             if key == "GO":
                 if pos_str not in target["GO"]:
@@ -168,10 +170,17 @@ def transform_to_ranges(interval_dict: Dict, multi_logger: Callable) -> Dict:
 
     return dict(range_based)
 
-def process_sequence_report(report_path: str, logger: logging.Logger, multi_logger: Callable) -> Dict:
-    """Process a single sequence report file."""
-    if logger:
-        logger.info("MAKE_VIEW - PROC_SEQ_REP - Starting to process report: %s", report_path)
+def process_sequence_report(report_path: str, sequence_id: str, logger: logging.Logger, multi_logger: Callable) -> Dict:
+    """Process the aggregated report file for a specific sequence.
+
+    Args:
+        report_path: Path to aggregated_report.json
+        sequence_id: ID of sequence to process from aggregated report
+        logger: Logger instance
+        multi_logger: Multi-logger callable
+    """
+    logger.info("MAKE_VIEW - PROC_SEQ_REP - Starting to process report: %s", report_path)
+
     try:
         with open(report_path, 'r', encoding='utf-8') as f:
             # Convert lists to original types for processing
@@ -180,35 +189,47 @@ def process_sequence_report(report_path: str, logger: logging.Logger, multi_logg
         multi_logger("error", "MAKE_VIEW - PROC_SEQ_REP - Failed to open report file %s: %s", report_path, e)
         raise
 
-    sequence_id = data["sequence_id"]
-    transformed = {"sequence_id": sequence_id, "domain": {}}
+    if not data:
+        multi_logger("warning", "MAKE_VIEW - PROC_SEQ_REP - Empty report for sequence %s - no domains were found", sequence_id)
+        return None
 
-    for domain_id, domain_data in data["domain"].items():
+    if sequence_id not in data:
+        multi_logger("error", "MAKE_VIEW - PROC_SEQ_REP - Sequence %s not found in report", sequence_id)
+        raise ValueError(f"Sequence {sequence_id} not found in aggregated report")
+
+    transformed = {
+        "sequence_id": sequence_id,
+        "domain": {}
+    }
+
+    sequence_data = data[sequence_id]
+    for domain_id, domain_data in sequence_data.items():
         transformed["domain"][domain_id] = {}
 
         for interval_key, interval_data in domain_data.get("hit_intervals", {}).items():
             transformed["domain"][domain_id][interval_key] = transform_to_ranges(interval_data, multi_logger)
-            if logger:
-                logger.info("MAKE_VIEW - PROC_SEQ_REP - Processed %s - %s - %s", sequence_id, domain_id, interval_key)
-                transformed_data = transformed["domain"][domain_id][interval_key]
-                transformed_data_to_list = convert_sets_and_tuples_to_lists(transformed_data)
-                # Convert defaultdict to dict for logging
-                transformed_data_dict = convert_defaultdict_to_dict(transformed_data_to_list)
-                # Log the transformed data as a JSON-formatted string
-                logger.info("MAKE_VIEW - PROC_SEQ_REP - Transformed data: %s", json.dumps(transformed_data_dict, indent=2))
-
+            logger.info(
+                "MAKE_VIEW - PROC_SEQ_REP - Processed %s - %s - %s",
+                sequence_id, domain_id, interval_key
+            )
+            transformed_data = transformed["domain"][domain_id][interval_key]
+            transformed_data_to_list = convert_sets_and_tuples_to_lists(transformed_data)
+            # Convert defaultdict to dict for logging
+            transformed_data_dict = convert_defaultdict_to_dict(transformed_data_to_list)
+            # Log the transformed data as a JSON-formatted string
+            logger.info(
+                "MAKE_VIEW - PROC_SEQ_REP - Transformed data: %s",
+                json.dumps(transformed_data_dict, indent=2)
+            )
 
     return transformed
 
-def write_range_views(transformed_data: Dict, output_dir: str, logger: logging.Logger, multi_logger: Callable) -> None:
+def write_range_views(transformed_data: Dict, sequence_dir: str, clean_sequence_id: str, logger: logging.Logger, multi_logger: Callable) -> None:
     """Write range-based views to files."""
-    clean_sequence_id = transformed_data["sequence_id"].replace("|", "-")
+
     try:
         logger.info("MAKE VIEW - Writing range views for sequence %s", clean_sequence_id)
-        sequence_dir = os.path.join(output_dir, clean_sequence_id)
-        os.makedirs(sequence_dir, exist_ok=True)
-        logger.debug("MAKE VIEW - Created or verified directory: %s", sequence_dir)
-
+        print(transformed_data)
         for domain_id in transformed_data["domain"]:
             output_path = os.path.join(sequence_dir, f"{domain_id}_ranges.json")
             logger.debug("MAKE VIEW - Writing data to: %s", output_path)
@@ -225,24 +246,35 @@ def main():
     """Main execution function."""
     args = parse_arguments()
     main_logger, _ = get_logger(args.log, scope="main")
-    sequence_logger, _ = get_logger(args.log, scope="sequence", identifier=args.sequence)
-    output_dir = args.output_dir
-    sequence_logger.info("MAKE VIEW - Starting to process sequence reports in %s", output_dir)
+    clean_sequence_id = args.sequence
+    sequence_id = clean_sequence_id.replace("-", "|")
+    sequence_logger, _ = get_logger(args.log, scope="sequence", identifier=clean_sequence_id)
+    sequence_dir = args.sequence_dir
+    sequence_logger.info("MAKE VIEW - Will process aggregated_report.json in %s", sequence_dir)
 
     log_to_both = get_multi_logger([main_logger, sequence_logger])
 
-    for file in os.scandir(output_dir):
-        if file.name.endswith('_report.json'):
-            try:
-                transformed_data = process_sequence_report(file.path, sequence_logger, log_to_both)
-                write_range_views(transformed_data, output_dir, sequence_logger, log_to_both)
-            except (IOError, json.JSONDecodeError) as e:
-                log_to_both("error", "Error processing %s: %s", file.path, str(e))
-                continue
+    aggregated_report = os.path.join(sequence_dir, "aggregated_report.json")
+    if not os.path.exists(aggregated_report):
+        log_to_both("error", "MAKE VIEW - No aggregated_report.json found at %s", aggregated_report)
+        sys.exit(1)
 
-    # Create done file
-    with open(os.path.join(output_dir, "make_views_jsons.done"), 'w', encoding='utf-8') as f:
-        f.write('')
+    try:
+        transformed_data = process_sequence_report(
+            aggregated_report,
+            sequence_id,
+            sequence_logger,
+            log_to_both
+        )
+
+        if transformed_data is None:
+            log_to_both("info", "MAKE_VIEW - No domains were found for sequence %s - skipping view generation", clean_sequence_id)
+            sys.exit(0)  # Exit cleanly, this is not an error case
+
+        write_range_views(transformed_data, sequence_dir, clean_sequence_id, sequence_logger, log_to_both)
+    except (IOError, json.JSONDecodeError, KeyError) as e:
+        log_to_both("error", "Error processing aggregated report: %s", str(e))
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
