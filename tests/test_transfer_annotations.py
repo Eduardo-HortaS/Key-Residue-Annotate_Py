@@ -3916,6 +3916,30 @@ def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock):
     )
     assert go_terms == set()
 
+def test_gather_go_terms_for_target_empty_interpro_id(multi_logger, iprscan_df_Q9NU22_PF07728):
+    """Test gathering GO terms when interpro_conv_id is empty string but Pfam ID matches"""
+    with patch("os.path.exists", return_value=True), \
+         patch("builtins.open", mock_open()), \
+         patch("pandas.read_csv", return_value=iprscan_df_Q9NU22_PF07728), \
+         patch("transfer_annotations.check_interval_overlap", return_value=False), \
+         patch("transfer_annotations.parse_go_annotations") as mock_parse:
+
+        mock_parse.return_value = ["GO:0005524", "GO:0016887"]
+
+        result = gather_go_terms_for_target(
+            multi_logger=multi_logger,
+            target_name="sp|Q9NU22|MDN1_HUMAN",
+            pfam_id="PF07728",
+            go_terms_dir="/mock/path",
+            interpro_conv_id="",  # Empty string case
+            hit_start=325,
+            hit_end=451
+        )
+
+        assert result == {"GO:0005524", "GO:0016887"}
+        # Should only check Signature Accession since interpro_conv_id is empty
+        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)")
+
 ###T get_alignment_sequences
 
 def test_get_alignment_sequences(minimal_hmmalign_lines_fixture_Q9NU22, target_id_plus_seq_Q9NU22, conservation_id_plus_seq_Q9NU22_PF07728, logger, multi_logger):

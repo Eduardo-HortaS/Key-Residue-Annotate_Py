@@ -406,7 +406,7 @@ def gather_go_terms_for_target(
     """
     Gathers GO terms for a single target sequence from iprscan.tsv if
     adequate (meet at least one of 3 conditions) lines are present.
-    Note: GO terms are kept as a string of GO terms separated by "|".
+    Note: GO terms are kept as a string with them separated by "|".
     The GO terms base dir is expected to be the same as the output dir,
     since this function requires the previous scripts to have been run.\
     Checks for:
@@ -428,6 +428,7 @@ def gather_go_terms_for_target(
     sanitized_target_name = target_name.replace("|", "-")
     go_term_filepath = os.path.join(go_terms_dir, sanitized_target_name, "iprscan.tsv")
     target_gos = set()
+
     if not os.path.exists(go_term_filepath):
         multi_logger(
             "warning",
@@ -449,11 +450,16 @@ def gather_go_terms_for_target(
         ]
 
         for _, row in iprscan_df.iterrows():
-            matches_accession = (row["Signature Accession"] == pfam_id or
-                               row["InterPro Accession"] == interpro_conv_id)
+            if interpro_conv_id:
+                matches_accession = (row["Signature Accession"] == pfam_id or
+                                    row["InterPro Accession"] == interpro_conv_id)
+            else:
+                matches_accession = row["Signature Accession"] == pfam_id
+
             matches_interval = check_interval_overlap(
                 multi_logger, row["Start Location"], row["Stop Location"], hit_start, hit_end
             )
+
             # Track if we found any matches
             found_matching_accession = found_matching_accession or matches_accession
             found_matching_interval = found_matching_interval or matches_interval
@@ -463,7 +469,11 @@ def gather_go_terms_for_target(
                     target_gos.update(parse_go_annotations(row["GO Annotations"]))
 
     if not (found_matching_accession or found_matching_interval):
-        multi_logger("warning", "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- No usable InterProScan lines in iprscan.tsv for %s-%s", pfam_id, sanitized_target_name)
+        multi_logger(
+            "warning",
+            "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- No usable InterProScan lines in iprscan.tsv for %s-%s",
+            pfam_id, sanitized_target_name
+        )
         return set()
 
     return target_gos
@@ -710,7 +720,17 @@ def cleanup_improve_transfer_dict(
         return {"domain": {pfam_id: pfam_data}}
 
     mapping = pd.read_csv(pfam_interpro_map_filepath, sep="\t", header=0)
-    interpro_conv_id = mapping.loc[mapping["Pfam_ID"] == pfam_id, "InterPro_ID"].values[0]
+    matching_row = mapping.loc[mapping["Pfam_ID"] == pfam_id, "InterPro_ID"]
+
+    if matching_row.empty:
+        multi_logger("warning",
+                    "TRANSFER_ANNOTS --- CLEANUP_IMPROV_TD --- No matching InterPro ID found for Pfam ID %s - proceeding regardless",
+                    pfam_id)
+        interpro_conv_id = ""
+        logger.debug("TRANSFER_ANNOTS --- CLEANUP_IMPROV_TS --- Empty matching row: %s", matching_row)
+    else:
+        interpro_conv_id = matching_row.values[0]
+        logger.debug("TRANSFER_ANNOTS --- CLEANUP_IMPROV_TS --- Found matching row: %s", matching_row)
 
     # For each target in the dictionary, gather GO terms, get aligned sequences and fill conservation and GO data
     for target_name in transfer_dict[pfam_id]["sequence_id"]:
