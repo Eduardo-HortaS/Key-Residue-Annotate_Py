@@ -1045,7 +1045,7 @@ def add_to_transfer_dict(
             if k not in ["type", "description", "count", "evidence",
             "target_position", "annot_position", "paired_target_position",
             "annot_amino_acid", "target_amino_acid", "index_position",
-            "gapped_paired", "insert_column_paired"]}
+            "gapped_paired", "insert_column_paired", "paired_target_pos_unreachable"]}
         except AttributeError as ae:
             multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError for Anno_Total %s", anno_total)
             multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError: %s - target_name: %s, entry_mnemo_name: %s\n %s",
@@ -1204,6 +1204,8 @@ def _add_single_annotation(
                 pair_info["gapped_target"] = True
             elif anno_total.get("insert_column_paired", False):
                 pair_info["insert_column"] = True
+            elif anno_total.get("paired_target_pos_unreachable", False):
+                pair_info["unreachable_target"] = True
             positions_dict[anno_id]["paired_position"][paired_target_position_str] = pair_info
         else:
             positions_dict[anno_id]["paired_position"][paired_target_position_str]["count"] += 1
@@ -1370,7 +1372,11 @@ def make_anno_total_dict(
             "annot_position": counter_annot_pos_str,
             "index_position": str(index),
             "annot_amino_acid": annot_amino_acid,
-            "target_amino_acid": target_amino
+            "target_amino_acid": target_amino,
+            # Paired annotation flags
+            "gapped_paired": False,
+            "insert_column_paired": False,
+            "paired_target_pos_unreachable": False
         }
         if paired_annot_pos_str and caller_target_pos_str:
             anno_total["paired_target_position"] = caller_target_pos_str
@@ -1485,7 +1491,6 @@ def process_annotation(
                     # Gapped paired position, will only add caller position
                     # in add_to_transfer_dict(), mentioning the missing paired
                     anno_total["gapped_paired"] = True
-                    anno_total["insert_column_paired"] = False
                     paired_anno_total = None
                     paired_anno_id = None
                     paired_target_position_str = "0"
@@ -1493,19 +1498,21 @@ def process_annotation(
                     # Insert column in paired position, will only add caller position
                     # in add_to_transfer_dict(), mentioning the missing paired
                     anno_total["insert_column_paired"] = True
-                    anno_total["gapped_paired"] = False
+                    paired_anno_total = None
+                    paired_anno_id = None
+                    paired_target_position_str = "0"
+                elif paired_result_dict.get("paired_target_pos_unreachable", False):
+                    # A position counter hit target sequence's end before a match state column
+                    # was found, so we'll add caller position and mention the missing paired
+                    anno_total["paired_target_pos_unreachable"] = True
                     paired_anno_total = None
                     paired_anno_id = None
                     paired_target_position_str = "0"
                 else:
-                    anno_total["gapped_paired"] = False
-                    anno_total["insert_column_paired"] = False
                     paired_anno_total = paired_result_dict.get("anno_total", None)
-                    paired_target_position_str = paired_anno_total.get("target_position", "0")
                     paired_anno_id = paired_result_dict["anno_id"]
+                    paired_target_position_str = paired_anno_total.get("target_position", "0")
             else:
-                anno_total["gapped_paired"] = False
-                anno_total["insert_column_paired"] = False
                 paired_position_res_hit = False
                 paired_anno_total = None
                 paired_anno_id = None
@@ -1552,6 +1559,15 @@ def process_annotation(
                         paired_target_position_str,
                         anno_type,
                         "insert_column"
+                    )
+                elif anno_total["paired_target_pos_unreachable"]:
+                    paired_annotation_key = (
+                        entry_mnemo_name,
+                        target_name,
+                        paired_annot_pos_str,
+                        paired_target_position_str,
+                        anno_type,
+                        "paired_target_pos_unreachable"
                     )
                 else:
                     paired_annotation_key = (
@@ -1680,7 +1696,13 @@ def validate_paired_annotations(
 
     has_gap_in_first_pos = earlier_annotation_key_gapped in processed_annotations
     first_pos_in_insert_col = earlier_annotation_key_insert in processed_annotations
-    paired_result_dict = {"gapped_paired": has_gap_in_first_pos, "insert_column_paired": first_pos_in_insert_col}
+
+    paired_result_dict = {
+        "gapped_paired": has_gap_in_first_pos,
+        "insert_column_paired": first_pos_in_insert_col,
+        "paired_target_pos_unreachable": False
+    }
+
     paired_position_res_hit = False
 
     # Paired pos. came earlier than caller, and paired was a gap in target_sequence
@@ -1752,6 +1774,7 @@ def validate_paired_annotations(
         if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
             break
 
+    paired_result_dict["paired_target_pos_unreachable"] = True
     return paired_position_res_hit, paired_result_dict
 
 #@measure_time_and_memory
@@ -1802,6 +1825,28 @@ def validate_annotations(
         target_start=target_hit_start,
         source_end=offset_end,
         target_end=target_hit_end):
+
+        if counter_target_pos == target_hit_end:
+            # Check if there are any remaining paired annotations
+            remaining_positions = [
+                pos for pos in entry_annotations.keys()
+                if pos != "0" and int(pos) > counter_annot_pos
+            ]
+            for pos in remaining_positions:
+                for annotation_dict in entry_annotations[pos]:
+                    anno_type = annotation_dict.get("type", None)
+                    paired_annot_pos_str = annotation_dict.get("paired_position", None)
+                    if anno_type in ["DISULFID", "CROSSLNK", "SITE", "BINDING"] and paired_annot_pos_str is not None:
+                        unreachable_key = (
+                            entry_mnemo_name,
+                            target_name,
+                            pos,
+                            failure_target_pos,
+                            anno_type,
+                            "paired_target_pos_unreachable"
+                        )
+                        processed_annotations.add(unreachable_key)
+            break
 
         if counter_annot_pos is None:
             continue

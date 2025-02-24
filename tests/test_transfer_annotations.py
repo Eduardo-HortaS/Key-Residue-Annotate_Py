@@ -2697,7 +2697,10 @@ def mock_make_anno_total_disulfid_return_205_P15005(annotation_dict_205_Q9NU22):
             "index_position": "18",
             "annot_amino_acid": "C",
             "target_amino_acid": "C",
-            "paired_target_position": "373"
+            "paired_target_position": "373",
+            "gapped_paired": False,
+            "insert_column_paired": False,
+            "paired_target_pos_unreachable": False
         },
         "paired_annot_pos_str": "246"
     }
@@ -5375,6 +5378,9 @@ def test_make_anno_total_dict_basic(
             "index_position": "18",
             "annot_amino_acid": "C",
             "target_amino_acid": "C",
+            "gapped_paired": False,
+            "insert_column_paired": False,
+            "paired_target_pos_unreachable": False
         },
         "paired_annot_pos_str": "246"
     }
@@ -5416,6 +5422,9 @@ def test_make_anno_total_dict_multiple_evidence(
             "index_position": "18",
             "annot_amino_acid": "C",
             "target_amino_acid": "C",
+            "gapped_paired": False,
+            "insert_column_paired": False,
+            "paired_target_pos_unreachable": False
         },
         "paired_annot_pos_str": "246"
     }
@@ -5497,7 +5506,10 @@ def test_make_anno_total_dict_binding_type(
             "annot_position": "201",
             "index_position": "14",
             "annot_amino_acid": "G",
-            "target_amino_acid": "G"
+            "target_amino_acid": "G",
+            "gapped_paired": False,
+            "insert_column_paired": False,
+            "paired_target_pos_unreachable": False
         },
         "paired_annot_pos_str": None
     }
@@ -5543,6 +5555,9 @@ def test_make_anno_total_dict_with_caller_target_pos(
             "annot_amino_acid": "C",
             "target_amino_acid": "C",
             "paired_target_position": "333",
+            "gapped_paired": False,
+            "insert_column_paired": False,
+            "paired_target_pos_unreachable": False
         },
         "paired_annot_pos_str": "205"
     }
@@ -6159,7 +6174,8 @@ def test_validate_paired_annotations_valid_case(
         },
         "paired_annot_pos_str": "205",
         "gapped_paired": False,
-        "insert_column_paired": False
+        "insert_column_paired": False,
+        "paired_target_pos_unreachable": False
     }
 
     mock_result_tuple = (True, mock_paired_result_dict)
@@ -6246,7 +6262,8 @@ def test_validate_paired_annotations_invalid_pair(
         },
         "paired_annot_pos_str": "205",
         "gapped_paired": False,
-        "insert_column_paired": False
+        "insert_column_paired": False,
+        "paired_target_pos_unreachable": False
     }
 
     mock_result_tuple = (False, mock_paired_result_dict)
@@ -6323,7 +6340,7 @@ def test_validate_paired_annotations_missing_paired_position(
         processed_annotations=set()
     )
 
-    assert result == (False, {"gapped_paired": False, "insert_column_paired": False})
+    assert result == (False, {"gapped_paired": False, "insert_column_paired": False, "paired_target_pos_unreachable": True})
 
 def test_validate_paired_annotations_earlier_gap(
     logger,
@@ -6366,7 +6383,7 @@ def test_validate_paired_annotations_earlier_gap(
         processed_annotations=processed_annotations
     )
 
-    assert result == (False, {"gapped_paired": True, "insert_column_paired": False})
+    assert result == (False, {"gapped_paired": True, "insert_column_paired": False, "paired_target_pos_unreachable": False})
 
 def test_validate_paired_annotations_earlier_insert(
     logger,
@@ -6409,7 +6426,7 @@ def test_validate_paired_annotations_earlier_insert(
         processed_annotations=processed_annotations
     )
 
-    assert result == (False, {"gapped_paired": False, "insert_column_paired": True})
+    assert result == (False, {"gapped_paired": False, "insert_column_paired": True, "paired_target_pos_unreachable": False})
 
 def test_validate_paired_annotations_insert_column_position(
     logger,
@@ -6445,7 +6462,7 @@ def test_validate_paired_annotations_insert_column_position(
         processed_annotations=set()
     )
 
-    assert result == (False, {"gapped_paired": False, "insert_column_paired": True})
+    assert result == (False, {"gapped_paired": False, "insert_column_paired": True, "paired_target_pos_unreachable": False})
 
 def test_validate_paired_annotations_gapped_position(
     logger,
@@ -6480,7 +6497,7 @@ def test_validate_paired_annotations_gapped_position(
         processed_annotations=set()
     )
 
-    assert result == (False, {"gapped_paired": True, "insert_column_paired": False})
+    assert result == (False, {"gapped_paired": True, "insert_column_paired": False, "paired_target_pos_unreachable": False})
 
 def test_validate_paired_annotations_gap_in_first(
     logger,
@@ -6529,7 +6546,8 @@ def test_validate_paired_annotations_gap_in_first(
         },
         "paired_annot_pos_str": "205",
         "gapped_paired": True,  # What we're testing for
-        "insert_column_paired": False
+        "insert_column_paired": False,
+        "paired_target_pos_unreachable": False
     }
     print(json.dumps(mock_paired_result_dict, indent = 4))
     mock_result_tuple = (True, mock_paired_result_dict)
@@ -6571,6 +6589,66 @@ def test_validate_paired_annotations_gap_in_first(
         assert result_tuple == mock_result_tuple
         # Additional specific assertion for what we're testing
         assert result_tuple[1]["gapped_paired"] is True
+
+def test_validate_paired_annotations_missing_paired_in_alignment(
+    logger,
+    good_eco_codes_all,
+    target_sequence_Q9NU22,
+    annot_sequence_Q9NU22,
+    entry_annotations_disulfid_pair,
+    annotation_dict_246_Q9NU22
+):
+    """Test case where paired position exists in annotations but lies beyond alignment range.
+
+    This test verifies that:
+    1. Position exists in annotations but can't be matched with an equivalent in target sequence
+    2. Returns an indicative failure flag in paired_result_dict
+    3. Does not call make_anno_total_dict()
+
+    Later, process_annotation() checks for the failure flag and acts accordingly
+    """
+    # Sequences where the target numbering ends before paired annotated position is reached
+    target_sequence = ".NSKIGAGSRLWA.....NVTIYHEIQIGQNCLIQSGTVVG-.."  # Missing paired pos
+    annot_sequence =  ".KVYIEENVWLGA.....GVIVLPGVRIGKNSVIGAGSLVTK.."  # Has paired pos
+
+    paired_annotation_dict = {
+        "type": "BINDING",
+        "description": "Interacts with acetyl-CoA",
+        "ligand_id": "ChEBI:CHEBI:57288",
+        "ligand_note": "ligand shared between dimeric partners",
+        "evidence": "ECO:0000250|UniProtKB:P07464",
+        "entry": "P52984",
+        "aminoacid": "K",
+        "paired_position": "167"
+    }
+
+    result = validate_paired_annotations(
+        logger=logger,
+        good_eco_codes=good_eco_codes_all,
+        target_sequence=target_sequence,
+        target_name="sp|P21645|LPXD_ECOLI",
+        target_hit_start=145,
+        target_hit_end=179,
+        offset_start=133,
+        offset_end=168,
+        annot_sequence=annot_sequence,
+        entry_mnemo_name="THGA_LACLA",
+        paired_annotation_dict=paired_annotation_dict,
+        entry_annotations=entry_annotations_disulfid_pair,
+        counter_target_pos=None,
+        counter_annot_pos=None,
+        paired_annot_pos_str="168",
+        caller_target_pos_str="179",
+        processed_annotations=set()
+    )
+
+    expected_result = (False, {
+        "gapped_paired": False,
+        "insert_column_paired": False,
+        "paired_target_pos_unreachable": True
+    })
+
+    assert result == expected_result
 
 ###T validate_annotations
 
@@ -6925,6 +7003,65 @@ def test_validate_annotations_gapped_target_position(
         # Verify gap was handled (process_annotation shouldn't be called)
         mock_process.assert_not_called()
         assert expected_insert_key in processed_annotations_container
+
+def test_validate_annotations_target_pos_unreachable(
+    logger,
+    good_eco_codes_all,
+    entry_annotations_disulfid_pair
+):
+    """Test case where first position of pair exists but target sequence ends before reaching it.
+
+    This test verifies that:
+    1. First position exists in annotations but can't be mapped to target sequence
+    2. Adds unreachable annotation key to processed_annotations
+    3. Uses same "paired_target_pos_unreachable" flag for consistency
+    """
+    # Setup sequences where target ends before annotated position
+    target_sequence = ".NSKIGAGSRLWA.....NVTIYHEIQIGQNCLIQSGTVVG-.."  # Ends at 179
+    annot_sequence =  ".KVYIEENVWLGA.....GVIVLPGVRIGKNSVIGAGSLVTKY."  # Ends at pos 169, has annotated 168
+
+    # Create test annotations with position beyond target end
+    test_annotations = {
+        "168": [{  # Position beyond target range
+            "type": "BINDING",
+            "description": "Interacts with acetyl-CoA",
+            "ligand_id": "ChEBI:CHEBI:57288",
+            "paired_position": "169"
+        }]
+    }
+
+    processed_annotations = set()
+
+    validate_annotations(
+        logger=logger,
+        multi_logger=lambda *args: None,
+        good_eco_codes=good_eco_codes_all,
+        target_sequence=target_sequence,
+        target_name="sp|P21645|LPXD_ECOLI",
+        target_hit_start=145,
+        target_hit_end=179,
+        offset_start=133,
+        offset_end=168,
+        annot_sequence=annot_sequence,
+        entry_mnemo_name="THGA_LACLA",
+        entry_annotations=test_annotations,
+        transfer_dict={},
+        processed_annotations=processed_annotations,
+        counter_target_pos=None,
+        counter_annot_pos=None
+    )
+
+    # Check that unreachable annotation key was added
+    expected_key = (
+        "THGA_LACLA",
+        "sp|P21645|LPXD_ECOLI",
+        "168",  # annotated position
+        "0",   # target position (unreachable)
+        "BINDING",
+        "paired_target_pos_unreachable"
+    )
+
+    assert expected_key in processed_annotations
 
 ###T main
 
