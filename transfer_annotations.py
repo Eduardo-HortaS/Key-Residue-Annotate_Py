@@ -147,12 +147,16 @@ def iterate_aligned_sequences(
     source_pos = None
     target_pos = None
     last_valid_target_pos = None
+    last_valid_source_pos = None
 
     for index, (source_char, target_char) in enumerate(zip(source_sequence, target_sequence)):
         # Increment counters for any letter
         # Handle conservation or annotated sequence
         if source_char.isalpha():
-            source_pos = source_start if source_pos is None else source_pos + 1
+            source_pos = source_start if last_valid_source_pos is None else last_valid_source_pos + 1
+            last_valid_source_pos = source_pos
+        else: # Gap character in source, set to None
+            source_pos = None
 
         if target_char.isalpha():
             target_pos = target_start if last_valid_target_pos is None else last_valid_target_pos + 1
@@ -570,7 +574,7 @@ def populate_conservation(
     interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
     conservations_dict = interval_data["conservations"]
 
-    for index, counter_cons_pos, counter_target_pos, _, char_target in iterate_aligned_sequences(
+    for index, counter_cons_pos, counter_target_pos, char_cons, char_target in iterate_aligned_sequences(
         source_sequence=conservation_seq,
         target_sequence=target_seq,
         source_start=conservation_start,
@@ -580,6 +584,10 @@ def populate_conservation(
     ):
         if counter_target_pos is None or counter_cons_pos is None:
             continue
+
+        if char_cons.islower() or char_target.islower():
+            continue
+
         counter_cons_pos_str = str(counter_cons_pos)
         if counter_cons_pos_str in conserved_positions:
             processed_conserved_pos.add(counter_cons_pos_str)
@@ -601,6 +609,7 @@ def populate_conservation(
 
             counter_target_pos_info = {
                 "conservation": score_data,
+                "residue": conserved_amino,
                 "hit": is_match
             }
 
@@ -1587,13 +1596,13 @@ def process_annotation(
                 if paired_anno_total:
                     logger.debug(
                         f"{log_base} with paired {paired_target_position_str} --- "
-                        f"Caller-paired positions: {counter_annot_pos_str}-{paired_anno_total["annot_position"]} --- "
-                        f"ORIGIN: Type {anno_type} and Evidence {anno_total["evidence"]}"
+                        f"Caller-paired positions: {counter_annot_pos_str}-{paired_anno_total['annot_position']} --- "
+                        f"ORIGIN: Type {anno_type} and Evidence {anno_total['evidence']}"
                     )
                 else:
                     logger.debug(
                         f"{log_base} --- No valid paired annotation found at position {paired_annot_pos_str} --- "
-                        f"ORIGIN: Type {anno_type} and Evidence {anno_total["evidence"]}"
+                        f"ORIGIN: Type {anno_type} and Evidence {anno_total['evidence']}"
                     )
             except Exception as e:
                 multi_logger("error",
@@ -1620,7 +1629,7 @@ def process_annotation(
                 f"Added to transfer_dict for target {target_name} and "
                 f"annotated {entry_mnemo_name} at target {counter_target_pos_str} and "
                 f"annotated {counter_annot_pos_str} --- ORIGIN: Type {anno_type} and "
-                f"Evidence {anno_total["evidence"]}"
+                f"Evidence {anno_total['evidence']}"
             )
     else:
         logger.debug(
@@ -1733,7 +1742,7 @@ def validate_paired_annotations(
             continue
 
         if counter_annot_pos == paired_annot_pos_int:
-            if char_annot.islower() or char_target.islower() or char_target == ".":
+            if char_annot.islower() or char_target.islower():
                 paired_result_dict["insert_column_paired"] = True
                 return paired_position_res_hit, paired_result_dict
 
@@ -1826,7 +1835,7 @@ def validate_annotations(
         source_end=offset_end,
         target_end=target_hit_end):
 
-        if counter_target_pos == target_hit_end:
+        if counter_target_pos == target_hit_end and counter_annot_pos:
             # Check if there are any remaining paired annotations
             remaining_positions = [
                 pos for pos in entry_annotations.keys()
@@ -1853,7 +1862,7 @@ def validate_annotations(
 
         counter_annot_pos_str = str(counter_annot_pos)
 
-        if char_annot.islower() or char_target.islower() or char_target == ".":
+        if char_annot.islower() or char_target.islower():
             if counter_annot_pos_str in entry_annotations:
                 for annotation_dict in entry_annotations[counter_annot_pos_str]:
                     anno_type = annotation_dict.get("type", None)

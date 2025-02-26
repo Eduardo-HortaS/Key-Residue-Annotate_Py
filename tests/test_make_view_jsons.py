@@ -120,17 +120,17 @@ def mock_aggregated_report_data():
                         "conservations": {
                             "positions": {
                                 # Mocked a continuous range to test
-                                "364": {"conservation": 0.90, "hit": True},
-                                "365": {"conservation": 0.90, "hit": True},
-                                "366": {"conservation": 0.91, "hit": False},
-                                "367": {"conservation": 0.92, "hit": True},
-                                "368": {"conservation": 0.93, "hit": True},
-                                "369": {"conservation": 0.94, "hit": True},
-                                "370": {"conservation": 0.95, "hit": False},
-                                "371": {"conservation": 0.96, "hit": True},
-                                "372": {"conservation": 0.97, "hit": True},
-                                "373": {"conservation": 0.98, "hit": True},
-                                "374": {"conservation": 0.99, "hit": True},
+                                "364": {"conservation": 0.90, "residue": "G", "hit": True},
+                                "365": {"conservation": 0.90, "residue": "G", "hit": True},
+                                "366": {"conservation": 0.91, "residue": "G", "hit": False},
+                                "367": {"conservation": 0.92, "residue": "G", "hit": True},
+                                "368": {"conservation": 0.93, "residue": "G", "hit": True},
+                                "369": {"conservation": 0.94, "residue": "G", "hit": True},
+                                "370": {"conservation": 0.95, "residue": "G", "hit": False},
+                                "371": {"conservation": 0.96, "residue": "G", "hit": True},
+                                "372": {"conservation": 0.97, "residue": "G", "hit": True},
+                                "373": {"conservation": 0.98, "residue": "G", "hit": True},
+                                "374": {"conservation": 0.99, "residue": "G", "hit": True},
                             },
                             "indices": {
                                 "matches": ["364", "365", "367", "368", "369", "371", "372", "373", "374"],
@@ -311,8 +311,8 @@ def mock_conservation_subset():
     return {
         "conservations": {
             "positions": {
-                "364": {"conservation": 0.90, "hit": True},
-                "365": {"conservation": 0.90, "hit": True}
+                "364": {"conservation": 0.90, "residue": "G", "hit": True},
+                "365": {"conservation": 0.90, "residue": "G", "hit": True}
             },
             "indices": {
                 "matches": ["364", "365"],
@@ -380,18 +380,18 @@ def test_merge_nested_data(mock_aggregated_report_data):
     source = mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]["PF07728"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
     target = defaultdict(lambda: defaultdict(dict))
 
-    merge_nested_data(source, target, "333", "DISULFID | Intrachain (with C-246); in linked form")
+    merge_nested_data(source, target, "333")
 
     assert target["essentials"]["type"] == "DISULFID"
     assert "count" in target["essentials"]
     assert isinstance(target["essentials"]["count"], dict)
-    assert target["essentials"]["count"]["333_DISULFID | Intrachain (with C-246); in linked form"] == 1
+    assert target["essentials"]["count"]["333"] == 1
 
 def test_merge_nested_data_empty():
     """Test merging with empty source"""
     source = {}
     target = defaultdict(lambda: defaultdict(dict))
-    merge_nested_data(source, target, "pos", "range")
+    merge_nested_data(source, target, "pos")
     assert dict(target) == {}
 
 
@@ -408,7 +408,7 @@ def test_aggregate_range_positions_annotations(mock_annotation_subset):
 
     assert result["essentials"]["type"] == "DISULFID"
     assert "count" in result["essentials"]
-    assert result["essentials"]["count"]["333_DISULFID | Intrachain (with C-246); in linked form"] == 1
+    assert result["essentials"]["count"]["333"] == 1
 
 def test_aggregate_range_positions_conservations(mock_conservation_subset):
     """Test conservation data aggregation"""
@@ -419,8 +419,23 @@ def test_aggregate_range_positions_conservations(mock_conservation_subset):
         "conservations"
     )
 
-    assert result["conservation"] == 0.90  # Average of [0.90, 0.90]
-    assert result["hit"] is True  # All positions are hits
+def test_aggregate_range_positions_conservations(mock_conservation_subset):
+    """Test conservation data aggregation"""
+    result, _ = aggregate_range_positions(
+        mock_conservation_subset,
+        "conserved_positions",
+        (364, 365),
+        "conservations"
+    )
+
+    assert result["conservation"]["364"] == 0.90
+    assert result["conservation"]["365"] == 0.90
+
+    assert result["hit"]["364"] is True
+    assert result["hit"]["365"] is True
+
+    assert result["residue"]["364"] == "G"
+    assert result["residue"]["365"] == "G"
 
 def test_aggregate_range_positions_invalid_type(mock_aggregated_report_data):
     """Test with invalid data type"""
@@ -441,15 +456,24 @@ def test_transform_to_ranges_integration(mock_aggregated_report_data, multi_logg
     interval = mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]["PF07728"]["hit_intervals"]["325-451"]
     result = transform_to_ranges(interval, multi_logger)
 
-    print(json.dumps(result, indent=2))
-
     disulfid_data = result["DISULFID | Intrachain (with C-246); in linked form"]["333-333"]
     assert disulfid_data["essentials"]["type"] == "DISULFID"
-    assert "333_DISULFID | Intrachain (with C-246); in linked form" in disulfid_data["essentials"]["count"]
+    assert disulfid_data["essentials"]["count"]["333"] == 1
+    assert disulfid_data["hit"]["333"] is True
 
     cons_data = result["conserved_positions"]["364-374"]
-    assert 0.90 <= cons_data["conservation"] <= 0.99
-    assert not cons_data["hit"]  # Some positions are misses
+
+    assert cons_data["conservation"]["364"] == 0.90
+    assert cons_data["conservation"]["374"] == 0.99
+
+    assert cons_data["hit"]["364"] is True
+    assert cons_data["hit"]["366"] is False  # Known miss position
+
+    assert cons_data["residue"]["364"] == "G"
+    assert cons_data["residue"]["374"] == "G"
+
+    assert "364" in result["conservations"]["indices"]["matches"]
+    assert "366" in result["conservations"]["indices"]["misses"]
 
 def test_transform_to_ranges_full(mock_aggregated_report_data, multi_logger):
     """Integration test for range transformation"""
@@ -478,7 +502,7 @@ def test_transform_to_ranges_basic(mock_aggregated_report_data, multi_logger):
 
     anno_data = result[disulfid_id]["333-333"]
     assert anno_data["essentials"]["type"] == "DISULFID"
-    assert anno_data["hit"] is True
+    assert anno_data["hit"] == {"333": True}
 
 
 def test_transform_to_ranges_conservation(mock_aggregated_report_data, multi_logger):
@@ -490,8 +514,18 @@ def test_transform_to_ranges_conservation(mock_aggregated_report_data, multi_log
     assert "364-374" in result["conserved_positions"]
 
     cons_data = result["conserved_positions"]["364-374"]
-    assert 0.90 <= cons_data["conservation"] <= 0.99
-    assert cons_data["hit"] is False  # Contains misses
+
+    assert cons_data["conservation"]["364"] == 0.90
+    assert cons_data["conservation"]["374"] == 0.99
+
+    assert cons_data["hit"]["364"] is True
+    assert cons_data["hit"]["366"] is False  # Known miss position
+
+    assert cons_data["residue"]["364"] == "G"
+    assert cons_data["residue"]["374"] == "G"
+
+    assert "364" in result["conservations"]["indices"]["matches"]
+    assert "366" in result["conservations"]["indices"]["misses"]
 
 def test_transform_to_ranges_metadata(mock_aggregated_report_data, multi_logger):
     """Test metadata handling in transformation"""
@@ -766,7 +800,7 @@ def test_complete_workflow_integration(tmp_path, mock_aggregated_report_data, lo
     # Specific data point verification
     disulfid = domain_data["DISULFID | Intrachain (with C-246); in linked form"]["333-333"]
     assert disulfid["essentials"]["type"] == "DISULFID"
-    assert "333_DISULFID | Intrachain (with C-246); in linked form" in disulfid["essentials"]["count"]
+    assert "333" in disulfid["essentials"]["count"]
 
     # Log verification
     write_logs = [str(call) for call in logger.info.call_args_list]

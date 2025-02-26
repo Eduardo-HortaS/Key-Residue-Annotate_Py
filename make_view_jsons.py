@@ -49,18 +49,18 @@ def parse_arguments():
     parser.add_argument("-l", "--log", help="Log file path", default="logs/make_views_jsons.log")
     return parser.parse_args()
 
-def track_position_data(target: Dict, key: str, pos_str: str, value: Dict, track_key: str, range_id: str = None) -> None:
+def track_position_data(target: Dict, key: str, pos_str: str, value: Dict, track_key: str) -> None:
     """Helper to track per-position data like counts and hits."""
     if track_key not in target[key]:
         target[key][track_key] = {}
-    position_key = f"{pos_str}_{range_id}" if range_id else pos_str
-    target[key][track_key][position_key] = value[track_key]
+    target[key][track_key][pos_str] = value[track_key]
 
-def merge_nested_data(source: Dict, target: Dict, pos_str: str, range_id: str) -> None:
-    """Recursively merge nested dictionaries at range_id, tracking counts and hits per position."""
+def merge_nested_data(source: Dict, target: Dict, pos_str: str) -> None:
+    """Recursively merge nested dictionaries at range_id, tracking per-position data."""
     if "hit" in source:
         if "hit" not in target:
-            target["hit"] = source["hit"]
+            target["hit"] = {}
+        target["hit"][pos_str] = source["hit"]
 
     for key, value in source.items():
         if isinstance(value, dict):
@@ -69,9 +69,7 @@ def merge_nested_data(source: Dict, target: Dict, pos_str: str, range_id: str) -
 
             # Track position-specific data
             if "count" in value:
-                track_position_data(target, key, pos_str, value, "count", range_id)
-            if "hit" in value:
-                track_position_data(target, key, pos_str, value, "hit", range_id)
+                track_position_data(target, key, pos_str, value, "count")
 
             if key == "GO":
                 if pos_str not in target["GO"]:
@@ -80,7 +78,7 @@ def merge_nested_data(source: Dict, target: Dict, pos_str: str, range_id: str) -
                 continue
 
             # Recurse for nested structures
-            merge_nested_data(value, target[key], pos_str, range_id)
+            merge_nested_data(value, target[key], pos_str)
         else:
             if key not in ["count", "hit", "GO"]:  # Skip specially handled keys
                 target[key] = value
@@ -109,21 +107,24 @@ def aggregate_range_positions(interval_dict: Dict, range_id: str, range_tuple: T
             pos_data = interval_dict["annotations"]["positions"][pos_str]
             if range_id not in pos_data:
                 continue
-            merge_nested_data(pos_data[range_id], aggregated, pos_str, range_id)
+            merge_nested_data(pos_data[range_id], aggregated, pos_str)
 
     elif data_type == "conservations":
-        conservation_data = defaultdict(list)
         for pos in range(start, end + 1):
             pos_str = str(pos)
             if pos_str in interval_dict["conservations"]["positions"]:
                 cons_pos_data = interval_dict["conservations"]["positions"][pos_str]
-                conservation_data["conservation"].append(cons_pos_data["conservation"])
-                conservation_data["hit"].append(cons_pos_data["hit"])
+                # Track per-position conservation, hit and residue data
+                if "conservation" not in aggregated:
+                    aggregated["conservation"] = {}
+                if "hit" not in aggregated:
+                    aggregated["hit"] = {}
+                if "residue" not in aggregated:
+                    aggregated["residue"] = {}
 
-        if conservation_data:
-            # Aggregate conservation data for range
-            aggregated["conservation"] = sum(conservation_data["conservation"]) / len(conservation_data["conservation"])
-            aggregated["hit"] = all(conservation_data["hit"])  # True if all positions hit
+                aggregated["conservation"][pos_str] = cons_pos_data["conservation"]
+                aggregated["hit"][pos_str] = cons_pos_data["hit"]
+                aggregated["residue"][pos_str] = cons_pos_data["residue"]
 
     return dict(aggregated), metadata
 
@@ -231,11 +232,17 @@ def write_range_views(transformed_data: Dict, sequence_dir: str, clean_sequence_
         logger.info("MAKE VIEW - Writing range views for sequence %s", clean_sequence_id)
         print(transformed_data)
         for domain_id in transformed_data["domain"]:
+            domain_data = {
+                "sequence_id": transformed_data["sequence_id"],
+                "domain": {
+                    domain_id: transformed_data["domain"][domain_id]
+                }
+            }
             output_path = os.path.join(sequence_dir, f"{domain_id}_ranges.json")
             logger.debug("MAKE VIEW - Writing data to: %s", output_path)
-            cleaned_transformed_data = convert_sets_and_tuples_to_lists(transformed_data)
+            cleaned_domain_data = convert_sets_and_tuples_to_lists(domain_data)
             with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(cleaned_transformed_data, f, indent=2)
+                json.dump(cleaned_domain_data, f, indent=2)
             logger.info("MAKE VIEW - Successfully wrote range view for %s - %s", clean_sequence_id, domain_id)
 
     except (PermissionError, OSError) as e:

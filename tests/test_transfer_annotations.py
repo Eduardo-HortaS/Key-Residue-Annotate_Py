@@ -1211,10 +1211,10 @@ def transfer_dict_populated_disulfid_post_conservation_Q9NU22(transfer_dict_popu
 
     # Update positions and scores
     interval_path["conservations"]["positions"].update({
-        "329": {"conservation": 0.9853, "hit": True},
-        "332": {"conservation": 0.8806, "hit": True},
-        "334": {"conservation": 0.9084, "hit": True},
-        "335": {"conservation": 0.9562, "hit": True}
+        "329": {"conservation": 0.9853, "residue": "G", "hit": True},
+        "332": {"conservation": 0.8806, "residue": "G", "hit": True},
+        "334": {"conservation": 0.9084, "residue": "G", "hit": True},
+        "335": {"conservation": 0.9562, "residue": "K", "hit": True}
     })
     interval_path["conservations"]["indices"]["matches"].update(["329", "332", "334", "335"])
 
@@ -1394,18 +1394,22 @@ def transfer_dict_success_binding_Q9NU22():
                         "positions": {
                             "329": {
                                 "conservation": 0.9853,
+                                "residue": "G",
                                 "hit": True
                             },
                             "332": {
                                 "conservation": 0.8806,
+                                "residue": "G",
                                 "hit": True
                             },
                             "334": {
                                 "conservation": 0.9084,
+                                "residue": "G",
                                 "hit": True
                             },
                             "335": {
                                 "conservation": 0.9562,
+                                "residue": "K",
                                 "hit": True
                             }
                         },
@@ -1958,252 +1962,302 @@ def transfer_dict_success_all_types_H0YB80():
                         "positions": {
                             "1": {
                                 "conservation": 0.8855,
+                                "residue": "V",
                                 "hit": True
                             },
                             "2": {
                                 "conservation": 0.9213,
+                                "residue": "F",
                                 "hit": True
                             },
                             "3": {
                                 "conservation": 0.8509,
+                                "residue": "Y",
                                 "hit": True
                             },
                             "5": {
                                 "conservation": 0.943,
+                                "residue": "K",
                                 "hit": True
                             },
                             "6": {
                                 "conservation": 0.8856,
+                                "residue": "M",
                                 "hit": True
                             },
                             "7": {
                                 "conservation": 0.8162,
+                                "residue": "K",
                                 "hit": True
                             },
                             "8": {
                                 "conservation": 0.8751,
+                                "residue": "G",
                                 "hit": True
                             },
                             "9": {
                                 "conservation": 0.986,
+                                "residue": "D",
                                 "hit": True
                             },
                             "10": {
                                 "conservation": 0.9316,
+                                "residue": "Y",
                                 "hit": True
                             },
                             "12": {
                                 "conservation": 0.9776,
+                                "residue": "R",
                                 "hit": True
                             },
                             "13": {
                                 "conservation": 0.9815,
+                                "residue": "Y",
                                 "hit": True
                             },
                             "15": {
                                 "conservation": 0.8356,
+                                "residue": "A",
                                 "hit": True
                             },
                             "16": {
                                 "conservation": 0.9682,
+                                "residue": "E",
                                 "hit": True
                             },
                             "34": {
                                 "conservation": 0.9736,
+                                "residue": "Y",
                                 "hit": True
-
                             },
                             "37": {
                                 "conservation": 0.9657,
+                                "residue": "A",
                                 "hit": True
-
                             },
                             "41": {
                                 "conservation": 0.812,
+                                "residue": "A",
                                 "hit": False
                             },
                             "48": {
                                 "conservation": 0.8392,
+                                "residue": "T",
                                 "hit": True
-
                             },
                             "50": {
                                 "conservation": 0.9312,
+                                "residue": "P",
                                 "hit": True
-
                             },
                             "52": {
                                 "conservation": 0.9043,
+                                "residue": "R",
                                 "hit": True
-
                             },
                             "53": {
                                 "conservation": 0.9743,
+                                "residue": "L",
                                 "hit": True
-
                             },
                             "54": {
                                 "conservation": 0.9191,
+                                "residue": "G",
                                 "hit": True
-
                             },
                             "55": {
                                 "conservation": 0.9228,
+                                "residue": "L",
                                 "hit": True
-
                             },
                             "56": {
                                 "conservation": 0.8745,
+                                "residue": "A",
                                 "hit": True
-
                             },
                             "57": {
                                 "conservation": 0.978,
+                                "residue": "L",
                                 "hit": True
-
                             },
                             "58": {
                                 "conservation": 0.9648,
+                                "residue": "N",
                                 "hit": True
                             },
                             "60": {
                                 "conservation": 0.9051,
+                                "residue": "S",
                                 "hit": True
                             },
                             "61": {
                                 "conservation": 0.9377,
+                                "residue": "V",
                                 "hit": True
                             },
                             "62": {
                                 "conservation": 0.9346,
+                                "residue": "F",
                                 "hit": True
                             },
                             "64": {
                                 "conservation": 0.8826,
+                                "residue": "Y",
                                 "hit": True
                             },
                             "65": {
                                 "conservation": 0.9215,
+                                "residue": "E",
                                 "hit": True
                             },
                             "66": {
                                 "conservation": 0.8339,
+                                "residue": "I",
                                 "hit": True
                             },
                             "73": {
                                 "conservation": 0.9722,
+                                "residue": "A",
                                 "hit": True
                             },
                             "74": {
                                 "conservation": 0.8229,
+                                "residue": "C",
                                 "hit": True
                             },
                             "77": {
                                 "conservation": 0.9375,
+                                "residue": "A",
                                 "hit": True
                             },
                             "80": {
                                 "conservation": 0.8853,
+                                "residue": "A",
                                 "hit": True
                             },
                             "81": {
                                 "conservation": 0.87,
+                                "residue": "F",
                                 "hit": True
                             },
                             "82": {
                                 "conservation": 0.8009,
+                                "residue": "D",
                                 "hit": True
                             },
                             "84": {
                                 "conservation": 0.909,
+                                "residue": "A",
                                 "hit": True
                             },
                             "88": {
                                 "conservation": 0.8463,
+                                "residue": "L",
                                 "hit": True
                             },
                             "89": {
                                 "conservation": 0.8356,
+                                "residue": "D",
                                 "hit": True
                             },
                             "93": {
                                 "conservation": 0.8168,
+                                "residue": "E",
                                 "hit": True
                             },
                             "96": {
                                 "conservation": 0.8642,
+                                "residue": "Y",
                                 "hit": True
                             },
                             "97": {
                                 "conservation": 0.8046,
+                                "residue": "K",
                                 "hit": True
                             },
                             "98": {
                                 "conservation": 0.8844,
+                                "residue": "D",
                                 "hit": True
                             },
                             "99": {
                                 "conservation": 0.8355,
+                                "residue": "S",
                                 "hit": True
                             },
                             "100": {
                                 "conservation": 0.832,
+                                "residue": "T",
                                 "hit": True
                             },
                             "101": {
                                 "conservation": 0.8149,
+                                "residue": "L",
                                 "hit": True
                             },
                             "102": {
                                 "conservation": 0.9163,
+                                "residue": "I",
                                 "hit": True
                             },
                             "103": {
                                 "conservation": 0.8082,
+                                "residue": "M",
                                 "hit": True
                             },
                             "104": {
                                 "conservation": 0.8983,
+                                "residue": "Q",
                                 "hit": True
                             },
                             "105": {
                                 "conservation": 0.9404,
+                                "residue": "L",
                                 "hit": True
                             },
                             "106": {
                                 "conservation": 0.9178,
+                                "residue": "L",
                                 "hit": True
                             },
                             "107": {
                                 "conservation": 0.8887,
+                                "residue": "R",
                                 "hit": True
                             },
                             "108": {
                                 "conservation": 0.9231,
+                                "residue": "D",
                                 "hit": True
                             },
                             "109": {
                                 "conservation": 0.9685,
+                                "residue": "N",
                                 "hit": True
                             },
                             "110": {
                                 "conservation": 0.9009,
+                                "residue": "L",
                                 "hit": True
                             },
                             "111": {
                                 "conservation": 0.8181,
+                                "residue": "T",
                                 "hit": True
                             },
                             "112": {
                                 "conservation": 0.904,
+                                "residue": "L",
                                 "hit": True
                             },
                             "113": {
                                 "conservation": 0.9993,
+                                "residue": "W",
                                 "hit": True
                             },
                             "114": {
                                 "conservation": 0.8651,
+                                "residue": "T",
                                 "hit": True
                             }
                         },
@@ -3322,7 +3376,7 @@ def test_iterate_aligned_sequences_with_gaps(gapped_seq_pair):
 
     expected = [
         (0, 1, 10, "A", "X"),
-        (1, 1, None, "-", "-"), # Gap in target will be None
+        (1, None, None, "-", "-"), # Gap in target/source will be None
         (2, 2, 11, "B", "Y"),
         (3, 3, 12, "C", "Z")
     ]
@@ -7293,9 +7347,11 @@ def test_main_integration_all_types_H0YB80(
             logger, _ = get_logger(args.log)
             main()
 
-        # with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
-        #     transfer_dict = json.load(f)
-        #     print(json.dumps(transfer_dict, indent=4))
+        with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
+            transfer_dict = json.load(f)
+            print(json.dumps(transfer_dict, indent=4))
+            # with open("expected.json", "w") as expected:
+            #     json.dump(transfer_dict, expected, indent=4)
 
         assert os.path.exists(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"))
         assert transfer_dict_success_all_types_H0YB80 == json.load(open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"), "r", encoding="utf-8"))
