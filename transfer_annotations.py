@@ -59,6 +59,7 @@ get_alignment_sequences -> populate_conservation -> gather_go_terms_for_target
 
 """
 
+import sys
 import os
 import json
 import re
@@ -355,18 +356,24 @@ def read_conservations_and_annotations(conservations_filepath: str, annotations_
 
     return conservations, annotations
 
-def parse_go_annotations(go_column: str) -> list:
+def parse_go_annotations(go_column: str, cc_go_terms: set) -> list:
     """Extracts GO terms from InterProScan TSV column.
 
     Args:
         go_column: GO terms string (e.g., "GO:0005515|GO:0006302")
+        cc_go_terms: Set of Cellular Component GO terms to exclude
 
     Returns:
         list: Clean GO terms (e.g., ["GO:0005515", "GO:0006302"])
     """
     if not go_column or go_column == "-" or not go_column.strip():
         return []
-    return [term.split("(")[0].strip() for term in go_column.split("|") if term]
+
+    return [
+        term.split("(")[0].strip()
+        for term in go_column.split("|")
+        if term and (term.split("(")[0].strip() not in cc_go_terms)
+    ]
 
 # NOTE: May be adjusted to improve matching accuracy later, based on empirical testing.
 def check_interval_overlap(
@@ -406,7 +413,8 @@ def check_interval_overlap(
 
 def gather_go_terms_for_target(
     multi_logger: Callable, target_name: str, pfam_id: str,
-    go_terms_dir: str, interpro_conv_id: str, hit_start: int, hit_end: int) -> set:
+    go_terms_dir: str, interpro_conv_id: str, hit_start: int,
+    hit_end: int, cc_go_terms: set) -> set:
     """
     Gathers GO terms for a single target sequence from iprscan.tsv if
     adequate (meet at least one of 3 conditions) lines are present.
@@ -470,7 +478,9 @@ def gather_go_terms_for_target(
 
             if matches_accession or matches_interval:
                 if not pd.isna(row["GO Annotations"]) and not row["GO Annotations"].strip() == "-":
-                    target_gos.update(parse_go_annotations(row["GO Annotations"]))
+                    target_gos.update(
+                        parse_go_annotations(row["GO Annotations"], cc_go_terms)
+                        )
 
     if not (found_matching_accession or found_matching_interval):
         multi_logger(
@@ -609,7 +619,8 @@ def populate_conservation(
 
             counter_target_pos_info = {
                 "conservation": score_data,
-                "residue": conserved_amino,
+                "cons_residue": conserved_amino,
+                "target_residue": char_target,
                 "hit": is_match
             }
 
@@ -665,9 +676,8 @@ def populate_go_data_for_annotations(
                                     annotation_go_set.add(go_term)
                                     if go_term in target_gos:
                                         matched_go_info[go_term] = meaning
-                            target_go_set = set(target_gos)
-                            intersection = len(target_go_set.intersection(annotation_go_set))
-                            union = len(target_go_set.union(annotation_go_set))
+                            intersection = len(target_gos.intersection(annotation_go_set))
+                            union = len(target_gos.union(annotation_go_set))
                             jaccard_index = round(intersection / union, 4) if union > 0 else 0
                             go_info_cache[cache_key] = {
                                 annot_name: {
@@ -688,7 +698,8 @@ def cleanup_improve_transfer_dict(
     conservations_filepath: str,
     annotations_filepath: str,
     output_dir: str,
-    pfam_interpro_map_filepath: str
+    pfam_interpro_map_filepath: str,
+    cc_go_terms: set
 ) -> dict:
     """Main function for enhancing transfer dictionary with conservation and GO data.
 
@@ -786,7 +797,8 @@ def cleanup_improve_transfer_dict(
             if has_valid_annotations:
                 target_gos = gather_go_terms_for_target(
                     multi_logger, target_name, pfam_id,
-                    output_dir, interpro_conv_id, target_hit_start, target_hit_end
+                    output_dir, interpro_conv_id, target_hit_start,
+                    target_hit_end, cc_go_terms
                     )
                 # Populate GO data for each annotation
                 populate_go_data_for_annotations(
@@ -1080,7 +1092,7 @@ def add_to_transfer_dict(
             "length": len(target_sequence_continuous),
             "hit_start": target_hit_start,
             "hit_end": target_hit_end,
-            "annotations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
+            "annotations": {"positions": {}, "indices": {"matches": {}, "misses": {}}},
             "conservations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
             "position_conversion": {
                 "target_to_aln": {},
@@ -1150,17 +1162,40 @@ def _add_single_annotation(
     annot_amino_value = anno_total.get("annot_amino_acid", None)
     target_amino_value = anno_total.get("target_amino_acid", None)
 
+    # Moved out of the conditional below, because we'll track anno_id in annotations-indices-index_type
+    # across the multiple annotations a single position may have.
+    index_type = "matches" if hit else "misses"
     interval_dict = transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval_key]
 
-    # Initial setup for target position, including all references to it (annotations-positions,
-    # annotations-indices-index_type, position_conversion-target_to_aln, position_conversion-aln_to_target)
+    # Initial setup for target position, including all references to it
     if target_position_str not in interval_dict["annotations"]["positions"]:
         interval_dict["annotations"]["positions"][target_position_str] = {}
-        index_type = "matches" if hit else "misses"
-        interval_dict["annotations"]["indices"][index_type].add(target_position_str)
         interval_dict["position_conversion"]["target_to_aln"][target_position_str] = index_position_str
-        if index_position_str not in interval_dict["position_conversion"]["aln_to_target"]:
-            interval_dict["position_conversion"]["aln_to_target"][index_position_str] = target_position_str
+        interval_dict["position_conversion"]["aln_to_target"][index_position_str] = target_position_str
+
+    # Check if annotation exists in the opposite index,
+    # to prioritize match tracking over miss tracking
+    opposite_index_type = "misses" if hit else "matches"
+
+    # If we're adding a match and it already exists as a miss, remove it from misses
+    if hit and target_position_str in interval_dict["annotations"]["indices"][opposite_index_type] and \
+       anno_id in interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]:
+        interval_dict["annotations"]["indices"][opposite_index_type][target_position_str].remove(anno_id)
+        # If the set is now empty, clean it up
+        if not interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]:
+            del interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]
+
+    # If we were to add as a miss but it already exists as a match, skip everything
+    elif not hit and target_position_str in interval_dict["annotations"]["indices"][opposite_index_type] and \
+         anno_id in interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]:
+        # Return early - we don't process misses for target_pos + anno_id combos that matched in earlier calls
+        return
+    else:
+        # Initialize index_type set if it doesn't exist for this position
+        if target_position_str not in interval_dict["annotations"]["indices"][index_type]:
+            interval_dict["annotations"]["indices"][index_type][target_position_str] = set()
+        # Add anno_id to tracking set for the position
+        interval_dict["annotations"]["indices"][index_type][target_position_str].add(anno_id)
 
     positions_dict = interval_dict["annotations"]["positions"][target_position_str]
 
@@ -1168,7 +1203,7 @@ def _add_single_annotation(
     if anno_id not in positions_dict:
         essentials = {
             "type": type_value,
-            "description": description_value,
+            "description": description_value if description_value is not None else "",
             "count": count_value,
             "annot_amino_acid": annot_amino_value,
             "target_amino_acid": target_amino_value
@@ -1178,7 +1213,11 @@ def _add_single_annotation(
     else:
         positions_dict[anno_id]["essentials"]["count"] += 1
 
-    positions_dict[anno_id].setdefault("hit", hit)
+    # For consistent hit status, if we have a match anywhere, always set hit to True
+    if hit:
+        positions_dict[anno_id]["hit"] = True
+    elif "hit" not in positions_dict[anno_id]:
+        positions_dict[anno_id]["hit"] = hit
 
     update_position_ranges(
         interval_dict=interval_dict,
@@ -1353,7 +1392,7 @@ def make_anno_total_dict(
     paired_annot_pos_str = annotation.get("paired_position", None)
     anno_type = annotation["type"]
     anno_desc = annotation.get("description", None)
-    anno_id = f"{anno_type} | {anno_desc}"
+    anno_id = f"{anno_type} | {anno_desc}" if anno_desc is not None else anno_type
     anno_count = 1
     anno_evidence = {entry_mnemo_name: annotation.get("evidence", None)}
     annot_amino_acid = annotation.get("aminoacid", None)
@@ -1962,8 +2001,16 @@ def main():
     main_logger, _ = get_logger(args.log, scope="main")
     domain_logger, _ = get_logger(args.log, scope="domain", identifier=args.domain_accession)
     multi_logger = get_multi_logger([main_logger, domain_logger])
-
     domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Running transfer_annotations.py for %s", dom_align)
+
+    cc_go_path = os.path.join(resource_dir, "mappings/cc_go_terms_to_skip.json")
+    try:
+        with open(cc_go_path, "r", encoding="utf-8") as f:
+            cc_go_dict = json.load(f)
+            cc_go_terms = set(cc_go_dict.keys())  # Convert keys to set for O(1) lookups
+    except Exception as e:
+        multi_logger("error", "TRANSFER_ANNOTS --- MAIN --- Failed to load CC GO terms at %s with error %s", cc_go_path, str(e))
+        sys.exit(1)
 
     pfam_id = get_pfam_id_from_hmmalign_result(dom_align)
     annotations_filepath, conservations_filepath = get_annotation_filepath(resource_dir, pfam_id)
@@ -1989,8 +2036,9 @@ def main():
         raise
 
     improved_transfer_dict = cleanup_improve_transfer_dict(
-        domain_logger, multi_logger, transfer_dict, pfam_id, hmmalign_lines,
-        conservations_filepath, annotations_filepath, output_dir, pfam_interpro_map_filepath
+        domain_logger, multi_logger, transfer_dict,
+        pfam_id, hmmalign_lines, conservations_filepath,
+        annotations_filepath, output_dir, pfam_interpro_map_filepath, cc_go_terms
         )
     write_reports(domain_logger, multi_logger, improved_transfer_dict, output_dir)
 

@@ -534,7 +534,7 @@ def main():
         make_view_jsons_tasks = []
         for subdir in os.listdir(output_dir):
             subdir_path = os.path.join(output_dir, subdir)
-            if os.path.isdir(subdir_path) and not subdir.startswith("PF"):
+            if os.path.isdir(subdir_path) and not subdir.startswith("PF") and subdir != "batches":
                 make_view_jsons_tasks.append([
                     python_executable,
                     "make_view_jsons.py",

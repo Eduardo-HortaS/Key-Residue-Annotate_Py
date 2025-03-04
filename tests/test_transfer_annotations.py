@@ -1041,7 +1041,7 @@ def transfer_dict_initialized_structure_Q9NU22():
                             "length": 127,
                             "hit_start": 325,
                             "hit_end": 451,
-                            "annotations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
+                            "annotations": {"positions": {}, "indices": {"matches": {}, "misses": {}}},
                             "conservations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
                             "position_conversion": {
                                 "target_to_aln": {},
@@ -1144,8 +1144,11 @@ def transfer_dict_populated_disulfid_Q9NU22():
                                 }
                             },
                             "indices": {
-                                "matches": {"333", "373"}, # set literal
-                                "misses": set()
+                                "matches": {
+                                    "333": {"DISULFID | Intrachain (with C-246); in linked form"},
+                                    "373": {"DISULFID | Intrachain (with C-205); in linked form"}
+                                    },
+                                "misses": {}
                             }
                         },
                         "conservations": {
@@ -1211,10 +1214,10 @@ def transfer_dict_populated_disulfid_post_conservation_Q9NU22(transfer_dict_popu
 
     # Update positions and scores
     interval_path["conservations"]["positions"].update({
-        "329": {"conservation": 0.9853, "residue": "G", "hit": True},
-        "332": {"conservation": 0.8806, "residue": "G", "hit": True},
-        "334": {"conservation": 0.9084, "residue": "G", "hit": True},
-        "335": {"conservation": 0.9562, "residue": "K", "hit": True}
+        "329": {"conservation": 0.9853, "cons_residue": "G", "target_residue": "G", "hit": True},
+        "332": {"conservation": 0.8806, "cons_residue": "G", "target_residue": "G", "hit": True},
+        "334": {"conservation": 0.9084, "cons_residue": "G", "target_residue": "G", "hit": True},
+        "335": {"conservation": 0.9562, "cons_residue": "K", "target_residue": "K", "hit": True}
     })
     interval_path["conservations"]["indices"]["matches"].update(["329", "332", "334", "335"])
 
@@ -1373,43 +1376,41 @@ def transfer_dict_success_binding_Q9NU22():
                             }
                         },
                         "indices": {
-                            "matches": [
-                                "329",
-                                "330"
-                            ],
-                            "misses": []
-                        }
-                    },
-                    "conservation_ranges": {
-                        "conserved_positions": {
-                            "positions": [329, 332, 334, 335],
-                            "ranges": [
-                                [329, 329],
-                                [332, 332],
-                                [334, 335],
-                            ],
+                            "matches": {
+                                "329": [
+                                    "BINDING | Interacts with GTP"
+                                ],
+                                "330": [
+                                    "BINDING | Interacts with GTP"
+                                ]
+                            },
+                            "misses": {}
                         }
                     },
                     "conservations": {
                         "positions": {
                             "329": {
                                 "conservation": 0.9853,
-                                "residue": "G",
+                                "cons_residue": "G",
+                                "target_residue": "G",
                                 "hit": True
                             },
                             "332": {
                                 "conservation": 0.8806,
-                                "residue": "G",
+                                "cons_residue": "G",
+                                "target_residue": "G",
                                 "hit": True
                             },
                             "334": {
                                 "conservation": 0.9084,
-                                "residue": "G",
+                                "cons_residue": "G",
+                                "target_residue": "G",
                                 "hit": True
                             },
                             "335": {
                                 "conservation": 0.9562,
-                                "residue": "K",
+                                "cons_residue": "K",
+                                "target_residue": "K",
                                 "hit": True
                             }
                         },
@@ -1449,6 +1450,30 @@ def transfer_dict_success_binding_Q9NU22():
                                 [
                                     329,
                                     330
+                                ]
+                            ]
+                        }
+                    },
+                    "conservation_ranges": {
+                        "conserved_positions": {
+                            "positions": [
+                                329,
+                                332,
+                                334,
+                                335
+                            ],
+                            "ranges": [
+                                [
+                                    329,
+                                    329
+                                ],
+                                [
+                                    332,
+                                    332
+                                ],
+                                [
+                                    334,
+                                    335
                                 ]
                             ]
                         }
@@ -1941,323 +1966,408 @@ def transfer_dict_success_all_types_H0YB80():
                             }
                         },
                         "indices": {
-                            "matches": [
-                                "109",
-                                "113",
-                                "12",
-                                "13",
-                                "57",
-                                "58",
-                                "61",
-                                "65"
-                            ],
-                            "misses": [
-                                "78",
-                                "86",
-                                "92"
-                            ]
+                            "matches": {
+                                "12": [
+                                    "BINDING | Interacts with O-phospho-L-serine",
+                                    "BINDING | Interacts with peptide"
+                                ],
+                                "13": [
+                                    "BINDING | Interacts with O-phospho-L-serine",
+                                    "BINDING | Interacts with peptide"
+                                ],
+                                "57": [
+                                    "BINDING | Interacts with peptide"
+                                ],
+                                "58": [
+                                    "BINDING | Interacts with peptide"
+                                ],
+                                "65": [
+                                    "BINDING | Interacts with peptide"
+                                ],
+                                "109": [
+                                    "BINDING | Interacts with peptide"
+                                ],
+                                "113": [
+                                    "BINDING | Interacts with peptide"
+                                ],
+                                "61": [
+                                    "MUTAGEN | V->D: Loss of binding to difopein."
+                                ]
+                            },
+                            "misses": {
+                                "78": [
+                                    "MUTAGEN | R->K: Increased oligomerization."
+                                ],
+                                "86": [
+                                    "MUTAGEN | T->A: Slightly decreased oligomerization."
+                                ],
+                                "92": [
+                                    "MOD_RES | Phosphothreonine",
+                                    "MUTAGEN | T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides."
+                                ]
+                            }
                         }
                     },
                     "conservations": {
                         "positions": {
                             "1": {
                                 "conservation": 0.8855,
-                                "residue": "V",
+                                "cons_residue": "V",
+                                "target_residue": "V",
                                 "hit": True
                             },
                             "2": {
                                 "conservation": 0.9213,
-                                "residue": "F",
+                                "cons_residue": "F",
+                                "target_residue": "F",
                                 "hit": True
                             },
                             "3": {
                                 "conservation": 0.8509,
-                                "residue": "Y",
+                                "cons_residue": "Y",
+                                "target_residue": "Y",
                                 "hit": True
                             },
                             "5": {
                                 "conservation": 0.943,
-                                "residue": "K",
+                                "cons_residue": "K",
+                                "target_residue": "K",
                                 "hit": True
                             },
                             "6": {
                                 "conservation": 0.8856,
-                                "residue": "M",
+                                "cons_residue": "M",
+                                "target_residue": "M",
                                 "hit": True
                             },
                             "7": {
                                 "conservation": 0.8162,
-                                "residue": "K",
+                                "cons_residue": "K",
+                                "target_residue": "K",
                                 "hit": True
                             },
                             "8": {
                                 "conservation": 0.8751,
-                                "residue": "G",
+                                "cons_residue": "G",
+                                "target_residue": "G",
                                 "hit": True
                             },
                             "9": {
                                 "conservation": 0.986,
-                                "residue": "D",
+                                "cons_residue": "D",
+                                "target_residue": "D",
                                 "hit": True
                             },
                             "10": {
                                 "conservation": 0.9316,
-                                "residue": "Y",
+                                "cons_residue": "Y",
+                                "target_residue": "Y",
                                 "hit": True
                             },
                             "12": {
                                 "conservation": 0.9776,
-                                "residue": "R",
+                                "cons_residue": "R",
+                                "target_residue": "R",
                                 "hit": True
                             },
                             "13": {
                                 "conservation": 0.9815,
-                                "residue": "Y",
+                                "cons_residue": "Y",
+                                "target_residue": "Y",
                                 "hit": True
                             },
                             "15": {
                                 "conservation": 0.8356,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "A",
                                 "hit": True
                             },
                             "16": {
                                 "conservation": 0.9682,
-                                "residue": "E",
+                                "cons_residue": "E",
+                                "target_residue": "E",
                                 "hit": True
                             },
                             "34": {
                                 "conservation": 0.9736,
-                                "residue": "Y",
+                                "cons_residue": "Y",
+                                "target_residue": "Y",
                                 "hit": True
                             },
                             "37": {
                                 "conservation": 0.9657,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "A",
                                 "hit": True
                             },
                             "41": {
                                 "conservation": 0.812,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "S",
                                 "hit": False
                             },
                             "48": {
                                 "conservation": 0.8392,
-                                "residue": "T",
+                                "cons_residue": "T",
+                                "target_residue": "T",
                                 "hit": True
                             },
                             "50": {
                                 "conservation": 0.9312,
-                                "residue": "P",
+                                "cons_residue": "P",
+                                "target_residue": "P",
                                 "hit": True
                             },
                             "52": {
                                 "conservation": 0.9043,
-                                "residue": "R",
+                                "cons_residue": "R",
+                                "target_residue": "R",
                                 "hit": True
                             },
                             "53": {
                                 "conservation": 0.9743,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "54": {
                                 "conservation": 0.9191,
-                                "residue": "G",
+                                "cons_residue": "G",
+                                "target_residue": "G",
                                 "hit": True
                             },
                             "55": {
                                 "conservation": 0.9228,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "56": {
                                 "conservation": 0.8745,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "A",
                                 "hit": True
                             },
                             "57": {
                                 "conservation": 0.978,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "58": {
                                 "conservation": 0.9648,
-                                "residue": "N",
+                                "cons_residue": "N",
+                                "target_residue": "N",
                                 "hit": True
                             },
                             "60": {
                                 "conservation": 0.9051,
-                                "residue": "S",
+                                "cons_residue": "S",
+                                "target_residue": "S",
                                 "hit": True
                             },
                             "61": {
                                 "conservation": 0.9377,
-                                "residue": "V",
+                                "cons_residue": "V",
+                                "target_residue": "V",
                                 "hit": True
                             },
                             "62": {
                                 "conservation": 0.9346,
-                                "residue": "F",
+                                "cons_residue": "F",
+                                "target_residue": "F",
                                 "hit": True
                             },
                             "64": {
                                 "conservation": 0.8826,
-                                "residue": "Y",
+                                "cons_residue": "Y",
+                                "target_residue": "Y",
                                 "hit": True
                             },
                             "65": {
                                 "conservation": 0.9215,
-                                "residue": "E",
+                                "cons_residue": "E",
+                                "target_residue": "E",
                                 "hit": True
                             },
                             "66": {
                                 "conservation": 0.8339,
-                                "residue": "I",
+                                "cons_residue": "I",
+                                "target_residue": "I",
                                 "hit": True
                             },
                             "73": {
                                 "conservation": 0.9722,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "A",
                                 "hit": True
                             },
                             "74": {
                                 "conservation": 0.8229,
-                                "residue": "C",
+                                "cons_residue": "C",
+                                "target_residue": "C",
                                 "hit": True
                             },
                             "77": {
                                 "conservation": 0.9375,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "A",
                                 "hit": True
                             },
                             "80": {
                                 "conservation": 0.8853,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "A",
                                 "hit": True
                             },
                             "81": {
                                 "conservation": 0.87,
-                                "residue": "F",
+                                "cons_residue": "F",
+                                "target_residue": "F",
                                 "hit": True
                             },
                             "82": {
                                 "conservation": 0.8009,
-                                "residue": "D",
+                                "cons_residue": "D",
+                                "target_residue": "D",
                                 "hit": True
                             },
                             "84": {
                                 "conservation": 0.909,
-                                "residue": "A",
+                                "cons_residue": "A",
+                                "target_residue": "A",
                                 "hit": True
                             },
                             "88": {
                                 "conservation": 0.8463,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "89": {
                                 "conservation": 0.8356,
-                                "residue": "D",
+                                "cons_residue": "D",
+                                "target_residue": "D",
                                 "hit": True
                             },
                             "93": {
                                 "conservation": 0.8168,
-                                "residue": "E",
+                                "cons_residue": "E",
+                                "target_residue": "E",
                                 "hit": True
                             },
                             "96": {
                                 "conservation": 0.8642,
-                                "residue": "Y",
+                                "cons_residue": "Y",
+                                "target_residue": "Y",
                                 "hit": True
                             },
                             "97": {
                                 "conservation": 0.8046,
-                                "residue": "K",
+                                "cons_residue": "K",
+                                "target_residue": "K",
                                 "hit": True
                             },
                             "98": {
                                 "conservation": 0.8844,
-                                "residue": "D",
+                                "cons_residue": "D",
+                                "target_residue": "D",
                                 "hit": True
                             },
                             "99": {
                                 "conservation": 0.8355,
-                                "residue": "S",
+                                "cons_residue": "S",
+                                "target_residue": "S",
                                 "hit": True
                             },
                             "100": {
                                 "conservation": 0.832,
-                                "residue": "T",
+                                "cons_residue": "T",
+                                "target_residue": "T",
                                 "hit": True
                             },
                             "101": {
                                 "conservation": 0.8149,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "102": {
                                 "conservation": 0.9163,
-                                "residue": "I",
+                                "cons_residue": "I",
+                                "target_residue": "I",
                                 "hit": True
                             },
                             "103": {
                                 "conservation": 0.8082,
-                                "residue": "M",
+                                "cons_residue": "M",
+                                "target_residue": "M",
                                 "hit": True
                             },
                             "104": {
                                 "conservation": 0.8983,
-                                "residue": "Q",
+                                "cons_residue": "Q",
+                                "target_residue": "Q",
                                 "hit": True
                             },
                             "105": {
                                 "conservation": 0.9404,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "106": {
                                 "conservation": 0.9178,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "107": {
                                 "conservation": 0.8887,
-                                "residue": "R",
+                                "cons_residue": "R",
+                                "target_residue": "R",
                                 "hit": True
                             },
                             "108": {
                                 "conservation": 0.9231,
-                                "residue": "D",
+                                "cons_residue": "D",
+                                "target_residue": "D",
                                 "hit": True
                             },
                             "109": {
                                 "conservation": 0.9685,
-                                "residue": "N",
+                                "cons_residue": "N",
+                                "target_residue": "N",
                                 "hit": True
                             },
                             "110": {
                                 "conservation": 0.9009,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "111": {
                                 "conservation": 0.8181,
-                                "residue": "T",
+                                "cons_residue": "T",
+                                "target_residue": "T",
                                 "hit": True
                             },
                             "112": {
                                 "conservation": 0.904,
-                                "residue": "L",
+                                "cons_residue": "L",
+                                "target_residue": "L",
                                 "hit": True
                             },
                             "113": {
                                 "conservation": 0.9993,
-                                "residue": "W",
+                                "cons_residue": "W",
+                                "target_residue": "W",
                                 "hit": True
                             },
                             "114": {
                                 "conservation": 0.8651,
-                                "residue": "T",
+                                "cons_residue": "T",
+                                "target_residue": "T",
                                 "hit": True
                             }
                         },
@@ -2915,6 +3025,10 @@ tr|H0YB80|H0YB80_HUMANtarget//1-114         -------.-----------------.....----.-
 
 ### Fixtures added in cleanup_improve_transfer_dict and helper functions
 
+@pytest.fixture
+def cc_go_terms_mock():
+    return {"GO:0090543": True, "GO:0001939": True, "GO:0032154": True, "GO:1902792": True, "GO:0030119": True, "GO:0019034": True, "GO:0031248": True, "GO:0002947": True, "GO:0061828": True, "GO:0098946": True, "GO:0071059": True, "GO:0032301": True, "GO:0034506": True, "GO:0032437": True}
+
 def mock_populate_conservation(transfer_dict, source_dict):
     """Helper to populate conservation data from source"""
     target_path = transfer_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]
@@ -3155,7 +3269,7 @@ def interval_dict_base():
                     }
                 }
             },
-            "indices": {"matches": {"333"}, "misses": set()}
+            "indices": {"matches": {"333": {"DISULFID | Test"}}, "misses": {}}
         },
         "position_conversion": {
             "target_to_aln": {"333": "18"},
@@ -3689,25 +3803,30 @@ def test_read_conservations_and_annotations_empty_files(mock_json_filepaths):
 
 ###T parse_go_annotations
 
-def test_parse_go_annotations_multiple_terms():
+def test_parse_go_annotations_multiple_terms(cc_go_terms_mock):
     """Test parsing GO terms with multiple terms and sources."""
     go_column = "GO:0000027(PANTHER)|GO:0000055(InterPro)|GO:0005634()|GO:0030687(PANTHER)"
-    result = parse_go_annotations(go_column)
+    result = parse_go_annotations(go_column, cc_go_terms_mock)
     assert result == ["GO:0000027", "GO:0000055", "GO:0005634", "GO:0030687"]
 
-def test_parse_go_annotations_single_term():
+def test_parse_go_annotations_single_term(cc_go_terms_mock):
     """Test parsing single GO term."""
     go_column = "GO:0016887(InterPro)"
-    result = parse_go_annotations(go_column)
+    result = parse_go_annotations(go_column, cc_go_terms_mock)
     assert result == ["GO:0016887"]
 
-def test_parse_go_annotations_empty():
+def test_parse_go_annotations_empty(cc_go_terms_mock):
     """Test parsing empty GO annotations."""
-    assert parse_go_annotations("") == []
-    assert parse_go_annotations("-") == []
-    assert parse_go_annotations("  ") == []
-    assert parse_go_annotations(None) == []
+    assert parse_go_annotations("", cc_go_terms_mock) == []
+    assert parse_go_annotations("-", cc_go_terms_mock) == []
+    assert parse_go_annotations("  ", cc_go_terms_mock) == []
+    assert parse_go_annotations(None, cc_go_terms_mock) == []
 
+def test_parse_go_annotations_cc_go_terms_filtered(cc_go_terms_mock):
+    """Test parsing GO terms with terms filtered out by cc_go_terms."""
+    go_column = "GO:0005515(InterPro)|GO:0090543(InterPro)|GO:0006302(InterPro)"
+    result = parse_go_annotations(go_column, cc_go_terms_mock)
+    assert result == ["GO:0005515", "GO:0006302"]
 
 ###T check_interval_overlap
 
@@ -3761,7 +3880,7 @@ def test_check_interval_overlap_edge_margins(multi_logger):
 
 ###T gather_go_terms_for_target
 
-def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test gathering GO terms when matching PFAM ID"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -3778,13 +3897,14 @@ def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_P
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR011704",
             hit_start=325,
-            hit_end=451
+            hit_end=451,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0005524", "GO:0016887"}
-        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)")
+        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)", cc_go_terms_mock)
 
-def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test gathering GO terms when matching InterPro ID"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -3801,13 +3921,14 @@ def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR027417",
             hit_start=300,
-            hit_end=500
+            hit_end=500,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0042623"}
-        mock_parse.assert_called_once_with("GO:0042623(InterPro)")
+        mock_parse.assert_called_once_with("GO:0042623(InterPro)", cc_go_terms_mock)
 
-def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test gathering GO terms when only interval matches"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -3824,12 +3945,13 @@ def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU2
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR000000",
             hit_start=320,
-            hit_end=635
+            hit_end=635,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0016887"}
 
-def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test when no entries match any criteria"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -3843,7 +3965,8 @@ def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_P
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR000000",
             hit_start=1,
-            hit_end=100
+            hit_end=100,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
@@ -3853,7 +3976,7 @@ def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_P
             "PF00000", "sp-Q9NU22-MDN1_HUMAN"
         )
 
-def test_gather_go_terms_for_target_file_not_found(multi_logger):
+def test_gather_go_terms_for_target_file_not_found(multi_logger, cc_go_terms_mock):
     """Test handling of missing iprscan.tsv file"""
     with patch("os.path.exists", return_value=False):
         result = gather_go_terms_for_target(
@@ -3863,7 +3986,8 @@ def test_gather_go_terms_for_target_file_not_found(multi_logger):
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR000000",
             hit_start=1,
-            hit_end=100
+            hit_end=100,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
@@ -3873,7 +3997,7 @@ def test_gather_go_terms_for_target_file_not_found(multi_logger):
             "PF00000", "nonexistent", "/mock/path/nonexistent/iprscan.tsv"
         )
 
-def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df):
+def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df, cc_go_terms_mock):
     """Test handling of empty but valid TSV file"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -3887,16 +4011,18 @@ def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df):
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR011704",
             hit_start=325,
-            hit_end=451
+            hit_end=451,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
         multi_logger.assert_called_once_with(
             "warning",
             "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- No usable InterProScan lines in iprscan.tsv for %s-%s",
-            "PF07728", "sp-Q9NU22-MDN1_HUMAN")
+            "PF07728", "sp-Q9NU22-MDN1_HUMAN"
+        )
 
-def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test gathering GO terms when both accession and interval match"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -3918,14 +4044,15 @@ def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR011704",
             hit_start=325,
-            hit_end=451
+            hit_end=451,
+            cc_go_terms=cc_go_terms_mock
         )
 
         # All GO terms from all matching rows should be combined
         assert result == {"GO:0005524", "GO:0016887", "GO:0042623"}
         assert mock_parse.call_count == 3
 
-def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test handling of "-" GO annotations"""
     mock_df_dash = iprscan_df_Q9NU22_PF07728.copy()
     mock_df_dash.loc[0, "GO Annotations"] = "-"
@@ -3943,13 +4070,14 @@ def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU2
             go_terms_dir="/mock/path",
             interpro_conv_id="IPR011704",
             hit_start=325,
-            hit_end=451
+            hit_end=451,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
 
 ## Integration tests so to speak
-def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock):
+def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock, cc_go_terms_mock):
     go_terms = gather_go_terms_for_target(
         multi_logger=multi_logger,
         target_name="target_name",
@@ -3957,11 +4085,12 @@ def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock):
         go_terms_dir=go_terms_dir_mock,
         interpro_conv_id="IPR011704",
         hit_start=325,
-        hit_end=451
+        hit_end=451,
+        cc_go_terms=cc_go_terms_mock
     )
     assert go_terms == {"GO:0005524", "GO:0016887"}
 
-def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock):
+def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock, cc_go_terms_mock):
     go_terms = gather_go_terms_for_target(
         multi_logger=multi_logger,
         target_name="target_name_no_go",
@@ -3969,11 +4098,12 @@ def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock):
         go_terms_dir=go_terms_dir_mock,
         interpro_conv_id="IPR011704",
         hit_start=325,
-        hit_end=451
+        hit_end=451,
+        cc_go_terms=cc_go_terms_mock
     )
     assert go_terms == set()
 
-def test_gather_go_terms_for_target_empty_interpro_id(multi_logger, iprscan_df_Q9NU22_PF07728):
+def test_gather_go_terms_for_target_empty_interpro_id(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test gathering GO terms when interpro_conv_id is empty string but Pfam ID matches"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -3990,12 +4120,13 @@ def test_gather_go_terms_for_target_empty_interpro_id(multi_logger, iprscan_df_Q
             go_terms_dir="/mock/path",
             interpro_conv_id="",  # Empty string case
             hit_start=325,
-            hit_end=451
+            hit_end=451,
+            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0005524", "GO:0016887"}
         # Should only check Signature Accession since interpro_conv_id is empty
-        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)")
+        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)", cc_go_terms_mock)
 
 ###T get_alignment_sequences
 
@@ -4293,7 +4424,8 @@ def test_cleanup_improve_transfer_dict_basic(
     target_id_plus_seq_Q9NU22,
     conservation_id_plus_seq_Q9NU22_PF07728,
     transfer_dict_populated_disulfid_post_conservation_Q9NU22,
-    transfer_dict_populated_disulfid_post_gos_Q9NU22
+    transfer_dict_populated_disulfid_post_gos_Q9NU22,
+    cc_go_terms_mock
 ):
     # Define mocks that directly apply fixture data
     def mock_populate_conservation(transfer_dict, **kwargs):
@@ -4346,7 +4478,8 @@ def test_cleanup_improve_transfer_dict_basic(
             conservations_filepath="fake.json",
             annotations_filepath="fake.json",
             output_dir="fake_dir",
-            pfam_interpro_map_filepath="fake.tsv"
+            pfam_interpro_map_filepath="fake.tsv",
+            cc_go_terms=cc_go_terms_mock
         )
         assert result == transfer_dict_populated_disulfid_post_gos_Q9NU22
 
@@ -4358,7 +4491,8 @@ def test_cleanup_improve_transfer_dict_conservations_only(
     mapping_content_Q9NU22_and_H0YB80_domains,
     target_id_plus_seq_Q9NU22,
     conservation_id_plus_seq_Q9NU22_PF07728,
-    transfer_dict_populated_disulfid_post_conservation_Q9NU22
+    transfer_dict_populated_disulfid_post_conservation_Q9NU22,
+    cc_go_terms_mock
 ):
     """Test handling when only conservations data exists"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4387,7 +4521,8 @@ def test_cleanup_improve_transfer_dict_conservations_only(
             conservations_filepath="fake.json",
             annotations_filepath="nonexistent.json",
             output_dir="fake_dir",
-            pfam_interpro_map_filepath="fake.tsv"
+            pfam_interpro_map_filepath="fake.tsv",
+            cc_go_terms=cc_go_terms_mock
         )
 
         # Verify only conservation data was populated
@@ -4403,6 +4538,7 @@ def test_cleanup_improve_transfer_dict_handles_empty_conservations(
     target_gos_Q9NU22_MCRB_ECOLI,
     target_id_plus_seq_Q9NU22,
     conservation_id_plus_seq_Q9NU22_PF07728,
+    cc_go_terms_mock
 ):
     """Test handling of empty conservations data"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4429,7 +4565,8 @@ def test_cleanup_improve_transfer_dict_handles_empty_conservations(
             conservations_filepath="fake.json",
             annotations_filepath="fake.json",
             output_dir="fake_dir",
-            pfam_interpro_map_filepath="fake.tsv"
+            pfam_interpro_map_filepath="fake.tsv",
+            cc_go_terms=cc_go_terms_mock
         )
 
         # Verify structure is maintained but without conservation data
@@ -4446,7 +4583,8 @@ def test_cleanup_improve_transfer_dict_only_conservations_valid(
     mapping_content_Q9NU22_and_H0YB80_domains,
     target_id_plus_seq_Q9NU22,
     conservation_id_plus_seq_Q9NU22_PF07728,
-    transfer_dict_populated_disulfid_post_conservation_Q9NU22
+    transfer_dict_populated_disulfid_post_conservation_Q9NU22,
+    cc_go_terms_mock
 ):
     """Test handling when only conservations data is valid"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4476,7 +4614,8 @@ def test_cleanup_improve_transfer_dict_only_conservations_valid(
             conservations_filepath="fake.json",
             annotations_filepath="fake.json",
             output_dir="fake_dir",
-            pfam_interpro_map_filepath="fake.tsv"
+            pfam_interpro_map_filepath="fake.tsv",
+            cc_go_terms=cc_go_terms_mock
         )
 
         # Verify only conservation data was added
@@ -4491,7 +4630,8 @@ def test_cleanup_improve_transfer_dict_only_annotations_valid(
     annotations_content_disulfid_fixture_Q9NU22_PF07728,
     mapping_content_Q9NU22_and_H0YB80_domains,
     target_gos_Q9NU22_MCRB_ECOLI,
-    transfer_dict_populated_disulfid_post_gos_Q9NU22
+    transfer_dict_populated_disulfid_post_gos_Q9NU22,
+    cc_go_terms_mock
 ):
     """Test handling when only annotations data is valid"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4521,7 +4661,8 @@ def test_cleanup_improve_transfer_dict_only_annotations_valid(
             conservations_filepath="fake.json",
             annotations_filepath="fake.json",
             output_dir="fake_dir",
-            pfam_interpro_map_filepath="fake.tsv"
+            pfam_interpro_map_filepath="fake.tsv",
+            cc_go_terms=cc_go_terms_mock
         )
 
         # Verify only GO data was added
@@ -4539,8 +4680,14 @@ def test_convert_sets_and_tuples_to_lists_real_data(transfer_dict_populated_disu
 
     # Check conversion of set in indices
     matches = result["DOMAIN"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["indices"]["matches"]
-    assert isinstance(matches, list)
-    assert sorted(matches) == ["333", "373"]
+    assert isinstance(matches, dict)
+    assert "333" in matches
+    assert isinstance(matches["333"], list)
+    assert matches["333"] == ["DISULFID | Intrachain (with C-246); in linked form"]
+    assert "373" in matches
+    assert isinstance(matches["373"], list)
+    assert matches["373"] == ["DISULFID | Intrachain (with C-205); in linked form"]
+
 
     # Check conversion of tuples in annotation_ranges
     ranges = result["DOMAIN"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotation_ranges"]["DISULFID | Intrachain (with C-246); in linked form"]["ranges"]
@@ -4895,7 +5042,7 @@ def test_add_to_transfer_dict_initializes_structure(
         assert interval_dict["length"] == len(target_sequence_continuous_Q9NU22)
         assert interval_dict["hit_start"] == target_hit_start_mock_Q9NU22
         assert interval_dict["hit_end"] == target_hit_end_mock_Q9NU22
-        assert interval_dict["annotations"] == {"positions": {}, "indices": {"matches": set(), "misses": set()}}
+        assert interval_dict["annotations"] == {"positions": {}, "indices": {"matches": {}, "misses": {}}}
         assert interval_dict["conservations"] == {"positions": {}, "indices": {"matches": set(), "misses": set()}}
         assert interval_dict["position_conversion"] == {"target_to_aln": {}, "aln_to_target": {}}
         assert interval_dict["annotation_ranges"] == {}
@@ -7119,7 +7266,7 @@ def test_validate_annotations_target_pos_unreachable(
 
 ###T main
 
-def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_disulfid_list_Q9NU22, transfer_dict_populated_disulfid_post_gos_list_Q9NU22):
+def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_populated_disulfid_list_Q9NU22, transfer_dict_populated_disulfid_post_gos_list_Q9NU22, cc_go_terms_mock):
     """Test main function success path"""
     mock_args = Namespace(
         dom_align=hmmalign_result_mock,
@@ -7130,6 +7277,10 @@ def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU2
         log=log_filepath_mock
     )
 
+    # Convert mock CC GO terms to JSON string to create mock_cc_go_file
+    mock_cc_go_json = json.dumps(cc_go_terms_mock)
+    mock_cc_go_file = mock_open(read_data=mock_cc_go_json)
+
     with patch("transfer_annotations.parse_arguments", return_value=mock_args) as mock_parse, \
          patch("transfer_annotations.get_pfam_id_from_hmmalign_result", return_value="PF07728") as mock_get_pfam, \
          patch("transfer_annotations.read_files", return_value=(minimal_hmmalign_lines_fixture_Q9NU22, {})) as mock_read, \
@@ -7137,7 +7288,8 @@ def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU2
          patch("transfer_annotations.cleanup_improve_transfer_dict", return_value=transfer_dict_populated_disulfid_post_gos_list_Q9NU22) as mock_cleanup, \
          patch("transfer_annotations.write_reports") as mock_write, \
          patch("transfer_annotations.get_logger", return_value=(logger, None)) as mock_get_logger, \
-         patch("transfer_annotations.get_multi_logger") as mock_get_multi_logger:
+         patch("transfer_annotations.get_multi_logger") as mock_get_multi_logger, \
+         patch("builtins.open", mock_cc_go_file):
 
         mock_get_multi_logger.return_value = multi_logger
 
@@ -7156,7 +7308,8 @@ def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU2
             os.path.join(resource_dir_mock, "PF07728", "conservations.json"),
             os.path.join(resource_dir_mock, "PF07728", "annotations.json"),
             output_dir_mock,
-            os.path.join(resource_dir_mock, "mappings/interpro_pfam_accession_mapping.tsv")
+            os.path.join(resource_dir_mock, "mappings/interpro_pfam_accession_mapping.tsv"),
+            set(cc_go_terms_mock.keys())
         )
         mock_write.assert_called_once_with(
             logger,
@@ -7166,11 +7319,31 @@ def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU2
         )
         logger.info.assert_any_call("TRANSFER_ANNOTS --- MAIN --- Transfer Dict FILLED")
 
+def test_main_cc_go_load_error(logger, multi_logger):
+    """Test main function when loading CC GO terms fails."""
+    mock_args = Namespace(
+        dom_align=hmmalign_result_mock,
+        resource_dir=resource_dir_mock,
+        domain_accession=domain_accession_mock,
+        output_dir=output_dir_mock,
+        eco_codes=good_eco_codes_mock,
+        log=log_filepath_mock
+    )
+
+    with patch("transfer_annotations.parse_arguments", return_value=mock_args), \
+         patch("transfer_annotations.get_logger", return_value=(logger, None)), \
+         patch("transfer_annotations.get_multi_logger", return_value=multi_logger), \
+         patch("builtins.open", side_effect=IOError("Failed to load CC GO terms")), \
+         patch("sys.exit") as mock_sys_exit, pytest.raises(OSError, match="Failed to load CC GO terms"):
+
+        main()
+
+        mock_sys_exit.assert_called_once_with(1)
 
 # Integration tests
 def test_main_integration_binding_Q9NU22_PF07728(
     minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_success_binding_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728,
-    conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains, iprscan_content_Q9NU22
+    conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains, iprscan_content_Q9NU22, cc_go_terms_mock
     ):
     """Integration test for main function"""
 
@@ -7203,6 +7376,10 @@ def test_main_integration_binding_Q9NU22_PF07728(
         with open(os.path.join(mappings_dir, "interpro_pfam_accession_mapping.tsv"), "w", encoding="utf-8") as f:
             f.write(mapping_content_Q9NU22_and_H0YB80_domains)
 
+        # Write CC GO terms to skip JSON
+        with open(os.path.join(mappings_dir, "cc_go_terms_to_skip.json"), "w", encoding="utf-8") as f:
+            json.dump(cc_go_terms_mock, f)
+
         # Write iprscan.tsv
         with open(os.path.join(target_dir, "iprscan.tsv"), "w", encoding="utf-8") as f:
             f.write(iprscan_content_Q9NU22)
@@ -7234,7 +7411,7 @@ def test_main_integration_disulfid_Q9NU22_PF07728(
     annotations_content_disulfid_fixture_Q9NU22_PF07728,
     conservations_content_Q9NU22_PF07728,
     mapping_content_Q9NU22_and_H0YB80_domains,
-    iprscan_content_Q9NU22):
+    iprscan_content_Q9NU22, cc_go_terms_mock):
     """Integration test for main function"""
 
     with TemporaryDirectory() as tmp_dir:
@@ -7265,6 +7442,10 @@ def test_main_integration_disulfid_Q9NU22_PF07728(
         # Write mappings TSV
         with open(os.path.join(mappings_dir, "interpro_pfam_accession_mapping.tsv"), "w", encoding="utf-8") as f:
             f.write(mapping_content_Q9NU22_and_H0YB80_domains)
+
+        # Write CC GO terms to skip JSON
+        with open(os.path.join(mappings_dir, "cc_go_terms_to_skip.json"), "w", encoding="utf-8") as f:
+            json.dump(cc_go_terms_mock, f)
 
         # Write iprscan.tsv
         with open(os.path.join(target_dir, "iprscan.tsv"), "w", encoding="utf-8") as f:
@@ -7297,7 +7478,7 @@ def test_main_integration_all_types_H0YB80(
     annotations_content_all_types_fixture_H0YB80_PF00244,
     conservations_content_H0YB80_PF00244,
     mapping_content_Q9NU22_and_H0YB80_domains,
-    iprscan_content_H0YB80):
+    iprscan_content_H0YB80, cc_go_terms_mock):
     """Integration test for main function"""
 
     with TemporaryDirectory() as tmp_dir:
@@ -7329,6 +7510,10 @@ def test_main_integration_all_types_H0YB80(
         with open(os.path.join(mappings_dir, "interpro_pfam_accession_mapping.tsv"), "w", encoding="utf-8") as f:
             f.write(mapping_content_Q9NU22_and_H0YB80_domains)
 
+        # Write CC GO terms to skip JSON
+        with open(os.path.join(mappings_dir, "cc_go_terms_to_skip.json"), "w", encoding="utf-8") as f:
+            json.dump(cc_go_terms_mock, f)
+
         # Write iprscan.tsv
         with open(os.path.join(target_dir, "iprscan.tsv"), "w", encoding="utf-8") as f:
             f.write(iprscan_content_H0YB80)
@@ -7347,9 +7532,9 @@ def test_main_integration_all_types_H0YB80(
             logger, _ = get_logger(args.log)
             main()
 
-        with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
-            transfer_dict = json.load(f)
-            print(json.dumps(transfer_dict, indent=4))
+        # with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
+        #     transfer_dict = json.load(f)
+        #     print(json.dumps(transfer_dict, indent=4))
             # with open("expected.json", "w") as expected:
             #     json.dump(transfer_dict, expected, indent=4)
 

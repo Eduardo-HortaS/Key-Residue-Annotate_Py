@@ -120,17 +120,17 @@ def mock_aggregated_report_data():
                         "conservations": {
                             "positions": {
                                 # Mocked a continuous range to test
-                                "364": {"conservation": 0.90, "residue": "G", "hit": True},
-                                "365": {"conservation": 0.90, "residue": "G", "hit": True},
-                                "366": {"conservation": 0.91, "residue": "G", "hit": False},
-                                "367": {"conservation": 0.92, "residue": "G", "hit": True},
-                                "368": {"conservation": 0.93, "residue": "G", "hit": True},
-                                "369": {"conservation": 0.94, "residue": "G", "hit": True},
-                                "370": {"conservation": 0.95, "residue": "G", "hit": False},
-                                "371": {"conservation": 0.96, "residue": "G", "hit": True},
-                                "372": {"conservation": 0.97, "residue": "G", "hit": True},
-                                "373": {"conservation": 0.98, "residue": "G", "hit": True},
-                                "374": {"conservation": 0.99, "residue": "G", "hit": True},
+                                "364": {"conservation": 0.90, "cons_residue": "G", "target_residue": "G", "hit": True},
+                                "365": {"conservation": 0.90, "cons_residue": "G", "target_residue": "G", "hit": True},
+                                "366": {"conservation": 0.91, "cons_residue": "G", "target_residue": "T", "hit": False},
+                                "367": {"conservation": 0.92, "cons_residue": "G", "target_residue": "G", "hit": True},
+                                "368": {"conservation": 0.93, "cons_residue": "G", "target_residue": "G", "hit": True},
+                                "369": {"conservation": 0.94, "cons_residue": "G", "target_residue": "T", "hit": True},
+                                "370": {"conservation": 0.95, "cons_residue": "G", "target_residue": "G", "hit": False},
+                                "371": {"conservation": 0.96, "cons_residue": "G", "target_residue": "G", "hit": True},
+                                "372": {"conservation": 0.97, "cons_residue": "G", "target_residue": "G", "hit": True},
+                                "373": {"conservation": 0.98, "cons_residue": "G", "target_residue": "G", "hit": True},
+                                "374": {"conservation": 0.99, "cons_residue": "G", "target_residue": "G", "hit": True},
                             },
                             "indices": {
                                 "matches": ["364", "365", "367", "368", "369", "371", "372", "373", "374"],
@@ -311,8 +311,8 @@ def mock_conservation_subset():
     return {
         "conservations": {
             "positions": {
-                "364": {"conservation": 0.90, "residue": "G", "hit": True},
-                "365": {"conservation": 0.90, "residue": "G", "hit": True}
+                "364": {"conservation": 0.90, "cons_residue": "G", "target_residue": "G", "hit": True},
+                "365": {"conservation": 0.90, "cons_residue": "G", "target_residue": "G", "hit": True}
             },
             "indices": {
                 "matches": ["364", "365"],
@@ -399,7 +399,7 @@ def test_merge_nested_data_empty():
 
 def test_aggregate_range_positions_annotations(mock_annotation_subset):
     """Test annotation data aggregation"""
-    result, _ = aggregate_range_positions(
+    result = aggregate_range_positions(
         mock_annotation_subset,
         "DISULFID | Intrachain (with C-246); in linked form",
         (333, 333),
@@ -412,16 +412,7 @@ def test_aggregate_range_positions_annotations(mock_annotation_subset):
 
 def test_aggregate_range_positions_conservations(mock_conservation_subset):
     """Test conservation data aggregation"""
-    result, _ = aggregate_range_positions(
-        mock_conservation_subset,
-        "conserved_positions",
-        (364, 365),
-        "conservations"
-    )
-
-def test_aggregate_range_positions_conservations(mock_conservation_subset):
-    """Test conservation data aggregation"""
-    result, _ = aggregate_range_positions(
+    result = aggregate_range_positions(
         mock_conservation_subset,
         "conserved_positions",
         (364, 365),
@@ -434,20 +425,22 @@ def test_aggregate_range_positions_conservations(mock_conservation_subset):
     assert result["hit"]["364"] is True
     assert result["hit"]["365"] is True
 
-    assert result["residue"]["364"] == "G"
-    assert result["residue"]["365"] == "G"
+    assert result["cons_residue"]["364"] == "G"
+    assert result["target_residue"]["364"] == "G"
+    assert result["cons_residue"]["365"] == "G"
+    assert result["target_residue"]["364"] == "G"
+
 
 def test_aggregate_range_positions_invalid_type(mock_aggregated_report_data):
     """Test with invalid data type"""
     interval_data = mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]["PF07728"]["hit_intervals"]["325-451"]
-    result, metadata = aggregate_range_positions(
+    result = aggregate_range_positions(
         interval_data,
         "invalid_range",
         (333, 333),
         "invalid_type"
     )
     assert result == {}
-    assert metadata == {}
 
 ###T transform_to_ranges
 
@@ -455,13 +448,12 @@ def test_transform_to_ranges_integration(mock_aggregated_report_data, multi_logg
     """Test full range transformation"""
     interval = mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]["PF07728"]["hit_intervals"]["325-451"]
     result = transform_to_ranges(interval, multi_logger)
-
-    disulfid_data = result["DISULFID | Intrachain (with C-246); in linked form"]["333-333"]
+    disulfid_data = result["data"]["annotations"]["DISULFID | Intrachain (with C-246); in linked form"]["333-333"]
     assert disulfid_data["essentials"]["type"] == "DISULFID"
     assert disulfid_data["essentials"]["count"]["333"] == 1
     assert disulfid_data["hit"]["333"] is True
 
-    cons_data = result["conserved_positions"]["364-374"]
+    cons_data = result["data"]["conservations"]["conserved_positions"]["364-374"]
 
     assert cons_data["conservation"]["364"] == 0.90
     assert cons_data["conservation"]["374"] == 0.99
@@ -469,11 +461,11 @@ def test_transform_to_ranges_integration(mock_aggregated_report_data, multi_logg
     assert cons_data["hit"]["364"] is True
     assert cons_data["hit"]["366"] is False  # Known miss position
 
-    assert cons_data["residue"]["364"] == "G"
-    assert cons_data["residue"]["374"] == "G"
+    assert cons_data["cons_residue"]["364"] == "G"
+    assert cons_data["cons_residue"]["374"] == "G"
 
-    assert "364" in result["conservations"]["indices"]["matches"]
-    assert "366" in result["conservations"]["indices"]["misses"]
+    assert "364" in result["indices"]["conservations"]["matches"]
+    assert "366" in result["indices"]["conservations"]["misses"]
 
 def test_transform_to_ranges_full(mock_aggregated_report_data, multi_logger):
     """Integration test for range transformation"""
@@ -481,15 +473,11 @@ def test_transform_to_ranges_full(mock_aggregated_report_data, multi_logger):
     result = transform_to_ranges(interval_data, multi_logger)
 
     disulfid_id = "DISULFID | Intrachain (with C-246); in linked form"
-    assert disulfid_id in result
-    assert "333-333" in result[disulfid_id]
+    assert disulfid_id in result["data"]["annotations"]
+    assert "333-333" in result["data"]["annotations"][disulfid_id]
 
-    assert "conserved_positions" in result
-    assert "364-374" in result["conserved_positions"]
-
-    assert "annotations" in result
-    assert "conservations" in result
-
+    assert "conserved_positions" in result["data"]["conservations"]
+    assert "364-374" in result["data"]["conservations"]["conserved_positions"]
 
 def test_transform_to_ranges_basic(mock_aggregated_report_data, multi_logger):
     """Test basic range transformation functionality"""
@@ -497,23 +485,22 @@ def test_transform_to_ranges_basic(mock_aggregated_report_data, multi_logger):
     result = transform_to_ranges(interval, multi_logger)
 
     disulfid_id = "DISULFID | Intrachain (with C-246); in linked form"
-    assert disulfid_id in result
-    assert "333-333" in result[disulfid_id]
+    assert disulfid_id in result["data"]["annotations"]
+    assert "333-333" in result["data"]["annotations"][disulfid_id]
 
-    anno_data = result[disulfid_id]["333-333"]
+    anno_data = result["data"]["annotations"][disulfid_id]["333-333"]
     assert anno_data["essentials"]["type"] == "DISULFID"
-    assert anno_data["hit"] == {"333": True}
-
+    assert anno_data["hit"]["333"] is True
 
 def test_transform_to_ranges_conservation(mock_aggregated_report_data, multi_logger):
     """Test conservation data transformation"""
     interval = mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]["PF07728"]["hit_intervals"]["325-451"]
     result = transform_to_ranges(interval, multi_logger)
 
-    assert "conserved_positions" in result
-    assert "364-374" in result["conserved_positions"]
+    assert "conserved_positions" in result["data"]["conservations"]
+    assert "364-374" in result["data"]["conservations"]["conserved_positions"]
 
-    cons_data = result["conserved_positions"]["364-374"]
+    cons_data = result["data"]["conservations"]["conserved_positions"]["364-374"]
 
     assert cons_data["conservation"]["364"] == 0.90
     assert cons_data["conservation"]["374"] == 0.99
@@ -521,24 +508,24 @@ def test_transform_to_ranges_conservation(mock_aggregated_report_data, multi_log
     assert cons_data["hit"]["364"] is True
     assert cons_data["hit"]["366"] is False  # Known miss position
 
-    assert cons_data["residue"]["364"] == "G"
-    assert cons_data["residue"]["374"] == "G"
+    assert cons_data["cons_residue"]["364"] == "G"
+    assert cons_data["cons_residue"]["374"] == "G"
 
-    assert "364" in result["conservations"]["indices"]["matches"]
-    assert "366" in result["conservations"]["indices"]["misses"]
+    assert "364" in result["indices"]["conservations"]["matches"]
+    assert "366" in result["indices"]["conservations"]["misses"]
 
 def test_transform_to_ranges_metadata(mock_aggregated_report_data, multi_logger):
     """Test metadata handling in transformation"""
     interval = mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]["PF07728"]["hit_intervals"]["325-451"]
     result = transform_to_ranges(interval, multi_logger)
 
-    assert "annotations" in result
-    assert "333" in result["annotations"]["indices"]["matches"]
+    assert "annotations" in result["data"]
+    assert "333" in result["indices"]["annotations"]["matches"]
 
-    assert "conservations" in result
-    assert "indices" in result["conservations"]
-    assert "364" in result["conservations"]["indices"]["matches"]
-    assert "366" in result["conservations"]["indices"]["misses"]
+    assert "conservations" in result["data"]
+    assert "conservations" in result["indices"]
+    assert "364" in result["indices"]["conservations"]["matches"]
+    assert "366" in result["indices"]["conservations"]["misses"]
 
 def test_transform_to_ranges_error_handling(mock_aggregated_report_data, multi_logger):
     """Test error handling in range transformation"""
@@ -594,8 +581,8 @@ def test_process_sequence_report_integration(tmp_path, mock_aggregated_report_da
     assert "PF07728" in result["domain"]
     assert "325-451" in result["domain"]["PF07728"]
     ranges = result["domain"]["PF07728"]["325-451"]
-    assert "DISULFID | Intrachain (with C-246); in linked form" in ranges
-    assert "conserved_positions" in ranges
+    assert "DISULFID | Intrachain (with C-246); in linked form" in ranges["data"]["annotations"]
+    assert "conserved_positions" in ranges["data"]["conservations"]
 
 ###T write_range_views
 
@@ -747,8 +734,8 @@ def test_process_and_write_integration(tmp_path, mock_aggregated_report_data, lo
 
     # Verify content
     ranges = result["domain"]["PF07728"]["325-451"]
-    assert "DISULFID | Intrachain (with C-246); in linked form" in ranges
-    assert "conserved_positions" in ranges
+    assert "DISULFID | Intrachain (with C-246); in linked form" in ranges["data"]["annotations"]
+    assert "conserved_positions" in ranges["data"]["conservations"]
 
     # Verify logging
     logger.info.assert_called()
@@ -793,12 +780,12 @@ def test_complete_workflow_integration(tmp_path, mock_aggregated_report_data, lo
 
     # Detailed content verification
     domain_data = result["domain"]["PF07728"]["325-451"]
-    assert "DISULFID | Intrachain (with C-246); in linked form" in domain_data
-    assert "conserved_positions" in domain_data
-    assert "364-374" in domain_data["conserved_positions"]
+    assert "DISULFID | Intrachain (with C-246); in linked form" in domain_data["data"]["annotations"]
+    assert "conserved_positions" in domain_data["data"]["conservations"]
+    assert "364-374" in domain_data["data"]["conservations"]["conserved_positions"]
 
     # Specific data point verification
-    disulfid = domain_data["DISULFID | Intrachain (with C-246); in linked form"]["333-333"]
+    disulfid = domain_data["data"]["annotations"]["DISULFID | Intrachain (with C-246); in linked form"]["333-333"]
     assert disulfid["essentials"]["type"] == "DISULFID"
     assert "333" in disulfid["essentials"]["count"]
 

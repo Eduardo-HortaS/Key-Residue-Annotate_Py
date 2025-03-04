@@ -84,19 +84,10 @@ def merge_nested_data(source: Dict, target: Dict, pos_str: str) -> None:
                 target[key] = value
 
 def aggregate_range_positions(interval_dict: Dict, range_id: str, range_tuple: Tuple[int, int],
-                          data_type: str) -> Tuple[Dict, Dict]:
+                          data_type: str) -> Dict:
     """Aggregate position data and metadata for a range."""
     start, end = range_tuple
     aggregated = defaultdict(lambda: defaultdict(dict))
-    metadata = {}
-
-    # Get metadata
-    if data_type == "annotations":
-        metadata = {k: v for k, v in interval_dict["annotations"].items()
-                   if k != "positions"}
-    elif data_type == "conservations":
-        metadata = {k: v for k, v in interval_dict["conservations"].items()
-                   if k != "positions"}
 
     # Process positions
     if data_type == "annotations":
@@ -119,33 +110,65 @@ def aggregate_range_positions(interval_dict: Dict, range_id: str, range_tuple: T
                     aggregated["conservation"] = {}
                 if "hit" not in aggregated:
                     aggregated["hit"] = {}
-                if "residue" not in aggregated:
-                    aggregated["residue"] = {}
+                if "cons_residue" not in aggregated:
+                    aggregated["cons_residue"] = {}
+                if "target_residue" not in aggregated:
+                    aggregated["target_residue"] = {}
 
                 aggregated["conservation"][pos_str] = cons_pos_data["conservation"]
                 aggregated["hit"][pos_str] = cons_pos_data["hit"]
-                aggregated["residue"][pos_str] = cons_pos_data["residue"]
+                aggregated["cons_residue"][pos_str] = cons_pos_data["cons_residue"]
+                aggregated["target_residue"][pos_str] = cons_pos_data["target_residue"]
 
-    return dict(aggregated), metadata
+    return dict(aggregated)
 
 def transform_to_ranges(interval_dict: Dict, multi_logger: Callable) -> Dict:
     """Transform position-based data to range-based format."""
-    range_based = defaultdict(lambda: defaultdict(dict))
+    range_based = {
+        "data": {},
+        "indices": {}
+    }
 
     if not interval_dict:
         return {}
 
+
+    # Let's identify out annotation/conversation range_id values:
+    # those that aren't standard structural keys
+    structural_keys = {"annotations", "conservations", "annotation_ranges",
+    "conservation_ranges", "position_conversion"}
+
+    # Place annotation types and conserved_positions (range_id's) in the data section
+    for key in interval_dict:
+        if key not in structural_keys:
+            range_based["data"][key] = interval_dict[key]
+
+    # Process annotations and conservations
     for data_type, ranges_field in [
         ("annotations", "annotation_ranges"),
         ("conservations", "conservation_ranges")
     ]:
         ranges_dict = interval_dict.get(ranges_field, {})
 
+        # Initialize data section to be filled in the iteration over ranges_dict
+        if data_type not in range_based["data"]:
+            range_based["data"][data_type] = {}
+
+        # Place indices per data_type in the indices section
+        if data_type in interval_dict and "indices" in interval_dict[data_type]:
+            if data_type not in range_based["indices"]:
+                range_based["indices"][data_type] = {}
+            range_based["indices"][data_type] = interval_dict[data_type]["indices"]
+
+        # Process ranges
         for range_id, ranges_data in ranges_dict.items():
             ranges_list = ranges_data.get("ranges", [])
 
             if not isinstance(ranges_list, list):
-                multi_logger("warning", "MAKE_VIEW - TRANSFORM_2_RANGES - %s invalid format for %s", ranges_field, range_id)
+                multi_logger(
+                    "warning", "MAKE_VIEW - TRANSFORM_2_RANGES - %s invalid format for %s",
+                    ranges_field, range_id
+                )
                 continue
 
             try:
@@ -154,22 +177,24 @@ def transform_to_ranges(interval_dict: Dict, multi_logger: Callable) -> Dict:
                     range_key = f"{start}-{end}"
 
                     # Get both position data and metadata
-                    position_data, metadata = aggregate_range_positions(
+                    position_data = aggregate_range_positions(
                         interval_dict, range_id, (start, end), data_type
                     )
 
-                    # Store position data under range key
-                    range_based[range_id][range_key] = position_data
+                    # Store position data under data.annotations/conservations.range_id.range_key
+                    if range_id not in range_based["data"][data_type]:
+                        range_based["data"][data_type][range_id] = {}
 
-                    # Add metadata at the same level as range_id
-                    if metadata:
-                        range_based[data_type] = metadata
+                    range_based["data"][data_type][range_id][range_key] = position_data
 
             except (TypeError, ValueError) as e:
-                multi_logger("warning", "MAKE_VIEW - TRANSFORM_2_RANGES - Range processing error for %s: %s", range_id, e)
+                multi_logger(
+                    "warning", "MAKE_VIEW - TRANSFORM_2_RANGES - Range processing error for %s: %s",
+                    range_id, e
+                )
                 continue
 
-    return dict(range_based)
+    return range_based
 
 def process_sequence_report(report_path: str, sequence_id: str, logger: logging.Logger, multi_logger: Callable) -> Dict:
     """Process the aggregated report file for a specific sequence.
@@ -279,6 +304,7 @@ def main():
             sys.exit(0)  # Exit cleanly, this is not an error case
 
         write_range_views(transformed_data, sequence_dir, clean_sequence_id, sequence_logger, log_to_both)
+
     except (IOError, json.JSONDecodeError, KeyError) as e:
         log_to_both("error", "Error processing aggregated report: %s", str(e))
         sys.exit(1)

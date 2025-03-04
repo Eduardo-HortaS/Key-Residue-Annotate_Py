@@ -138,6 +138,7 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
         - ali_range: Formatted string of alignment range
         - subseq: Aligned subsequence without gaps
     """
+    os.makedirs(output_dir, exist_ok=True)
 
     with open(hmm, 'rb') as f:
         hmms = list(pyhmmer.plan7.HMMFile(f))
