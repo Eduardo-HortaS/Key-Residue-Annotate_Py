@@ -1078,8 +1078,8 @@ def transfer_dict_populated_disulfid_Q9NU22():
                                             "type": "DISULFID",
                                             "description": "Intrachain (with C-246); in linked form",
                                             "count": 1,
-                                            "annot_amino_acid": "C",
-                                            "target_amino_acid": "C"
+                                            "annot_residue": "C",
+                                            "target_residue": "C"
                                         },
                                         "evidence": {
                                             "ECO:0000269|PubMed:12345678": {
@@ -1113,8 +1113,8 @@ def transfer_dict_populated_disulfid_Q9NU22():
                                             "type": "DISULFID",
                                             "description": "Intrachain (with C-205); in linked form",
                                             "count": 1,
-                                            "annot_amino_acid": "C",
-                                            "target_amino_acid": "C"
+                                            "annot_residue": "C",
+                                            "target_residue": "C"
                                         },
                                         "evidence": {
                                             "ECO:0000269|PubMed:12345678": {
@@ -1306,8 +1306,8 @@ def transfer_dict_success_binding_Q9NU22():
                                         "type": "BINDING",
                                         "description": "Interacts with GTP",
                                         "count": 1,
-                                        "annot_amino_acid": "G",
-                                        "target_amino_acid": "G"
+                                        "annot_residue": "G",
+                                        "target_residue": "G"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1343,8 +1343,8 @@ def transfer_dict_success_binding_Q9NU22():
                                         "type": "BINDING",
                                         "description": "Interacts with GTP",
                                         "count": 1,
-                                        "annot_amino_acid": "P",
-                                        "target_amino_acid": "P"
+                                        "annot_residue": "P",
+                                        "target_residue": "P"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1504,8 +1504,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with peptide",
                                         "count": 1,
-                                        "annot_amino_acid": "R",
-                                        "target_amino_acid": "R"
+                                        "annot_residue": "R",
+                                        "target_residue": "R"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1536,8 +1536,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with O-phospho-L-serine",
                                         "count": 1,
-                                        "annot_amino_acid": "R",
-                                        "target_amino_acid": "R"
+                                        "annot_residue": "R",
+                                        "target_residue": "R"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1577,8 +1577,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with peptide",
                                         "count": 1,
-                                        "annot_amino_acid": "Y",
-                                        "target_amino_acid": "Y"
+                                        "annot_residue": "Y",
+                                        "target_residue": "Y"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1609,8 +1609,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with O-phospho-L-serine",
                                         "count": 1,
-                                        "annot_amino_acid": "Y",
-                                        "target_amino_acid": "Y"
+                                        "annot_residue": "Y",
+                                        "target_residue": "Y"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1650,8 +1650,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with peptide",
                                         "count": 2,
-                                        "annot_amino_acid": "L",
-                                        "target_amino_acid": "L"
+                                        "annot_residue": "L",
+                                        "target_residue": "L"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1693,8 +1693,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with peptide",
                                         "count": 2,
-                                        "annot_amino_acid": "N",
-                                        "target_amino_acid": "N"
+                                        "annot_residue": "N",
+                                        "target_residue": "N"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1736,8 +1736,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with peptide",
                                         "count": 1,
-                                        "annot_amino_acid": "E",
-                                        "target_amino_acid": "E"
+                                        "annot_residue": "E",
+                                        "target_residue": "E"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1770,8 +1770,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with peptide",
                                         "count": 2,
-                                        "annot_amino_acid": "N",
-                                        "target_amino_acid": "N"
+                                        "annot_residue": "N",
+                                        "target_residue": "N"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1813,8 +1813,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "BINDING",
                                         "description": "Interacts with peptide",
                                         "count": 1,
-                                        "annot_amino_acid": "W",
-                                        "target_amino_acid": "W"
+                                        "annot_residue": "W",
+                                        "target_residue": "W"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1847,8 +1847,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "MUTAGEN",
                                         "description": "V->D: Loss of binding to difopein.",
                                         "count": 1,
-                                        "annot_amino_acid": "V",
-                                        "target_amino_acid": "V"
+                                        "annot_residue": "V",
+                                        "target_residue": "V"
                                     },
                                     "hit": True,
                                     "evidence": {
@@ -1872,8 +1872,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "MUTAGEN",
                                         "description": "R->K: Increased oligomerization.",
                                         "count": 1,
-                                        "annot_amino_acid": "R",
-                                        "target_amino_acid": "K"
+                                        "annot_residue": "R",
+                                        "target_residue": "K"
                                     },
                                     "hit": False,
                                     "evidence": {
@@ -1897,8 +1897,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "MUTAGEN",
                                         "description": "T->A: Slightly decreased oligomerization.",
                                         "count": 1,
-                                        "annot_amino_acid": "T",
-                                        "target_amino_acid": "A"
+                                        "annot_residue": "T",
+                                        "target_residue": "A"
                                     },
                                     "hit": False,
                                     "evidence": {
@@ -1922,8 +1922,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "MOD_RES",
                                         "description": "Phosphothreonine",
                                         "count": 1,
-                                        "annot_amino_acid": "T",
-                                        "target_amino_acid": "S"
+                                        "annot_residue": "T",
+                                        "target_residue": "S"
                                     },
                                     "hit": False,
                                     "evidence": {
@@ -1945,8 +1945,8 @@ def transfer_dict_success_all_types_H0YB80():
                                         "type": "MUTAGEN",
                                         "description": "T->A: Loss of phosphorylation by a protein kinase. No effect on subcellular localization. Dramatic decrease in the number of encysting parasites and cysts, but a large increase in the number of trophozoites. In encysting cells of 12 hours, significantly slower cyst conversion rate compared to the wild-type. No effect on binding to difopein. Decreased binding to a number of synthetic phosphopeptides.",
                                         "count": 1,
-                                        "annot_amino_acid": "T",
-                                        "target_amino_acid": "S"
+                                        "annot_residue": "T",
+                                        "target_residue": "S"
                                     },
                                     "hit": False,
                                     "evidence": {
@@ -2859,8 +2859,8 @@ def mock_make_anno_total_disulfid_return_205_P15005(annotation_dict_205_Q9NU22):
             "target_position": "333",
             "annot_position": "205",
             "index_position": "18",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "paired_target_position": "373",
             "gapped_paired": False,
             "insert_column_paired": False,
@@ -2883,8 +2883,8 @@ def mock_make_anno_total_disulfid_return_246_P15005(annotation_dict_205_Q9NU22):
             "target_position": "373",
             "annot_position": "246",
             "index_position": "72",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "paired_target_position": "333"
         },
         "paired_annot_pos_str": "205"
@@ -2911,8 +2911,8 @@ def mock_make_anno_total_disulfid_return_205_Q9NU22():
             "target_position": "333",
             "annot_position": "205",
             "index_position": "18",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "paired_target_position": "373"
         },
         "paired_annot_pos_str": "246"
@@ -2939,8 +2939,8 @@ def mock_make_anno_total_disulfid_return_246_Q9NU22():
             "target_position": "373",
             "annot_position": "246",
             "index_position": "72",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "paired_target_position": "333"
         },
         "paired_annot_position": "205"
@@ -2961,8 +2961,8 @@ def mock_map_filter_disulfid_return(annotation_dict_246_Q9NU22):
             "target_position": "373",
             "annot_position": "246",
             "index_position": "72",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "paired_target_position": "333"
         },
         "paired_annot_position": "205"
@@ -2982,8 +2982,8 @@ def anno_total_disulfid_MCRB_ECOLI_Q9NU22_205():
         "annot_position": "205",
         "paired_target_position": "373",
         "index_position": "18",
-        "annot_amino_acid": "C",
-        "target_amino_acid": "C"
+        "annot_residue": "C",
+        "target_residue": "C"
     }
 
 @pytest.fixture
@@ -2998,8 +2998,8 @@ def anno_total_disulfid_MCRB_ECOLI_Q9NU22_246():
         "annot_position": "246",
         "paired_target_position": "333",
         "index_position": "72",
-        "annot_amino_acid": "C",
-        "target_amino_acid": "C"
+        "annot_residue": "C",
+        "target_residue": "C"
     }
 
 @pytest.fixture
@@ -5361,8 +5361,8 @@ def test_add_single_annotation_gapped_paired(
             "annot_position": "205",
             "paired_target_position": "373",
             "index_position": "18",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "gapped_paired": True  # Add the flag
         }
 
@@ -5401,8 +5401,8 @@ def test_add_single_annotation_insert_column_paired(
             "annot_position": "205",
             "paired_target_position": "373",
             "index_position": "18",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "insert_column_paired": True  # Add the flag
         }
 
@@ -5558,7 +5558,7 @@ def test_make_anno_total_dict_basic(
         counter_target_pos_str="333",
         counter_annot_pos_str="205",
         index=18,
-        target_amino="C",
+        target_residue="C",
         logger=logger,
         entry_annotations=entry_annotations_disulfid_pair,
     )
@@ -5577,8 +5577,8 @@ def test_make_anno_total_dict_basic(
             "target_position": "333",
             "annot_position": "205",
             "index_position": "18",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "gapped_paired": False,
             "insert_column_paired": False,
             "paired_target_pos_unreachable": False
@@ -5602,7 +5602,7 @@ def test_make_anno_total_dict_multiple_evidence(
         counter_target_pos_str="333",
         counter_annot_pos_str="205",
         index=18,
-        target_amino="C",
+        target_residue="C",
         logger=logger,
         entry_annotations=entry_annotations_disulfid_pair
     )
@@ -5621,8 +5621,8 @@ def test_make_anno_total_dict_multiple_evidence(
             "target_position": "333",
             "annot_position": "205",
             "index_position": "18",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "gapped_paired": False,
             "insert_column_paired": False,
             "paired_target_pos_unreachable": False
@@ -5644,7 +5644,7 @@ def test_make_anno_total_dict_multiple_evidence(
         counter_target_pos_str="333",
         counter_annot_pos_str="205",
         index=18,
-        target_amino="C",
+        target_residue="C",
         logger=logger,
         entry_annotations=entry_annotations_disulfid_pair
     )
@@ -5665,7 +5665,7 @@ def test_make_anno_total_dict_eco_filtering(
         counter_target_pos_str="329",
         counter_annot_pos_str="201",
         index=14,
-        target_amino="G",
+        target_residue="G",
         logger=logger,
         entry_annotations=entry_annotations_binding_only
     )
@@ -5686,7 +5686,7 @@ def test_make_anno_total_dict_binding_type(
         counter_target_pos_str="329",
         counter_annot_pos_str="201",
         index=14,
-        target_amino="G",
+        target_residue="G",
         logger=logger,
         entry_annotations=entry_annotations_binding_only
     )
@@ -5706,8 +5706,8 @@ def test_make_anno_total_dict_binding_type(
             "target_position": "329",
             "annot_position": "201",
             "index_position": "14",
-            "annot_amino_acid": "G",
-            "target_amino_acid": "G",
+            "annot_residue": "G",
+            "target_residue": "G",
             "gapped_paired": False,
             "insert_column_paired": False,
             "paired_target_pos_unreachable": False
@@ -5734,7 +5734,7 @@ def test_make_anno_total_dict_with_caller_target_pos(
         counter_annot_pos_str="246",
         caller_target_pos_str="333",
         index=18,
-        target_amino="C",
+        target_residue="C",
         logger=logger,
         entry_annotations=entry_annotations_disulfid_pair
     )
@@ -5753,8 +5753,8 @@ def test_make_anno_total_dict_with_caller_target_pos(
             "target_position": "373",
             "annot_position": "246",
             "index_position": "18",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C",
+            "annot_residue": "C",
+            "target_residue": "C",
             "paired_target_position": "333",
             "gapped_paired": False,
             "insert_column_paired": False,
@@ -5786,7 +5786,7 @@ def test_make_anno_total_dict_no_evidence(
         counter_target_pos_str="100",
         counter_annot_pos_str="201",
         index=14,
-        target_amino="G",
+        target_residue="G",
         logger=logger,
         entry_annotations={"201": [annotation_without_evidence]}
     )
@@ -5820,8 +5820,8 @@ def test_process_annotation_basic_single(
             "target_position": "329",
             "annot_position": "201",
             "index_position": "14",
-            "annot_amino_acid": "G",
-            "target_amino_acid": "G",
+            "annot_residue": "G",
+            "target_residue": "G",
         },
         "paired_annot_pos_str": None
     }
@@ -5848,7 +5848,7 @@ def test_process_annotation_basic_single(
             counter_target_pos_str="329",
             counter_annot_pos_str="201",
             index=14,
-            target_amino="G",
+            target_residue="G",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "201", "329", "BINDING")
         )
@@ -5860,7 +5860,7 @@ def test_process_annotation_basic_single(
             counter_target_pos_str="329",
             counter_annot_pos_str="201",
             index=14,
-            target_amino="G",
+            target_residue="G",
             logger=logger,
             entry_annotations=entry_annotations_binding_only
         )
@@ -5932,7 +5932,7 @@ def test_process_annotation_paired_failure(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID", "match_column")
         )
@@ -5945,7 +5945,7 @@ def test_process_annotation_paired_failure(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair
         )
@@ -6026,7 +6026,7 @@ def test_process_annotation_paired_success(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID", "match_column")
         )
@@ -6039,7 +6039,7 @@ def test_process_annotation_paired_success(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair
         )
@@ -6124,7 +6124,7 @@ def test_process_annotation_paired_no_paired_dict(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID", "match_column")
         )
@@ -6137,7 +6137,7 @@ def test_process_annotation_paired_no_paired_dict(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             logger=logger,
             entry_annotations=modified_entry_annotations
         )
@@ -6198,7 +6198,7 @@ def test_process_annotation_paired_gapped_paired(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID", "match_column")
         )
@@ -6255,7 +6255,7 @@ def test_process_annotation_paired_insert_column(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID", "match_column")
         )
@@ -6315,7 +6315,7 @@ def test_process_annotation_paired_match_column(
             counter_target_pos_str="333",
             counter_annot_pos_str="205",
             index=18,
-            target_amino="C",
+            target_residue="C",
             processed_annotations=processed_annotations,
             annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "205", "333", "DISULFID", "match_column")
         )
@@ -6370,8 +6370,8 @@ def test_validate_paired_annotations_valid_case(
             "target_position": "373",
             "annot_position": "246",
             "index_position": "72",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C"
+            "annot_residue": "C",
+            "target_residue": "C"
         },
         "paired_annot_pos_str": "205",
         "gapped_paired": False,
@@ -6410,7 +6410,7 @@ def test_validate_paired_annotations_valid_case(
             counter_target_pos_str="373", # 246 = 373 in target sequence numbering/col
             counter_annot_pos_str=paired_annot_pos_str_mock_Q9NU22, # "246"
             index=72,
-            target_amino="C",
+            target_residue="C",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair,
             caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
@@ -6458,8 +6458,8 @@ def test_validate_paired_annotations_invalid_pair(
             "target_position": "373",
             "annot_position": "246",
             "index_position": "72",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "R"
+            "annot_residue": "C",
+            "target_residue": "R"
         },
         "paired_annot_pos_str": "205",
         "gapped_paired": False,
@@ -6497,7 +6497,7 @@ def test_validate_paired_annotations_invalid_pair(
             counter_target_pos_str="373", # 246 = 373 in target sequence numbering/col
             counter_annot_pos_str=paired_annot_pos_str_mock_Q9NU22, # "246"
             index=72,
-            target_amino="R",
+            target_residue="R",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair,
             caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
@@ -6742,8 +6742,8 @@ def test_validate_paired_annotations_gap_in_first(
             "target_position": "373",
             "annot_position": "246",
             "index_position": "72",
-            "annot_amino_acid": "C",
-            "target_amino_acid": "C"
+            "annot_residue": "C",
+            "target_residue": "C"
         },
         "paired_annot_pos_str": "205",
         "gapped_paired": True,  # What we're testing for
@@ -6781,7 +6781,7 @@ def test_validate_paired_annotations_gap_in_first(
             counter_target_pos_str="373",
             counter_annot_pos_str=paired_annot_pos_str_mock_Q9NU22,
             index=72,
-            target_amino="C",
+            target_residue="C",
             logger=logger,
             entry_annotations=entry_annotations_disulfid_pair,
             caller_target_pos_str=caller_target_pos_str_mock_Q9NU22,
@@ -6899,7 +6899,7 @@ def test_validate_annotations_process_annotation_parameters(
                 counter_target_pos_str="329",
                 counter_annot_pos_str="201",
                 index=14,
-                target_amino="G",
+                target_residue="G",
                 processed_annotations=set(),
                 annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "201", "329", "BINDING", "match_column")
             ),
@@ -6922,7 +6922,7 @@ def test_validate_annotations_process_annotation_parameters(
                 counter_target_pos_str="330",
                 counter_annot_pos_str="202",
                 index=15,
-                target_amino="P",
+                target_residue="P",
                 processed_annotations=set(),
                 annotation_key=("MCRB_ECOLI", "sp|Q9NU22|MDN1_HUMAN", "202", "330", "BINDING", "match_column")
             )

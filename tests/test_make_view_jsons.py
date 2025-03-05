@@ -82,8 +82,8 @@ def mock_aggregated_report_data():
                                             "type": "DISULFID",
                                             "description": "Intrachain (with C-246); in linked form",
                                             "count": 1,
-                                            "annot_amino_acid": "C",
-                                            "target_amino_acid": "C"
+                                            "annot_residue": "C",
+                                            "target_residue": "C"
                                         },
                                         "evidence": {
                                             "ECO:0000269|PubMed:12345678": {
@@ -201,8 +201,12 @@ def mock_transformed_data():
                                 },
                                 "type": "DISULFID",
                                 "description": "Intrachain (with C-246); in linked form",
-                                "annot_amino_acid": "C",
-                                "target_amino_acid": "C"
+                                "annot_residue": {
+                                    "333": "C"
+                                },
+                                "target_residue": {
+                                    "333": "C"
+                                },
                                 },
                                 "evidence": {
                                 "ECO:0000269|PubMed:12345678": {
@@ -286,8 +290,8 @@ def mock_annotation_subset():
                             "type": "DISULFID",
                             "description": "Intrachain (with C-246); in linked form",
                             "count": 1,
-                            "annot_amino_acid": "C",
-                            "target_amino_acid": "C"
+                            "annot_residue": "C",
+                            "target_residue": "C"
                         },
                         "evidence": {
                             "ECO:0000269|PubMed:12345678": {"count": 1}
@@ -772,6 +776,8 @@ def test_complete_workflow_integration(tmp_path, mock_aggregated_report_data, lo
     # Verify content
     with open(output_file, "r", encoding="utf-8") as f:
         result = json.load(f)
+
+    # print("\n Here's the content written to JSON:\n", json.dumps(result, indent=2))
 
     # Structure verification
     assert result["sequence_id"] == sequence_id

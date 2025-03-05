@@ -1064,8 +1064,8 @@ def add_to_transfer_dict(
             return {
             k: v for k, v in anno_total.items()
             if k not in ["type", "description", "count", "evidence",
-            "target_position", "annot_position", "paired_target_position",
-            "annot_amino_acid", "target_amino_acid", "index_position",
+            "target_position", "annot_position", "index_position",
+            "paired_target_position", "annot_residue", "target_residue",
             "gapped_paired", "insert_column_paired", "paired_target_pos_unreachable"]}
         except AttributeError as ae:
             multi_logger("error", "TRANSFER_ANNOTS --- ADD_TO_TRANSFER_DICT --- AttributeError for Anno_Total %s", anno_total)
@@ -1159,8 +1159,8 @@ def _add_single_annotation(
     type_value = anno_total.get("type", None)
     description_value = anno_total.get("description", None)
     count_value = anno_total.get("count", None)
-    annot_amino_value = anno_total.get("annot_amino_acid", None)
-    target_amino_value = anno_total.get("target_amino_acid", None)
+    annot_residue = anno_total.get("annot_residue", None)
+    target_residue = anno_total.get("target_residue", None)
 
     # Moved out of the conditional below, because we'll track anno_id in annotations-indices-index_type
     # across the multiple annotations a single position may have.
@@ -1205,8 +1205,8 @@ def _add_single_annotation(
             "type": type_value,
             "description": description_value if description_value is not None else "",
             "count": count_value,
-            "annot_amino_acid": annot_amino_value,
-            "target_amino_acid": target_amino_value
+            "annot_residue": annot_residue,
+            "target_residue": target_residue
         }
         positions_dict[anno_id] = {}
         positions_dict[anno_id].setdefault("essentials", essentials)
@@ -1353,7 +1353,7 @@ def make_anno_total_dict(
     counter_target_pos_str: str,
     counter_annot_pos_str: str,
     index: int,
-    target_amino: str,
+    target_residue: str,
     logger: Optional[logging.Logger] = None, # DEBUGGING, delete in production
     entry_annotations: Optional[Dict[str, Any]] = None,
     caller_target_pos_str: Optional[str] = None) -> Dict[str, Any]:
@@ -1368,7 +1368,7 @@ def make_anno_total_dict(
         annotation_dict: Raw annotation data to process
         counter_*: Current positions in target/annotation sequences
         index: Position in alignment
-        target_amino: Target sequence amino acid
+        target_residue: Target sequence residue at current position
         caller_target_pos_str: For paired annotations, caller's target position
 
     Returns:
@@ -1395,7 +1395,7 @@ def make_anno_total_dict(
     anno_id = f"{anno_type} | {anno_desc}" if anno_desc is not None else anno_type
     anno_count = 1
     anno_evidence = {entry_mnemo_name: annotation.get("evidence", None)}
-    annot_amino_acid = annotation.get("aminoacid", None)
+    annot_residue = annotation.get("aminoacid", None)
 
     if anno_evidence[entry_mnemo_name] and good_eco_codes:
         if isinstance(anno_evidence[entry_mnemo_name], list):
@@ -1419,8 +1419,8 @@ def make_anno_total_dict(
             "target_position": counter_target_pos_str,
             "annot_position": counter_annot_pos_str,
             "index_position": str(index),
-            "annot_amino_acid": annot_amino_acid,
-            "target_amino_acid": target_amino,
+            "annot_residue": annot_residue,
+            "target_residue": target_residue,
             # Paired annotation flags
             "gapped_paired": False,
             "insert_column_paired": False,
@@ -1465,14 +1465,14 @@ def process_annotation(
     counter_target_pos_str: str,
     counter_annot_pos_str: str,
     index: int,
-    target_amino: str,
+    target_residue: str,
     processed_annotations: set,
     annotation_key: tuple
 ) -> None:
     """
     Directs annotations to preview if we should add them to transfer_dict by calling make_anno_total_dict()
     returning anno_total containing type, description, count, evidence, target/annot/index positions
-    and target/annot amino acids data. If so, call add_to_transfer_dict().
+    and target/annot residue data. If so, call add_to_transfer_dict().
     We may also add paired position information in much the same way, if it hits
     (map_and_filter_annot_pos() attempts to validate_paired_positions()).
 
@@ -1480,7 +1480,7 @@ def process_annotation(
         logger: Process logging handler
         multi_logger: Callable for logging to multiple loggers
         good_eco_codes: Valid evidence codes
-        target_*: Target data (name, sequence, positions, amino)
+        target_*: Target data (name, sequence, positions, residue)
         entry_*: Source entry data (name, annotations)
         annotation_*: Current annotation info (dict, key)
         transfer_dict: Output dictionary for results
@@ -1497,7 +1497,7 @@ def process_annotation(
         counter_target_pos_str=counter_target_pos_str,
         counter_annot_pos_str=counter_annot_pos_str,
         index=index,
-        target_amino=target_amino,
+        target_residue=target_residue,
         logger=logger, # Delete in production
         entry_annotations=entry_annotations
     )
@@ -1798,10 +1798,10 @@ def validate_paired_annotations(
             end_index = min(len(annot_sequence), index + 4)
             annot_window = annot_sequence[start_index:end_index]
             target_window = target_sequence[start_index:end_index]
-            logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Counter Tar Pos {counter_target_pos_str} and amino acid {target_sequence[index]} + Counter annot Pos (annotated) {str(counter_annot_pos)} and amino acid {annot_sequence[index]}")
+            logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Counter Tar Pos {counter_target_pos_str} and residue {target_sequence[index]} + Counter annot Pos (annotated) {str(counter_annot_pos)} and residue {annot_sequence[index]}")
             logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
 
-            paired_target_amino = target_sequence[index]
+            paired_target_residue = target_sequence[index]
             paired_position_res_hit = bool(char_target == char_annot)
 
             paired_result_dict.update(make_anno_total_dict(
@@ -1811,7 +1811,7 @@ def validate_paired_annotations(
                 counter_target_pos_str=counter_target_pos_str, # kinda paired_target_pos_str
                 counter_annot_pos_str=paired_annot_pos_str,
                 index=index,
-                target_amino=paired_target_amino,
+                target_residue=paired_target_residue,
                 logger=logger, # Delete in production
                 entry_annotations=entry_annotations,
                 caller_target_pos_str=caller_target_pos_str,
@@ -1845,7 +1845,7 @@ def validate_annotations(
     counter_target_pos: None,
     counter_annot_pos: None) -> None:
     """
-    Iterate on both annotated and target sequences to find columns where the annotated sequence has annotations. See if the amino acid at target sequence is the same as the one on the annotated sequence, storing the result in a boolean "res_hit".
+    Iterate on both annotated and target sequences to find columns where the annotated sequence has annotations. See if the residue at target sequence is the same as the one on the annotated sequence, storing the result in a boolean "res_hit".
     Regardless of hit, send to process_annotation, granted that processed_annotations does not contain the annotation key (entry_mnemo_name, target_name, counter_annot_pos_str, counter_target_pos_str and anno_type), avoiding reprocessing.
 
     Args:
@@ -1943,10 +1943,10 @@ def validate_annotations(
             end_index = min(len(annot_sequence), index + 4)
             annot_window = annot_sequence[start_index:end_index]
             target_window = target_sequence[start_index:end_index]
-            logger.debug(f"TRANSFER_ANNOTS --- VAL_ANNOTS --- Counter annot Pos {counter_annot_pos_str} and amino acid {annot_sequence[index]} + Counter Tar Pos {str(counter_target_pos)} and amino acid {target_sequence[index]}")
+            logger.debug(f"TRANSFER_ANNOTS --- VAL_ANNOTS --- Counter annot Pos {counter_annot_pos_str} and residue {annot_sequence[index]} + Counter Tar Pos {str(counter_target_pos)} and residue {target_sequence[index]}")
             logger.debug(f"TRANSFER_ANNOTS --- VAL_ANNOTS --- Annot Window: {annot_window} + Target Window: {target_window}")
 
-            target_amino = target_sequence[index]
+            target_residue = target_sequence[index]
             res_hit = bool(char_target == char_annot)
             for annotation_dict in entry_annotations[counter_annot_pos_str]:
                 anno_type = annotation_dict.get("type", None)
@@ -1980,7 +1980,7 @@ def validate_annotations(
                         counter_target_pos_str=counter_target_pos_str,
                         counter_annot_pos_str=counter_annot_pos_str,
                         index=index,
-                        target_amino=target_amino,
+                        target_residue=target_residue,
                         processed_annotations=processed_annotations,
                         annotation_key=match_annotation_key
                     )

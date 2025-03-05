@@ -50,7 +50,7 @@ def parse_arguments():
     return parser.parse_args()
 
 def track_position_data(target: Dict, key: str, pos_str: str, value: Dict, track_key: str) -> None:
-    """Helper to track per-position data like counts and hits."""
+    """Helper to track per-position data for counts and residues."""
     if track_key not in target[key]:
         target[key][track_key] = {}
     target[key][track_key][pos_str] = value[track_key]
@@ -67,9 +67,13 @@ def merge_nested_data(source: Dict, target: Dict, pos_str: str) -> None:
             if key not in target:
                 target[key] = defaultdict(dict)
 
-            # Track position-specific data
+            # Track position-specific count and residue data
             if "count" in value:
                 track_position_data(target, key, pos_str, value, "count")
+            if "annot_residue" in value:
+                track_position_data(target, key, pos_str, value, "annot_residue")
+            if "target_residue" in value:
+                track_position_data(target, key, pos_str, value, "target_residue")
 
             if key == "GO":
                 if pos_str not in target["GO"]:
@@ -80,7 +84,8 @@ def merge_nested_data(source: Dict, target: Dict, pos_str: str) -> None:
             # Recurse for nested structures
             merge_nested_data(value, target[key], pos_str)
         else:
-            if key not in ["count", "hit", "GO"]:  # Skip specially handled keys
+            # Skip specially handled keys that CAN appear outside of a value dict
+            if key not in ["count", "hit", "GO", "annot_residue", "target_residue"]:
                 target[key] = value
 
 def aggregate_range_positions(interval_dict: Dict, range_id: str, range_tuple: Tuple[int, int],
@@ -131,7 +136,6 @@ def transform_to_ranges(interval_dict: Dict, multi_logger: Callable) -> Dict:
 
     if not interval_dict:
         return {}
-
 
     # Let's identify out annotation/conversation range_id values:
     # those that aren't standard structural keys
