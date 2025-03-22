@@ -9,7 +9,6 @@ import os
 import copy
 import pandas as pd
 from io import StringIO
-from importlib import reload
 from argparse import Namespace
 from unittest.mock import patch, ANY, call, mock_open, MagicMock
 from tempfile import TemporaryDirectory
@@ -53,11 +52,6 @@ from transfer_annotations import (
 from utils import get_logger
 
 import pytest
-# New GO parsing needs --- may delete later with better tests!
-from goatools.base import download_go_basic_obo
-from goatools.obo_parser import GODag
-from goatools.semantic import TermCounts
-from goatools.semsim.termwise.wang import SsWang
 
 hmmalign_result_mock = "/home/user/results/human/PF07728_hmmalign.sth"
 hmmalign_result_content_mock = """# STOCKHOLM 1.0
@@ -2994,7 +2988,7 @@ def mock_make_anno_total_disulfid_return_205_P15005(annotation_dict_205_Q9NU22):
 
 @pytest.fixture
 def mock_make_anno_total_disulfid_return_246_P15005(annotation_dict_205_Q9NU22):
-   return {
+    return {
         "annotation": annotation_dict_205_Q9NU22,
         "anno_type": "DISULFID",
         "anno_id": "DISULFID | Intrachain (with C-205); in linked form",
@@ -3344,8 +3338,8 @@ def target_id_plus_seq_Q9NU22(minimal_hmmalign_lines_fixture_Q9NU22):
     lines = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
     try:
         line = next(line for line in lines if line.startswith("sp|Q9NU22|MDN1_HUMANtarget//325-451"))
-    except StopIteration:
-        raise ValueError("Target ID 'sp|Q9NU22|MDN1_HUMANtarget//325-451' not found in hmmalign_lines.")
+    except StopIteration as exc:
+        raise ValueError("Target ID 'sp|Q9NU22|MDN1_HUMANtarget//325-451' not found in hmmalign_lines.") from exc
     id_seq = line.split()[:2]  # Returns [id, seq]
     return id_seq
 
@@ -3355,8 +3349,8 @@ def conservation_id_plus_seq_Q9NU22_PF07728(minimal_hmmalign_lines_fixture_Q9NU2
     lines = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
     try:
         line = next(line for line in lines if line.startswith("Q7US48_RHOBA/138-284"))
-    except StopIteration:
-        raise ValueError("Conservation ID 'MCRB_ECOLI/196-350' not found in hmmalign_lines.")
+    except StopIteration as exc:
+        raise ValueError("Conservation ID 'MCRB_ECOLI/196-350' not found in hmmalign_lines.") from exc
     id_seq = line.split()[:2]  # Returns [id, seq]
     return id_seq
 
@@ -3859,13 +3853,13 @@ def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixt
 ###T read_conservations_and_annotations
 
 def test_read_conservations_and_annotations_success(
-    tmp_path, mock_json_filepaths, conservations_content_Q9NU22_PF07728, annotations_content_disulfid_fixture_Q9NU22_PF07728):
+    mock_json_filepaths, conservations_content_Q9NU22_PF07728, annotations_content_disulfid_fixture_Q9NU22_PF07728):
     # Create temporary files
     cons_file, annot_file = mock_json_filepaths
 
-    with open(cons_file, "w") as f:
+    with open(cons_file, "w", encoding="utf-8") as f:
         json.dump(conservations_content_Q9NU22_PF07728, f)
-    with open(annot_file, "w") as f:
+    with open(annot_file, "w", encoding="utf-8") as f:
         json.dump(annotations_content_disulfid_fixture_Q9NU22_PF07728, f)
 
     # Test function
@@ -3879,7 +3873,7 @@ def test_read_conservations_and_annotations_conservations_only(tmp_path):
     cons_file = tmp_path / "conservations.json"
     mock_conservations = {"sequence_id/1-100": {"1": 0.5, "2": 0.8}}
 
-    with open(cons_file, "w") as f:
+    with open(cons_file, "w", encoding="utf-8") as f:
         json.dump(mock_conservations, f)
 
     conservations, annotations = read_conservations_and_annotations(
@@ -3905,7 +3899,7 @@ def test_read_conservations_and_annotations_one_file_missing(tmp_path, mock_json
     cons_file, _ = mock_json_filepaths
 
     # Create only conservations file
-    with open(cons_file, "w") as f:
+    with open(cons_file, "w", encoding="utf-8") as f:
         json.dump({"some": "data"}, f)
 
     conservations, annotations = read_conservations_and_annotations(
@@ -3916,13 +3910,13 @@ def test_read_conservations_and_annotations_one_file_missing(tmp_path, mock_json
     assert conservations == {"some": "data"}
     assert annotations == {"sequence_id": {}}
 
-def test_read_conservations_and_annotations_invalid_json(tmp_path, mock_json_filepaths):
+def test_read_conservations_and_annotations_invalid_json(mock_json_filepaths):
     # Create file with invalid JSON
     cons_file, annot_file = mock_json_filepaths
 
-    with open(cons_file, "w") as f:
+    with open(cons_file, "w", encoding="utf-8") as f:
         f.write("invalid json")
-    with open(annot_file, "w") as f:
+    with open(annot_file, "w", encoding="utf-8") as f:
         json.dump({}, f)
 
     with pytest.raises(json.JSONDecodeError):
@@ -3943,19 +3937,19 @@ def test_read_conservations_and_annotations_empty_files(mock_json_filepaths):
 
 ###T parse_go_annotations
 
-def test_parse_go_annotations_multiple_terms(cc_go_terms_mock):
+def test_parse_go_annotations_multiple_terms():
     """Test parsing GO terms with multiple terms and sources."""
     go_column = "GO:0000027(PANTHER)|GO:0000055(InterPro)|GO:0005634()|GO:0030687(PANTHER)"
     result = parse_go_annotations(go_column)
     assert result == ["GO:0000027", "GO:0000055", "GO:0005634", "GO:0030687"]
 
-def test_parse_go_annotations_single_term(cc_go_terms_mock):
+def test_parse_go_annotations_single_term():
     """Test parsing single GO term."""
     go_column = "GO:0016887(InterPro)"
     result = parse_go_annotations(go_column)
     assert result == ["GO:0016887"]
 
-def test_parse_go_annotations_empty(cc_go_terms_mock):
+def test_parse_go_annotations_empty():
     """Test parsing empty GO annotations."""
     assert parse_go_annotations("") == []
     assert parse_go_annotations("-") == []
@@ -4014,7 +4008,7 @@ def test_check_interval_overlap_edge_margins(multi_logger):
 
 ###T gather_go_terms_for_target
 
-def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
+def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when matching PFAM ID"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -4037,7 +4031,7 @@ def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_P
         assert result == {"GO:0005524", "GO:0016887"}
         mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)")
 
-def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
+def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when matching InterPro ID"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -4060,7 +4054,7 @@ def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU
         assert result == {"GO:0042623"}
         mock_parse.assert_called_once_with("GO:0042623(InterPro)")
 
-def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
+def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when only interval matches"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -4082,7 +4076,7 @@ def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU2
 
         assert result == {"GO:0016887"}
 
-def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
+def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test when no entries match any criteria"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -4106,7 +4100,7 @@ def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_P
             "PF00000", "sp-Q9NU22-MDN1_HUMAN"
         )
 
-def test_gather_go_terms_for_target_file_not_found(multi_logger, cc_go_terms_mock):
+def test_gather_go_terms_for_target_file_not_found(multi_logger):
     """Test handling of missing iprscan.tsv file"""
     with patch("os.path.exists", return_value=False):
         result = gather_go_terms_for_target(
@@ -4126,7 +4120,7 @@ def test_gather_go_terms_for_target_file_not_found(multi_logger, cc_go_terms_moc
             "PF00000", "nonexistent", "/mock/path/nonexistent/iprscan.tsv"
         )
 
-def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df, cc_go_terms_mock):
+def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df):
     """Test handling of empty but valid TSV file"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -4150,7 +4144,7 @@ def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df, cc_g
             "PF07728", "sp-Q9NU22-MDN1_HUMAN"
         )
 
-def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
+def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when both accession and interval match"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -4179,7 +4173,7 @@ def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9
         assert result == {"GO:0005524", "GO:0016887", "GO:0042623"}
         assert mock_parse.call_count == 3
 
-def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
+def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test handling of "-" GO annotations"""
     mock_df_dash = iprscan_df_Q9NU22_PF07728.copy()
     mock_df_dash.loc[0, "GO Annotations"] = "-"
@@ -4203,7 +4197,7 @@ def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU2
         assert result == set()
 
 ## Integration tests so to speak
-def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock, cc_go_terms_mock):
+def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock):
     go_terms = gather_go_terms_for_target(
         multi_logger=multi_logger,
         target_name="target_name",
@@ -4215,7 +4209,7 @@ def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock, cc_go_terms
     )
     assert go_terms == {"GO:0005524", "GO:0016887"}
 
-def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock, cc_go_terms_mock):
+def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock):
     go_terms = gather_go_terms_for_target(
         multi_logger=multi_logger,
         target_name="target_name_no_go",
@@ -4227,7 +4221,7 @@ def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock, cc_go
     )
     assert go_terms == set()
 
-def test_gather_go_terms_for_target_empty_interpro_id(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
+def test_gather_go_terms_for_target_empty_interpro_id(multi_logger, iprscan_df_Q9NU22_PF07728):
     """Test gathering GO terms when interpro_conv_id is empty string but Pfam ID matches"""
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open()), \
@@ -4475,8 +4469,6 @@ def test_load_go_ontology_success(logger, multi_logger):
     mock_godag = MagicMock()
     mock_godag.values.return_value = [mock_term1, mock_term2]
 
-    mock_tcnt = MagicMock()
-
     mock_datetime = MagicMock()
     mock_datetime.strftime.return_value = "2025-03-20 00:00:00"
 
@@ -4486,10 +4478,9 @@ def test_load_go_ontology_success(logger, multi_logger):
          patch("os.path.getmtime", return_value=1614556800) as mock_getmtime, \
          patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
          patch("transfer_annotations.download_go_basic_obo") as mock_download, \
-         patch("transfer_annotations.GODag", return_value=mock_godag) as mock_godag_constructor, \
-         patch("transfer_annotations.TermCounts", return_value=mock_tcnt) as mock_termcounts_constructor:
+         patch("transfer_annotations.GODag", return_value=mock_godag) as mock_godag_constructor:
 
-        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+        result_godag, result_obsolete = load_go_ontology(resource_dir_mock, logger, multi_logger)
 
         mock_join.assert_called_once_with(resource_dir_mock, "mappings", "go-basic.obo")
         mock_isfile.assert_called_with(expected_path)
@@ -4507,11 +4498,8 @@ def test_load_go_ontology_success(logger, multi_logger):
             prt=None
         )
 
-        mock_termcounts_constructor.assert_called_once_with(mock_godag, {})
-
         assert result_godag == mock_godag
         assert result_obsolete == {"GO:0000001"}  # Only term1 was marked obsolete
-        assert result_tcnt == mock_tcnt
 
 
 def test_load_go_ontology_download_needed(logger, multi_logger):
@@ -4531,32 +4519,27 @@ def test_load_go_ontology_download_needed(logger, multi_logger):
     mock_godag = MagicMock()
     mock_godag.values.return_value = [mock_term]
 
-    mock_tcnt = MagicMock()
-
     mock_datetime = MagicMock()
     mock_datetime.strftime.return_value = "2025-03-20 00:00:00"
 
-    with patch("os.path.join", return_value=expected_path) as mock_join, \
+    with patch("os.path.join", return_value=expected_path) as _, \
          patch("os.path.isfile", side_effect=mock_isfile_side_effect) as mock_isfile, \
-         patch("os.path.getsize", return_value=1024 * 1024) as mock_getsize, \
-         patch("os.path.getmtime", return_value=1614556800) as mock_getmtime, \
+         patch("os.path.getsize", return_value=1024 * 1024) as _, \
+         patch("os.path.getmtime", return_value=1614556800) as _, \
          patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
          patch("transfer_annotations.download_go_basic_obo") as mock_download, \
-         patch("transfer_annotations.GODag", return_value=mock_godag) as mock_godag_constructor, \
-         patch("transfer_annotations.TermCounts", return_value=mock_tcnt) as mock_termcounts_constructor:
+         patch("transfer_annotations.GODag", return_value=mock_godag) as mock_godag_constructor:
 
-        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+        result_godag, result_obsolete = load_go_ontology(resource_dir_mock, logger, multi_logger)
 
         # Verify download was called since file didn't exist initially
         mock_download.assert_called_once_with(expected_path)
 
         assert mock_isfile.call_count == 2
         mock_godag_constructor.assert_called_once()
-        mock_termcounts_constructor.assert_called_once()
 
         assert result_godag == mock_godag
         assert result_obsolete == set()  # No obsolete terms in mock
-        assert result_tcnt == mock_tcnt
 
 
 def test_load_go_ontology_empty_file(logger, multi_logger):
@@ -4573,10 +4556,9 @@ def test_load_go_ontology_empty_file(logger, multi_logger):
          patch("os.path.getmtime", return_value=1614556800) as mock_getmtime, \
          patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
          patch("transfer_annotations.download_go_basic_obo") as mock_download, \
-         patch("transfer_annotations.GODag") as mock_godag_constructor, \
-         patch("transfer_annotations.TermCounts") as mock_termcounts_constructor:
+         patch("transfer_annotations.GODag") as mock_godag_constructor:
 
-        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+        result_godag, result_obsolete = load_go_ontology(resource_dir_mock, logger, multi_logger)
 
         mock_join.assert_called_once()
         assert mock_isfile.call_count == 2
@@ -4587,12 +4569,9 @@ def test_load_go_ontology_empty_file(logger, multi_logger):
 
         # Verify these were NOT called since we exit early
         mock_godag_constructor.assert_not_called()
-        mock_termcounts_constructor.assert_not_called()
 
         assert result_godag is None
         assert result_obsolete is None
-        assert result_tcnt is None
-
 
 def test_load_go_ontology_exception_handling(logger, multi_logger):
     """Test GO ontology loading when an exception occurs."""
@@ -4609,7 +4588,7 @@ def test_load_go_ontology_exception_handling(logger, multi_logger):
          patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
          patch("transfer_annotations.GODag", side_effect=Exception("Mock error")) as mock_godag_constructor:
 
-        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+        result_godag, result_obsolete = load_go_ontology(resource_dir_mock, logger, multi_logger)
 
         mock_godag_constructor.assert_called_once()
 
@@ -4621,7 +4600,6 @@ def test_load_go_ontology_exception_handling(logger, multi_logger):
 
         assert result_godag is None
         assert result_obsolete is None
-        assert result_tcnt is None
 
 ###T prepare_go_set
 
@@ -4659,29 +4637,25 @@ def test_prepare_go_set_basic(logger):
     mock_obsolete = set()
 
     # Call function with all 3 terms in the mock GODag
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:0000001", "GO:0000002", "GO:0000003"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:0000001", "GO:0000002", "GO:0000003"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == {"GO:0000001"}
     assert mf_terms == {"GO:0000002"}
     # Cellular component terms are implicitly excluded
-    assert bp_replacement_map == {}
-    assert mf_replacement_map == {}
 
 def test_prepare_go_set_empty_input(logger):
     """Test prepare_go_set with empty input."""
     mock_godag = MagicMock()
     mock_obsolete = set()
 
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        set(), mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        set(), mock_godag, mock_obsolete
     )
 
     assert bp_terms == set()
     assert mf_terms == set()
-    assert bp_replacement_map == {}
-    assert mf_replacement_map == {}
 
 def test_prepare_go_set_alternate_ids(logger):
     """Test normalization of alternate IDs to primary IDs."""
@@ -4710,14 +4684,12 @@ def test_prepare_go_set_alternate_ids(logger):
     mock_obsolete = set()
 
     # Execute function with alternate IDs
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:0000007", "GO:0000009"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:0000007", "GO:0000009"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == {"GO:0000001"}
     assert mf_terms == {"GO:0000002"}
-    assert bp_replacement_map == {"GO:0000007": ["GO:0000001"]}
-    assert mf_replacement_map == {"GO:0000009": ["GO:0000002"]}
 
 
 def test_prepare_go_set_obsolete_with_replaced_by(logger):
@@ -4753,15 +4725,12 @@ def test_prepare_go_set_obsolete_with_replaced_by(logger):
     mock_obsolete = {"GO:0000001"}
 
     # Execute function with obsolete term - replaced_by replacement
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == {"GO:0000002"}  # The replacement term
     assert mf_terms == set()
-    assert bp_replacement_map == {"GO:0000001": ["GO:0000002"]}
-    assert mf_replacement_map == {}
-
 
 def test_prepare_go_set_obsolete_with_consider(logger):
     """Test handling of obsolete terms with consider attribute."""
@@ -4797,15 +4766,12 @@ def test_prepare_go_set_obsolete_with_consider(logger):
     mock_obsolete = {"GO:0000001"}
 
     # Execute function with obsolete term - consider replacement
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == set()
     assert mf_terms == {"GO:0000002"}  # The consider term
-    assert bp_replacement_map == {}
-    assert mf_replacement_map == {"GO:0000001": ["GO:0000002"]}
-
 
 def test_prepare_go_set_obsolete_without_replacements(logger):
     """Test handling of obsolete terms without any replacements."""
@@ -4829,14 +4795,12 @@ def test_prepare_go_set_obsolete_without_replacements(logger):
     mock_obsolete = {"GO:0000001"}
 
     # Execute function with obsolete term - no replacements
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == set()
     assert mf_terms == set()
-    assert bp_replacement_map == {}
-    assert mf_replacement_map == {}
 
 def test_prepare_go_set_term_not_in_ontology(logger):
     """Test handling of terms not found in the ontology."""
@@ -4847,14 +4811,12 @@ def test_prepare_go_set_term_not_in_ontology(logger):
     mock_obsolete = set()
 
     # Execute function with non-existent term
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:9999999"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:9999999"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == set()
     assert mf_terms == set()
-    assert bp_replacement_map == {}
-    assert mf_replacement_map == {}
 
 def test_prepare_go_set_replaced_by_string(logger):
     """Test handling of obsolete terms with replaced_by as string instead of list."""
@@ -4885,15 +4847,12 @@ def test_prepare_go_set_replaced_by_string(logger):
     mock_obsolete = {"GO:0000001"}
 
     # Execute function with obsolete term - string replaced_by attribute value
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == {"GO:0000002"}
     assert mf_terms == set()
-    assert bp_replacement_map == {"GO:0000001": ["GO:0000002"]}
-    assert mf_replacement_map == {}
-
 
 def test_prepare_go_set_consider_string(logger):
     """Test handling of obsolete terms with consider as string instead of list."""
@@ -4925,21 +4884,18 @@ def test_prepare_go_set_consider_string(logger):
     mock_obsolete = {"GO:0000001"}
 
     # Execute function with obsolete term - consider string attribute value
-    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    bp_terms, mf_terms = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete
     )
 
     assert bp_terms == set()
     assert mf_terms == {"GO:0000002"}
-    assert bp_replacement_map == {}
-    assert mf_replacement_map == {"GO:0000001": ["GO:0000002"]}
 
 ###T calculate_bma_similarity
 
 def test_calculate_bma_similarity_empty_set_a(logger, multi_logger):
     """Test BMA similarity when first set is empty."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     result = calculate_bma_similarity(
         logger=logger,
@@ -4947,16 +4903,14 @@ def test_calculate_bma_similarity_empty_set_a(logger, multi_logger):
         set_a=set(),
         set_b={"GO:0005515", "GO:0008270"},
         godag=mock_godag,
-        tcnt=mock_tcnt
+        namespace="BP"
     )
 
-    multi_logger.assert_called_once_with("warning", "TRANSFER_ANNOTS --- BMA_SIM --- First set is empty")
     assert result == 0.0
 
 def test_calculate_bma_similarity_empty_set_b(logger, multi_logger):
     """Test BMA similarity when second set is empty."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     result = calculate_bma_similarity(
         logger=logger,
@@ -4964,16 +4918,14 @@ def test_calculate_bma_similarity_empty_set_b(logger, multi_logger):
         set_a={"GO:0004022", "GO:0008270"},
         set_b=set(),
         godag=mock_godag,
-        tcnt=mock_tcnt
+        namespace="MF"
     )
 
-    multi_logger.assert_called_once_with("warning", "TRANSFER_ANNOTS --- BMA_SIM --- Second set is empty")
     assert result == 0.0
 
 def test_calculate_bma_similarity_identical_sets(logger, multi_logger, caplog):
     """Test BMA similarity when both sets are identical."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     test_set = {"GO:0004022", "GO:0008270", "GO:0016491"}
 
@@ -4983,7 +4935,7 @@ def test_calculate_bma_similarity_identical_sets(logger, multi_logger, caplog):
         set_a=test_set,
         set_b=test_set,
         godag=mock_godag,
-        tcnt=mock_tcnt
+        namespace="MF"
     )
 
     assert result == 1.0
@@ -4991,7 +4943,6 @@ def test_calculate_bma_similarity_identical_sets(logger, multi_logger, caplog):
 def test_calculate_bma_similarity_basic_calculation(logger, multi_logger):
     """Test BMA similarity calculation with normal input sets."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     set_a = {"GO:0004022", "GO:0008270", "GO:0016491"}
     set_b = {"GO:0005515", "GO:0008270", "GO:0046872"}
@@ -5029,7 +4980,7 @@ def test_calculate_bma_similarity_basic_calculation(logger, multi_logger):
             set_a=set_a,
             set_b=set_b,
             godag=mock_godag,
-            tcnt=mock_tcnt
+            namespace="MF"
         )
 
     # Expected calculation:
@@ -5041,7 +4992,6 @@ def test_calculate_bma_similarity_basic_calculation(logger, multi_logger):
 def test_calculate_bma_similarity_single_items(logger, multi_logger):
     """Test BMA similarity with single-item sets."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     set_a = {"GO:0004022"}
     set_b = {"GO:0005515"}
@@ -5056,7 +5006,7 @@ def test_calculate_bma_similarity_single_items(logger, multi_logger):
             set_a=set_a,
             set_b=set_b,
             godag=mock_godag,
-            tcnt=mock_tcnt
+            namespace="MF"
         )
 
     # Expected: BMA = (0.4 + 0.4) / (1 + 1) = 0.4
@@ -5066,7 +5016,6 @@ def test_calculate_bma_similarity_single_items(logger, multi_logger):
 def test_calculate_bma_similarity_sswang_initialization_error(logger, multi_logger):
     """Test BMA similarity when SsWang initialization fails."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     set_a = {"GO:0004022", "GO:0008270"}
     set_b = {"GO:0005515", "GO:0046872"}
@@ -5078,7 +5027,7 @@ def test_calculate_bma_similarity_sswang_initialization_error(logger, multi_logg
             set_a=set_a,
             set_b=set_b,
             godag=mock_godag,
-            tcnt=mock_tcnt
+            namespace="MF"
         )
 
     multi_logger.assert_any_call(
@@ -5092,7 +5041,6 @@ def test_calculate_bma_similarity_sswang_initialization_error(logger, multi_logg
 def test_calculate_bma_similarity_general_exception(logger, multi_logger):
     """Test BMA similarity when a general exception occurs during calculation."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     set_a = {"GO:0004022", "GO:0008270"}
     set_b = {"GO:0005515", "GO:0046872"}
@@ -5108,7 +5056,7 @@ def test_calculate_bma_similarity_general_exception(logger, multi_logger):
             set_a=set_a,
             set_b=set_b,
             godag=mock_godag,
-            tcnt=mock_tcnt
+            namespace="MF"
         )
 
     multi_logger.assert_any_call(
@@ -5121,7 +5069,6 @@ def test_calculate_bma_similarity_general_exception(logger, multi_logger):
 def test_calculate_bma_similarity_wang_benchmark_mocked(logger, multi_logger):
     """Test BMA similarity with Wang's benchmark terms using proper mocking."""
     mock_godag = MagicMock()
-    mock_tcnt = MagicMock()
 
     # Wang's benchmark set ADh4 (set A) and Ldb3 (set B) - MF terms
     # Full set with obsolete terms
@@ -5204,7 +5151,7 @@ def test_calculate_bma_similarity_wang_benchmark_mocked(logger, multi_logger):
             set_a=set_a,  # Using the filtered set that excludes obsolete terms
             set_b=set_b,
             godag=mock_godag,
-            tcnt=mock_tcnt
+            namespace="MF"
         )
 
     # Assert we get the expected similarity score rounded to 4 decimal places
@@ -5269,7 +5216,6 @@ def test_populate_go_data_wang_benchmark_mocked(
     # Mock return objects for load_go_ontology()
     mock_godag = MagicMock()
     mock_obsolete = {"GO:0004023", "GO:0004024"}
-    mock_tcnt = MagicMock()
 
     # Expected processed values for target GO terms
     target_bp_terms = set()
@@ -5287,15 +5233,14 @@ def test_populate_go_data_wang_benchmark_mocked(
     # Original result was 0.693, but discrepancy is due to changes in the DAG (replacement of both GO:0004023 and GO:0004024 with GO:0004022)
     expected_mf_similarity = 0.6146
 
-    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology, \
-         patch("transfer_annotations.log_go_set_processing") as mock_log_processing, \
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete)) as mock_load_ontology, \
          patch("transfer_annotations.prepare_go_set") as mock_prepare_go_set, \
          patch("transfer_annotations.calculate_bma_similarity") as mock_bma_sim:
 
         # Set up mock_prepare_go_set to return different values based for 2 separate calls
         mock_prepare_go_set.side_effect = [
-            (target_bp_terms, target_mf_terms, target_bp_map, target_mf_map),
-            (anno_bp_terms, anno_mf_terms, anno_bp_map, anno_mf_map)
+            (target_bp_terms, target_mf_terms),
+            (anno_bp_terms, anno_mf_terms)
         ]
 
         mock_bma_sim.side_effect = [0.0, expected_mf_similarity]  # BP is empty, mind
@@ -5316,7 +5261,6 @@ def test_populate_go_data_wang_benchmark_mocked(
         mock_load_ontology.assert_called_once_with(resource_dir_mock, logger, multi_logger)
         assert mock_prepare_go_set.call_count == 2
         assert mock_bma_sim.call_count == 2
-        assert mock_log_processing.call_count == 2
 
         # Verify result
         anno_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
@@ -5338,7 +5282,6 @@ def test_populate_go_data_basic_match_mocked(
 
     mock_godag = MagicMock()
     mock_obsolete = {"GO:0000003"}
-    mock_tcnt = MagicMock()
 
     # Expected processed values
     target_bp_terms = set()
@@ -5354,14 +5297,13 @@ def test_populate_go_data_basic_match_mocked(
     # Similarity value observed in the original test == 0.541 - go-basic.obo from 12/02/25.
     expected_mf_similarity = 0.541
 
-    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology, \
-         patch("transfer_annotations.log_go_set_processing") as mock_log_processing, \
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete)) as mock_load_ontology, \
          patch("transfer_annotations.prepare_go_set") as mock_prepare_go_set, \
          patch("transfer_annotations.calculate_bma_similarity") as mock_bma_sim:
 
         mock_prepare_go_set.side_effect = [
-            (target_bp_terms, target_mf_terms, target_bp_map, target_mf_map),  # For target
-            (anno_bp_terms, anno_mf_terms, anno_bp_map, anno_mf_map)  # For annotation
+            (target_bp_terms, target_mf_terms),
+            (anno_bp_terms, anno_mf_terms)
         ]
 
         mock_bma_sim.side_effect = [0.0, expected_mf_similarity]  # BP (empty), MF
@@ -5382,7 +5324,6 @@ def test_populate_go_data_basic_match_mocked(
         mock_load_ontology.assert_called_once_with("mock_resource_dir", logger, multi_logger)
         assert mock_prepare_go_set.call_count == 2
         assert mock_bma_sim.call_count == 2
-        assert mock_log_processing.call_count == 2
 
         # Verify result
         anno_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
@@ -5404,21 +5345,19 @@ def test_populate_go_data_no_matches_mocked(
     # Mock GODag and related objects
     mock_godag = MagicMock()
     mock_obsolete = set()
-    mock_tcnt = MagicMock()
 
     # Empty sets for both target and annotation terms
     empty_terms = set()
     empty_map = {}
 
-    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology, \
-         patch("transfer_annotations.log_go_set_processing") as mock_log_processing, \
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete)) as mock_load_ontology, \
          patch("transfer_annotations.prepare_go_set") as mock_prepare_go_set, \
          patch("transfer_annotations.calculate_bma_similarity") as mock_bma_sim:
 
         # Set up mocks to return empty sets
         mock_prepare_go_set.side_effect = [
-            (empty_terms, empty_terms, empty_map, empty_map),  # For target
-            (empty_terms, empty_terms, empty_map, empty_map)   # For annotation
+            (empty_terms, empty_terms),
+            (empty_terms, empty_terms)
         ]
         # Set up mock_bma_sim to return zero similarity
         mock_bma_sim.return_value = 0.0
@@ -5458,9 +5397,8 @@ def test_populate_go_data_empty_target_gos_mocked(
 
     mock_godag = MagicMock()
     mock_obsolete = set()
-    mock_tcnt = MagicMock()
 
-    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology:
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete)) as mock_load_ontology:
         # Note: When target_go_set is empty, the function returns early without calling prepare_go_set()
 
         # Call function under test
@@ -5708,7 +5646,6 @@ def test_cleanup_improve_transfer_dict_only_annotations_valid(
 ):
     """Test handling when only annotations data is valid"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
-    expected_dict = copy.deepcopy(transfer_dict_populated_disulfid_post_gos_Q9NU22)
 
     with patch(
         "transfer_annotations.read_conservations_and_annotations",
@@ -6369,7 +6306,7 @@ def test_add_to_transfer_dict_disulfid_paired_mocked_helper(
 ###T _add_single_annotation
 
 def test_add_single_annotation_complete(
-    logger, transfer_dict_initialized_structure_Q9NU22, anno_total_disulfid_MCRB_ECOLI_Q9NU22_205,
+    transfer_dict_initialized_structure_Q9NU22, anno_total_disulfid_MCRB_ECOLI_Q9NU22_205,
 ):
     """Test all aspects of _add_single_annotation data population"""
     with patch("transfer_annotations.update_position_ranges"):
@@ -6420,7 +6357,7 @@ def test_add_single_annotation_complete(
         assert interval_dict["position_conversion"]["aln_to_target"]["18"] == "333"
 
 def test_add_single_annotation_gapped_paired(
-    logger, transfer_dict_initialized_structure_Q9NU22
+    transfer_dict_initialized_structure_Q9NU22
 ):
     """Test _add_single_annotation handling of gapped paired position"""
     with patch("transfer_annotations.update_position_ranges"):
@@ -6460,7 +6397,7 @@ def test_add_single_annotation_gapped_paired(
         assert "insert_column_paired" not in paired
 
 def test_add_single_annotation_insert_column_paired(
-    logger, transfer_dict_initialized_structure_Q9NU22
+    transfer_dict_initialized_structure_Q9NU22
 ):
     """Test _add_single_annotation handling of insert column paired position"""
     with patch("transfer_annotations.update_position_ranges"):
@@ -7248,8 +7185,8 @@ def test_process_annotation_paired_gapped_paired(
     mock_map_filter_gapped_return = (False, mock_paired_result_dict)
     processed_annotations = set()
 
-    with patch("transfer_annotations.make_anno_total_dict", return_value=mock_make_anno_total_disulfid_return_205_P15005) as mock_make_total, \
-         patch("transfer_annotations.map_and_filter_annot_pos", return_value=mock_map_filter_gapped_return) as mock_map_filter, \
+    with patch("transfer_annotations.make_anno_total_dict", return_value=mock_make_anno_total_disulfid_return_205_P15005) as _, \
+         patch("transfer_annotations.map_and_filter_annot_pos", return_value=mock_map_filter_gapped_return) as _, \
          patch("transfer_annotations.add_to_transfer_dict") as mock_add_transfer:
 
         process_annotation(
@@ -7293,7 +7230,7 @@ def test_process_annotation_paired_insert_column(
     logger, multi_logger, good_eco_codes_all, transfer_dict,
     entry_annotations_disulfid_pair, annotation_dict_205_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
-    target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22
+    target_sequence_Q9NU22, annot_sequence_Q9NU22
 ):
     """Test processing paired annotation where paired position is in insert column"""
     mock_paired_result_dict = {
@@ -7305,8 +7242,8 @@ def test_process_annotation_paired_insert_column(
     mock_map_filter_insert_return = (False, mock_paired_result_dict)
     processed_annotations = set()
 
-    with patch("transfer_annotations.make_anno_total_dict", return_value=mock_make_anno_total_disulfid_return_205_P15005) as mock_make_total, \
-         patch("transfer_annotations.map_and_filter_annot_pos", return_value=mock_map_filter_insert_return) as mock_map_filter, \
+    with patch("transfer_annotations.make_anno_total_dict", return_value=mock_make_anno_total_disulfid_return_205_P15005) as _, \
+         patch("transfer_annotations.map_and_filter_annot_pos", return_value=mock_map_filter_insert_return) as _, \
          patch("transfer_annotations.add_to_transfer_dict") as mock_add_transfer:
 
         process_annotation(
@@ -7350,7 +7287,7 @@ def test_process_annotation_paired_match_column(
     logger, multi_logger, good_eco_codes_all, transfer_dict,
     entry_annotations_disulfid_pair, annotation_dict_205_Q9NU22,
     mock_make_anno_total_disulfid_return_205_P15005,
-    target_sequence_Q9NU22, target_sequence_continuous_Q9NU22, annot_sequence_Q9NU22
+    target_sequence_Q9NU22, annot_sequence_Q9NU22
 ):
     """Test processing paired annotation with successful match"""
     mock_paired_result_dict = {
@@ -7365,8 +7302,8 @@ def test_process_annotation_paired_match_column(
     mock_map_filter_match_return = (True, mock_paired_result_dict)
     processed_annotations = set()
 
-    with patch("transfer_annotations.make_anno_total_dict", return_value=mock_make_anno_total_disulfid_return_205_P15005) as mock_make_total, \
-         patch("transfer_annotations.map_and_filter_annot_pos", return_value=mock_map_filter_match_return) as mock_map_filter, \
+    with patch("transfer_annotations.make_anno_total_dict", return_value=mock_make_anno_total_disulfid_return_205_P15005) as _, \
+         patch("transfer_annotations.map_and_filter_annot_pos", return_value=mock_map_filter_match_return) as _, \
          patch("transfer_annotations.add_to_transfer_dict") as mock_add_transfer:
 
         process_annotation(
@@ -7867,10 +7804,7 @@ def test_validate_paired_annotations_gap_in_first(
 def test_validate_paired_annotations_missing_paired_in_alignment(
     logger,
     good_eco_codes_all,
-    target_sequence_Q9NU22,
-    annot_sequence_Q9NU22,
-    entry_annotations_disulfid_pair,
-    annotation_dict_246_Q9NU22
+    entry_annotations_disulfid_pair
 ):
     """Test case where paired position exists in annotations but lies beyond alignment range.
 
@@ -8360,7 +8294,7 @@ def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU2
          patch("transfer_annotations.find_and_map_annots", return_value=transfer_dict_populated_disulfid_list_Q9NU22) as mock_find, \
          patch("transfer_annotations.cleanup_improve_transfer_dict", return_value=transfer_dict_populated_disulfid_post_gos_list_Q9NU22) as mock_cleanup, \
          patch("transfer_annotations.write_reports") as mock_write, \
-         patch("transfer_annotations.get_logger", return_value=(logger, None)) as mock_get_logger, \
+         patch("transfer_annotations.get_logger", return_value=(logger, None)) as _, \
          patch("transfer_annotations.get_multi_logger") as mock_get_multi_logger, \
          patch("builtins.open", mock_cc_go_file):
 
@@ -8416,8 +8350,8 @@ def test_main_cc_go_load_error(logger, multi_logger):
 # Integration tests
 
 # NOTE: These tests depend on the GO ontology which changes over time.
-# Tests using semantic similarity will either need periodic updates or use a static copy of the GO obo file.
-# Current tests based on go-basic.obo (2025-02-06).
+# Tests like these that calculate actual semantic similarity will need a static copy of the GO obo file.
+# Current tests based on go-basic.obo (2025-02-06) - all passing. Will be skipped for now due to time constraints.
 
 @pytest.mark.skip("Skipping due to GO ontology dependency - needs a fixed go-basic.obo file for stable testing")
 def test_main_integration_binding_Q9NU22_PF07728(
@@ -8474,7 +8408,7 @@ def test_main_integration_binding_Q9NU22_PF07728(
         )
 
         with patch("transfer_annotations.parse_arguments", return_value=args):
-            logger, _ = get_logger(args.log)
+            _, _ = get_logger(args.log)
             main()
 
         # with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
@@ -8542,10 +8476,10 @@ def test_main_integration_disulfid_Q9NU22_PF07728(
         )
 
         with patch("transfer_annotations.parse_arguments", return_value=args):
-            logger, _ = get_logger(args.log)
+            _, _ = get_logger(args.log)
             main()
 
-        with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
+        with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"), encoding="utf-8") as f:
             transfer_dict = json.load(f)
             print(json.dumps(transfer_dict, indent=4))
 
@@ -8610,13 +8544,13 @@ def test_main_integration_all_types_H0YB80(
         )
 
         with patch("transfer_annotations.parse_arguments", return_value=args):
-            logger, _ = get_logger(args.log)
+            _, _ = get_logger(args.log)
             main()
 
-        with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
+        with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"), encoding="utf-8") as f:
             transfer_dict = json.load(f)
             print(json.dumps(transfer_dict, indent=4))
-            with open("expected.json", "w") as expected:
+            with open("expected.json", "w", encoding="utf-8") as expected:
                 json.dump(transfer_dict, expected, indent=4)
 
         assert os.path.exists(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"))

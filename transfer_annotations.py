@@ -59,24 +59,20 @@ get_alignment_sequences -> populate_conservation -> gather_go_terms_for_target
 
 """
 
-import sys
 import os
-import numpy as np
 import json
 import re
 import argparse
 import logging
 import traceback
 import copy
+import datetime
 from typing import Any, Dict, Optional, Generator, Tuple, Callable
 from goatools.base import download_go_basic_obo
 from goatools.obo_parser import GODag
-from goatools.semantic import TermCounts
 from goatools.semsim.termwise.wang import SsWang
-
 import pandas as pd
 from utils import get_logger, get_multi_logger
-import datetime
 # from modules.decorators import measure_time_and_memory
 # from memory_profiler import profile
 
@@ -643,63 +639,11 @@ def populate_conservation(
         if missing:
             logger.debug("TRANSFER_ANNOTS --- POP_CONS --- Pfam ID: %s - Target Name: %s - Conserv-Rep Name: %s - Missing conserved positions: %s", pfam_id, target_name, conservation_key.split("/")[0], missing)
 
-def log_go_set_processing(logger: logging.Logger, original_set: set,
-                          bp_terms: set, mf_terms: set,
-                          bp_replacement_map: dict, mf_replacement_map: dict,
-                          label: str) -> None:
-    """
-    Consolidated logging function for GO term processing with improved readability.
-    Logs information about the original set, BP/MF categorization, and term replacements.
-
-    Args:
-        logger: Logger object
-        original_set: Initial GO term set before processing
-        bp_terms: Processed biological process terms
-        mf_terms: Processed molecular function terms
-        bp_replacement_map: Mapping of replaced BP terms
-        mf_replacement_map: Mapping of replaced MF terms
-        label: Label for the GO set (e.g., "Target GO", "Annotation GO")
-    """
-    excluded_terms = original_set - (bp_terms | mf_terms)
-
-    # Create a mapping of all replacements for quick lookup
-    all_replacements = {**bp_replacement_map, **mf_replacement_map}
-
-    # Log overall statistics
-    logger.info("PREPARE_GO --- %s: %d total → %d BP, %d MF%s",
-                label, len(original_set), len(bp_terms), len(mf_terms),
-                f", {len(excluded_terms)} excluded (not in BP/MF)" if excluded_terms else "")
-
-    # Log BP terms
-    if bp_terms:
-        logger.debug("PREPARE_GO --- %s BP terms:", label)
-        for term in sorted(bp_terms):
-            logger.debug("PREPARE_GO ---   | %s", term)
-
-    # Log MF terms
-    if mf_terms:
-        logger.debug("PREPARE_GO --- %s MF terms:", label)
-        for term in sorted(mf_terms):
-            logger.debug("PREPARE_GO ---   | %s", term)
-
-    # Log excluded terms with replacement info when available
-    if excluded_terms:
-        replaced_exclusions = [t for t in excluded_terms if t in all_replacements]
-        non_replaced_exclusions = excluded_terms - set(replaced_exclusions)
-
-        if non_replaced_exclusions:
-            logger.debug("PREPARE_GO --- %s excluded terms (no replacement):", label)
-            for term in sorted(non_replaced_exclusions):
-                logger.debug("PREPARE_GO ---   | %s", term)
-
-        if replaced_exclusions:
-            logger.debug("PREPARE_GO --- %s excluded terms (with replacement):", label)
-            for term in sorted(replaced_exclusions):
-                replacements = all_replacements[term]
-                logger.debug("PREPARE_GO ---   | %s → %s", term, ", ".join(replacements))
-
-def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Callable) -> tuple[Optional[GODag], Optional[set], Optional[TermCounts]]:
-    """Download GO ontology file and initialize required objects for semantic similarity calculation.
+def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Callable) -> tuple[Optional[GODag], Optional[set]]:
+    """Download GO ontology file (go-basic.obo), initialize GODag object from it
+    and make a obsolete GO terms set for semantic similarity calculation.
+    Meant to be followed by Wang's method, which does not rely on
+    information content (IC), only on the GO DAG structure.
 
     Args:
         resource_dir: Directory to store/find GO ontology file
@@ -707,9 +651,8 @@ def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Cal
         multi_logger: Logger function for warning+ messages
 
     Returns:
-        tuple: (GODag object, set of obsolete GO terms, TermCounts object) or (None, None, None)
+        tuple: (GODag object, set of obsolete GO terms) or (None, None)
     """
-    logger.debug("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Loading GO ontology with resource_dir: %s", resource_dir)
     try:
         obo_path = os.path.join(resource_dir, "mappings", "go-basic.obo")
 
@@ -725,13 +668,13 @@ def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Cal
             mod_time = os.path.getmtime(obo_path)
             formatted_mod_time = datetime.datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
             logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Found GO ontology file at %s (size: %.2f MB, modified: %s)",
-                        obo_path, file_size_mb, formatted_mod_time)
+            obo_path, file_size_mb, formatted_mod_time)
             if file_size_bytes == 0:
                 multi_logger("error", "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO ontology file is empty")
-                return None, None, None
+                return None, None
         else:
             multi_logger("error", "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO ontology file not found at %s", obo_path)
-            return None, None, None
+            return None, None
 
         # Load the GO DAG
         logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Loading GO DAG...")
@@ -741,47 +684,40 @@ def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Cal
             optional_attrs={'consider', 'replaced_by', 'relationship'},
             prt=None
         )
+
         # Get obsolete terms
         logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Extracting obsolete terms...")
         goterms_obsolete = {o.item_id for o in godag.values() if o.is_obsolete}
 
-        logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Initializing TermCounts...")
-        tcnt = TermCounts(godag, {})
         logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO DAG loaded successfully")
-        return godag, goterms_obsolete, tcnt
+        return godag, goterms_obsolete
 
     except Exception as e:
         multi_logger("error", "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Error loading GO ontology: %s", str(e))
         logger.exception("Exception details for loading GO ontology")
-        return None, None, None
+        return None, None
 
 def prepare_go_set(
     go_set: set,
     godag: GODag,
     goterms_obsolete: set,
-    logger: logging.Logger
 ) -> tuple[set, set, dict, dict]:
     """
-    Process GO terms in a single pass: normalize alternate IDs, categorize by namespace,
-    and update obsolete terms.
+    Process GO terms: normalize alternate IDs, categorize by namespace, update obsolete terms.
+    Note that cellular component terms are excluded in our analysis and results.
 
     Args:
         go_set: Set of GO terms to process
         godag: GO Directed Acyclic Graph
-        goterms_obsolete: Set of obsolete GO terms
-        logger: Logger object
+        goterms_obsolete: Set of all obsolete GO terms in DAG
 
     Returns:
-        tuple: (bp_terms, mf_terms, bp_replacement_map, mf_replacement_map)
+        tuple: (bp_terms, mf_terms)
             - bp_terms: Set of valid biological process terms
             - mf_terms: Set of valid molecular function terms
-            - bp_replacement_map: Dictionary mapping {original_BP_term: replacement_term(s)}
-            - mf_replacement_map: Dictionary mapping {original_MF_term: replacement_term(s)}
     """
     bp_terms = set()
     mf_terms = set()
-    bp_replacement_map = {}
-    mf_replacement_map = {}
 
     for term in go_set:
         # Step 1: Normalize alt_id to primary ID
@@ -823,43 +759,34 @@ def prepare_go_set(
                     repl_namespace = godag[replacement].namespace
                     if repl_namespace == "biological_process":
                         bp_terms.add(replacement)
-                        if primary_term != term:  # Was an alt_id
-                            bp_replacement_map[term] = replacements
-                        else:
-                            bp_replacement_map[primary_term] = replacements
                     elif repl_namespace == "molecular_function":
                         mf_terms.add(replacement)
-                        if primary_term != term:  # Was an alt_id
-                            mf_replacement_map[term] = replacements
-                        else:
-                            mf_replacement_map[primary_term] = replacements
         else:
-            # Step 3: Categorize non-obsolete terms
-            logger.debug(f"TRANSFER_ANNOTS --- PREPARE_GO --- Processing GO term: {primary_term}")
             if namespace == "biological_process":
                 bp_terms.add(primary_term)
-                if primary_term != term:  # Was an alt_id
-                    bp_replacement_map[term] = [primary_term]
             elif namespace == "molecular_function":
                 mf_terms.add(primary_term)
-                if primary_term != term:  # Was an alt_id
-                    mf_replacement_map[term] = [primary_term]
             # Cellular component/CC terms implicitly excluded
 
-    return bp_terms, mf_terms, bp_replacement_map, mf_replacement_map
+    return bp_terms, mf_terms
 
 def calculate_bma_similarity(
     logger: logging.Logger, multi_logger: Callable, set_a: set,
-    set_b: set, godag: GODag, tcnt: TermCounts) -> float:
-    """Calculate Best-Match Average semantic similarity between GO term sets.
+    set_b: set, godag: GODag, namespace: str) -> float:
+    """Calculate Wang Best-Match Average (BMA) semantic similarity between GO term sets.
+    We use Wang's method due to it not requiring information content (IC) values, which
+    allows using the GO DAG structure alone for semantic similarity calculations
+    and avoids issues with inherently inconsistent GO DAG usage in target and annotated sequences.
+    The latter occurs because our annotated sequences will be updated periodically from UniProt
+    and provided as JSON to users - downloading and parsing the data at runtime would be too slow.
 
     Args:
+        logger: Logger for debug and info messages
+        multi_logger: Callable for warning, error, and critical messages
         set_a: First set of GO terms (must be from same namespace/subontology)
         set_b: Second set of GO terms (must be from same namespace/subontology)
         godag: GO ontology loaded from OBO file in GOATools
-        tcnt: Term counts object (not used for Wang method, kept for API consistency)
-        logger: Logger for debug and info messages
-        multi_logger: Callable for warning, error, and critical messages
+        namespace: GO namespace (BP or MF, CC won't be used in the pipeline)
 
     Returns:
         float: BMA similarity score (0-1)
@@ -871,27 +798,26 @@ def calculate_bma_similarity(
     """
     # Check for empty sets
     if not set_a:
-        multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- First set is empty")
         return 0.0
     if not set_b:
-        multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- Second set is empty")
         return 0.0
 
     # Identity case for identical sets
     if set_a == set_b:
-        logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Sets are identical, returning 1.0")
         return 1.0
 
     try:
-        # Initialize Wang calculator once for all terms in their shared namespace (ns)
+        # Run Wang calculator once with all terms in shared namespace (ns)
         ns_terms = set_a.union(set_b)
-        logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Processing %d terms", len(ns_terms))
+        logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Processing %d terms in %s namespace", len(ns_terms), namespace)
 
         try:
+            # Uses is_a and part_of relationships - weights are 0.8 and 0.6 respectively
             wang_calc = SsWang(ns_terms, godag, relationships={'part_of'})
         except Exception as init_error:
             multi_logger("error", "TRANSFER_ANNOTS --- BMA_SIM --- Failed to initialize SsWang: %s",
             str(init_error))
+            logger.exception("Exception details for SsWang initialization failure")
             return 0.0
 
         sims_a_to_b = []
@@ -903,7 +829,6 @@ def calculate_bma_similarity(
             for term_b in set_b:
                 sim = wang_calc.get_sim(term_a, term_b) or 0.0
                 similarities.append(sim)
-                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Match for term a %s against term b %s: %f", term_a, term_b, sim)
 
             if similarities:
                 max_sim = max(similarities)
@@ -916,25 +841,15 @@ def calculate_bma_similarity(
             for term_a in set_a:
                 sim = wang_calc.get_sim(term_b, term_a) or 0.0
                 similarities.append(sim)
-                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Match for term b %s against term a %s: %f", term_b, term_a, sim)
 
             if similarities:
                 max_sim = max(similarities)
                 sims_b_to_a.append(max_sim)
                 logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Best match for b term %s in set A: %f", term_b, max_sim)
 
-        # Calculate BMA: average of means
-        if not sims_a_to_b:
-            multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- No A→B similarities calculated")
-            return 0.0
-
-        if not sims_b_to_a:
-            multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- No B→A similarities calculated")
-            return 0.0
-
+        # Calculate BMA
         avg_a_to_b = sum(sims_a_to_b)
         avg_b_to_a = sum(sims_b_to_a)
-        # Calculate BMA similarity
         bma = (avg_a_to_b + avg_b_to_a) / ((len(sims_a_to_b) + len(sims_b_to_a)))
 
         logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Mean A→B: %f, Mean B→A: %f, BMA: %f",
@@ -960,8 +875,8 @@ def populate_go_data_for_annotations(
 ) -> None:
     """
     Adds GO data into transfer_dict for each anno_id found, using semantic similarity
-    between the target and annotated sequences' GO terms, separated by MF and BP subsets,
-    through Wang's method using a best-match average (BMA) approach to compare sets.
+    between the target and annotated sequences' GO terms, separated in MF and BP subsets.
+    The SemSim is calculated through Wang's method with a best-match average (BMA) approach to compare sets.
 
     Args:
         transfer_dict: Transfer dictionary to update
@@ -970,10 +885,10 @@ def populate_go_data_for_annotations(
         annotations: Annotations dictionary
         go_terms_annot_key: Key for GO terms in annotations
         target_go_set: Set of GO terms found for the target sequence
-        resource_dir: Directory containing intermediary files, including go-basic.obo
+        resource_dir: Directory containing intermediary files - go-basic.obo will locate here
         multi_logger: Callable function to send logs both main and domain loggers
     """
-    godag, goterms_obsolete, tcnt = load_go_ontology(resource_dir, logger, multi_logger)
+    godag, goterms_obsolete = load_go_ontology(resource_dir, logger, multi_logger)
 
     # We need target GO terms to be available
     if not target_go_set:
@@ -1001,16 +916,8 @@ def populate_go_data_for_annotations(
         return
 
     # Process target GO terms - using the consolidated prepare_go_set function
-    valid_target_go_set_bp, valid_target_go_set_mf, bp_replacement_map, mf_replacement_map = prepare_go_set(
-        target_go_set, godag, goterms_obsolete, logger
-    )
-
-    # Log the processing results
-    log_go_set_processing(
-        logger, target_go_set,
-        valid_target_go_set_bp, valid_target_go_set_mf,
-        bp_replacement_map, mf_replacement_map,
-        "Target GO"
+    valid_target_go_set_bp, valid_target_go_set_mf = prepare_go_set(
+        target_go_set, godag, goterms_obsolete
     )
 
     go_info_cache = {}
@@ -1026,30 +933,21 @@ def populate_go_data_for_annotations(
                         if cache_key not in go_info_cache:
                             # Process annotation GO terms
                             raw_annotation_go_set = set()
-                            term_meanings = {}  # Store all term meanings for lookup
 
                             # Extract all base/pre-filter GO terms and their meanings from annotations
                             for _, go_terms_with_meanings in annotations[annot_name][go_terms_annot_key].items():
-                                for go_term, meaning in go_terms_with_meanings.items():
+                                for go_term, _ in go_terms_with_meanings.items():
                                     raw_annotation_go_set.add(go_term)
-                                    term_meanings[go_term] = meaning
-                          # Process annotation GO terms - using the consolidated prepare_go_set function
-                            valid_anno_go_set_bp, valid_anno_go_set_mf, anno_bp_map, anno_mf_map = prepare_go_set(
-                                raw_annotation_go_set, godag, goterms_obsolete, logger
-                            )
 
-                            # Log the processing results
-                            log_go_set_processing(
-                                logger, raw_annotation_go_set,
-                                valid_anno_go_set_bp, valid_anno_go_set_mf,
-                                anno_bp_map, anno_mf_map,
-                                f"Annot GO ({annot_name})"
+                          # Process annotation GO terms - using the consolidated prepare_go_set function
+                            valid_anno_go_set_bp, valid_anno_go_set_mf = prepare_go_set(
+                                raw_annotation_go_set, godag, goterms_obsolete
                             )
 
                             # Calculate semantic similarity scores
                             # Set a = target, set b = annotation
-                            bma_similarity_bp = calculate_bma_similarity(logger, multi_logger, valid_target_go_set_bp, valid_anno_go_set_bp, godag, tcnt)
-                            bma_similarity_mf = calculate_bma_similarity(logger, multi_logger, valid_target_go_set_mf, valid_anno_go_set_mf, godag, tcnt)
+                            bma_similarity_bp = calculate_bma_similarity(logger, multi_logger, valid_target_go_set_bp, valid_anno_go_set_bp, godag, "BP")
+                            bma_similarity_mf = calculate_bma_similarity(logger, multi_logger, valid_target_go_set_mf, valid_anno_go_set_mf, godag, "MF")
                             bma_similarity_bp = round(bma_similarity_bp, 4)
                             bma_similarity_mf = round(bma_similarity_mf, 4)
 
@@ -1060,40 +958,17 @@ def populate_go_data_for_annotations(
                             bp_common_terms = valid_target_go_set_bp.intersection(valid_anno_go_set_bp)
                             mf_common_terms = valid_target_go_set_mf.intersection(valid_anno_go_set_mf)
 
-                            # Create reverse mapping from new term to original term for meaning lookup
-                            reverse_anno_bp_map = {}
-                            for orig, replacements in anno_bp_map.items():
-                                for repl in replacements:
-                                    reverse_anno_bp_map[repl] = orig
-
-                            reverse_anno_mf_map = {}
-                            for orig, replacements in anno_mf_map.items():
-                                for repl in replacements:
-                                    reverse_anno_mf_map[repl] = orig
-
                             for term in bp_common_terms:
-                                original_term = reverse_anno_bp_map.get(term, term)
-                                if original_term in term_meanings:
-                                    # Use original meaning from annotations
-                                    matched_go_info["BP"][term] = term_meanings[original_term]
+                                if term in godag:
+                                    matched_go_info["BP"][term] = godag[term].name
                                 else:
-                                    # Get meaning from GO ontology
-                                    if term in godag:
-                                        matched_go_info["BP"][term] = godag[term].name
-                                    else:
-                                        matched_go_info["BP"][term] = "No meaning available - DEBUG PENDING"
+                                    matched_go_info["BP"][term] = "No meaning available - DEBUG PENDING"
 
                             for term in mf_common_terms:
-                                original_term = reverse_anno_mf_map.get(term, term)
-                                if original_term in term_meanings:
-                                    # Use original meaning from annotations
-                                    matched_go_info["MF"][term] = term_meanings[original_term]
+                                if term in godag:
+                                    matched_go_info["MF"][term] = godag[term].name
                                 else:
-                                    # Get meaning from GO ontology
-                                    if term in godag:
-                                        matched_go_info["MF"][term] = godag[term].name
-                                    else:
-                                        matched_go_info["MF"][term] = "No meaning available - DEBUG PENDING"
+                                    matched_go_info["MF"][term] = "No meaning available - DEBUG PENDING"
 
                             go_info_cache[cache_key] = {
                                 annot_name: {
@@ -1104,7 +979,7 @@ def populate_go_data_for_annotations(
                                 }
                             }
 
-                        # Add cached data to annotation
+                        # Data already in cache - add to annotation
                         go_data_for_annotation.setdefault("GO", {}).update(go_info_cache[cache_key])
 
                 if go_data_for_annotation:
