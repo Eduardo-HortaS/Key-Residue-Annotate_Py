@@ -61,6 +61,7 @@ get_alignment_sequences -> populate_conservation -> gather_go_terms_for_target
 
 import sys
 import os
+import numpy as np
 import json
 import re
 import argparse
@@ -68,8 +69,14 @@ import logging
 import traceback
 import copy
 from typing import Any, Dict, Optional, Generator, Tuple, Callable
+from goatools.base import download_go_basic_obo
+from goatools.obo_parser import GODag
+from goatools.semantic import TermCounts
+from goatools.semsim.termwise.wang import SsWang
+
 import pandas as pd
 from utils import get_logger, get_multi_logger
+import datetime
 # from modules.decorators import measure_time_and_memory
 # from memory_profiler import profile
 
@@ -356,12 +363,11 @@ def read_conservations_and_annotations(conservations_filepath: str, annotations_
 
     return conservations, annotations
 
-def parse_go_annotations(go_column: str, cc_go_terms: set) -> list:
+def parse_go_annotations(go_column: str) -> list:
     """Extracts GO terms from InterProScan TSV column.
 
     Args:
         go_column: GO terms string (e.g., "GO:0005515|GO:0006302")
-        cc_go_terms: Set of Cellular Component GO terms to exclude
 
     Returns:
         list: Clean GO terms (e.g., ["GO:0005515", "GO:0006302"])
@@ -371,8 +377,7 @@ def parse_go_annotations(go_column: str, cc_go_terms: set) -> list:
 
     return [
         term.split("(")[0].strip()
-        for term in go_column.split("|")
-        if term and (term.split("(")[0].strip() not in cc_go_terms)
+        for term in go_column.split("|") if term
     ]
 
 # NOTE: May be adjusted to improve matching accuracy later, based on empirical testing.
@@ -414,7 +419,7 @@ def check_interval_overlap(
 def gather_go_terms_for_target(
     multi_logger: Callable, target_name: str, pfam_id: str,
     go_terms_dir: str, interpro_conv_id: str, hit_start: int,
-    hit_end: int, cc_go_terms: set) -> set:
+    hit_end: int) -> set:
     """
     Gathers GO terms for a single target sequence from iprscan.tsv if
     adequate (meet at least one of 3 conditions) lines are present.
@@ -439,7 +444,7 @@ def gather_go_terms_for_target(
     """
     sanitized_target_name = target_name.replace("|", "-")
     go_term_filepath = os.path.join(go_terms_dir, sanitized_target_name, "iprscan.tsv")
-    target_gos = set()
+    target_go_set = set()
 
     if not os.path.exists(go_term_filepath):
         multi_logger(
@@ -447,7 +452,7 @@ def gather_go_terms_for_target(
             "TRANSFER_ANNOTS --- GO_TERMS_TARGET --- Missing iprscan.tsv file for Pfam ID %s and Target Name %s at %s",
             pfam_id, sanitized_target_name, go_term_filepath
         )
-        return target_gos
+        return target_go_set
 
     found_matching_accession = False
     found_matching_interval = False
@@ -478,8 +483,8 @@ def gather_go_terms_for_target(
 
             if matches_accession or matches_interval:
                 if not pd.isna(row["GO Annotations"]) and not row["GO Annotations"].strip() == "-":
-                    target_gos.update(
-                        parse_go_annotations(row["GO Annotations"], cc_go_terms)
+                    target_go_set.update(
+                        parse_go_annotations(row["GO Annotations"])
                         )
 
     if not (found_matching_accession or found_matching_interval):
@@ -490,7 +495,7 @@ def gather_go_terms_for_target(
         )
         return set()
 
-    return target_gos
+    return target_go_set
 
 
 def get_alignment_sequences(
@@ -638,17 +643,325 @@ def populate_conservation(
         if missing:
             logger.debug("TRANSFER_ANNOTS --- POP_CONS --- Pfam ID: %s - Target Name: %s - Conserv-Rep Name: %s - Missing conserved positions: %s", pfam_id, target_name, conservation_key.split("/")[0], missing)
 
+def log_go_set_processing(logger: logging.Logger, original_set: set,
+                          bp_terms: set, mf_terms: set,
+                          bp_replacement_map: dict, mf_replacement_map: dict,
+                          label: str) -> None:
+    """
+    Consolidated logging function for GO term processing with improved readability.
+    Logs information about the original set, BP/MF categorization, and term replacements.
+
+    Args:
+        logger: Logger object
+        original_set: Initial GO term set before processing
+        bp_terms: Processed biological process terms
+        mf_terms: Processed molecular function terms
+        bp_replacement_map: Mapping of replaced BP terms
+        mf_replacement_map: Mapping of replaced MF terms
+        label: Label for the GO set (e.g., "Target GO", "Annotation GO")
+    """
+    excluded_terms = original_set - (bp_terms | mf_terms)
+
+    # Create a mapping of all replacements for quick lookup
+    all_replacements = {**bp_replacement_map, **mf_replacement_map}
+
+    # Log overall statistics
+    logger.info("PREPARE_GO --- %s: %d total → %d BP, %d MF%s",
+                label, len(original_set), len(bp_terms), len(mf_terms),
+                f", {len(excluded_terms)} excluded (not in BP/MF)" if excluded_terms else "")
+
+    # Log BP terms
+    if bp_terms:
+        logger.debug("PREPARE_GO --- %s BP terms:", label)
+        for term in sorted(bp_terms):
+            logger.debug("PREPARE_GO ---   | %s", term)
+
+    # Log MF terms
+    if mf_terms:
+        logger.debug("PREPARE_GO --- %s MF terms:", label)
+        for term in sorted(mf_terms):
+            logger.debug("PREPARE_GO ---   | %s", term)
+
+    # Log excluded terms with replacement info when available
+    if excluded_terms:
+        replaced_exclusions = [t for t in excluded_terms if t in all_replacements]
+        non_replaced_exclusions = excluded_terms - set(replaced_exclusions)
+
+        if non_replaced_exclusions:
+            logger.debug("PREPARE_GO --- %s excluded terms (no replacement):", label)
+            for term in sorted(non_replaced_exclusions):
+                logger.debug("PREPARE_GO ---   | %s", term)
+
+        if replaced_exclusions:
+            logger.debug("PREPARE_GO --- %s excluded terms (with replacement):", label)
+            for term in sorted(replaced_exclusions):
+                replacements = all_replacements[term]
+                logger.debug("PREPARE_GO ---   | %s → %s", term, ", ".join(replacements))
+
+def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Callable) -> tuple[Optional[GODag], Optional[set], Optional[TermCounts]]:
+    """Download GO ontology file and initialize required objects for semantic similarity calculation.
+
+    Args:
+        resource_dir: Directory to store/find GO ontology file
+        logger: Logger object for info and debug messages
+        multi_logger: Logger function for warning+ messages
+
+    Returns:
+        tuple: (GODag object, set of obsolete GO terms, TermCounts object) or (None, None, None)
+    """
+    logger.debug("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Loading GO ontology with resource_dir: %s", resource_dir)
+    try:
+        obo_path = os.path.join(resource_dir, "mappings", "go-basic.obo")
+
+        # Download if necessary
+        if not os.path.isfile(obo_path):
+            logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Downloading GO ontology file")
+            download_go_basic_obo(obo_path)
+
+        # Verify file exists and has content
+        if os.path.isfile(obo_path):
+            file_size_bytes = os.path.getsize(obo_path)
+            file_size_mb = file_size_bytes / (1024 * 1024)
+            mod_time = os.path.getmtime(obo_path)
+            formatted_mod_time = datetime.datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
+            logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Found GO ontology file at %s (size: %.2f MB, modified: %s)",
+                        obo_path, file_size_mb, formatted_mod_time)
+            if file_size_bytes == 0:
+                multi_logger("error", "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO ontology file is empty")
+                return None, None, None
+        else:
+            multi_logger("error", "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO ontology file not found at %s", obo_path)
+            return None, None, None
+
+        # Load the GO DAG
+        logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Loading GO DAG...")
+        godag = GODag(
+            obo_path,
+            load_obsolete=True,
+            optional_attrs={'consider', 'replaced_by', 'relationship'},
+            prt=None
+        )
+        # Get obsolete terms
+        logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Extracting obsolete terms...")
+        goterms_obsolete = {o.item_id for o in godag.values() if o.is_obsolete}
+
+        logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Initializing TermCounts...")
+        tcnt = TermCounts(godag, {})
+        logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO DAG loaded successfully")
+        return godag, goterms_obsolete, tcnt
+
+    except Exception as e:
+        multi_logger("error", "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Error loading GO ontology: %s", str(e))
+        logger.exception("Exception details for loading GO ontology")
+        return None, None, None
+
+def prepare_go_set(
+    go_set: set,
+    godag: GODag,
+    goterms_obsolete: set,
+    logger: logging.Logger
+) -> tuple[set, set, dict, dict]:
+    """
+    Process GO terms in a single pass: normalize alternate IDs, categorize by namespace,
+    and update obsolete terms.
+
+    Args:
+        go_set: Set of GO terms to process
+        godag: GO Directed Acyclic Graph
+        goterms_obsolete: Set of obsolete GO terms
+        logger: Logger object
+
+    Returns:
+        tuple: (bp_terms, mf_terms, bp_replacement_map, mf_replacement_map)
+            - bp_terms: Set of valid biological process terms
+            - mf_terms: Set of valid molecular function terms
+            - bp_replacement_map: Dictionary mapping {original_BP_term: replacement_term(s)}
+            - mf_replacement_map: Dictionary mapping {original_MF_term: replacement_term(s)}
+    """
+    bp_terms = set()
+    mf_terms = set()
+    bp_replacement_map = {}
+    mf_replacement_map = {}
+
+    for term in go_set:
+        # Step 1: Normalize alt_id to primary ID
+        primary_term = next(
+            (go_obj.item_id for go_obj in godag.values() if term in go_obj.alt_ids),
+            term  # If not an alt_id, keep original
+        )
+
+        # Skip if term is not in the ontology
+        if primary_term not in godag:
+            continue
+
+        go_obj = godag[primary_term]
+        namespace = go_obj.namespace
+
+        # Step 2: Handle obsolete terms
+        if primary_term in goterms_obsolete:
+            # Get replacement term/s for obsolete terms
+            replacements = []
+
+            # Prefer replaced_by (direct replacement)
+            if hasattr(go_obj, 'replaced_by') and go_obj.replaced_by:
+                if isinstance(go_obj.replaced_by, list) and go_obj.replaced_by:
+                    replaced_term = go_obj.replaced_by[0].id
+                    replacements = [replaced_term]
+                elif isinstance(go_obj.replaced_by, str):
+                    replacements = [go_obj.replaced_by]
+
+            # Fall back to consider (suggested alternatives)
+            elif hasattr(go_obj, 'consider') and go_obj.consider:
+                if isinstance(go_obj.consider, list):
+                    replacements = [c.id if hasattr(c, 'id') else c for c in go_obj.consider]
+                elif isinstance(go_obj.consider, str):
+                    replacements = [go_obj.consider]
+
+            # Sort replacements into categories based on namespace
+            for replacement in replacements:
+                if replacement in godag:
+                    repl_namespace = godag[replacement].namespace
+                    if repl_namespace == "biological_process":
+                        bp_terms.add(replacement)
+                        if primary_term != term:  # Was an alt_id
+                            bp_replacement_map[term] = replacements
+                        else:
+                            bp_replacement_map[primary_term] = replacements
+                    elif repl_namespace == "molecular_function":
+                        mf_terms.add(replacement)
+                        if primary_term != term:  # Was an alt_id
+                            mf_replacement_map[term] = replacements
+                        else:
+                            mf_replacement_map[primary_term] = replacements
+        else:
+            # Step 3: Categorize non-obsolete terms
+            logger.debug(f"TRANSFER_ANNOTS --- PREPARE_GO --- Processing GO term: {primary_term}")
+            if namespace == "biological_process":
+                bp_terms.add(primary_term)
+                if primary_term != term:  # Was an alt_id
+                    bp_replacement_map[term] = [primary_term]
+            elif namespace == "molecular_function":
+                mf_terms.add(primary_term)
+                if primary_term != term:  # Was an alt_id
+                    mf_replacement_map[term] = [primary_term]
+            # Cellular component/CC terms implicitly excluded
+
+    return bp_terms, mf_terms, bp_replacement_map, mf_replacement_map
+
+def calculate_bma_similarity(
+    logger: logging.Logger, multi_logger: Callable, set_a: set,
+    set_b: set, godag: GODag, tcnt: TermCounts) -> float:
+    """Calculate Best-Match Average semantic similarity between GO term sets.
+
+    Args:
+        set_a: First set of GO terms (must be from same namespace/subontology)
+        set_b: Second set of GO terms (must be from same namespace/subontology)
+        godag: GO ontology loaded from OBO file in GOATools
+        tcnt: Term counts object (not used for Wang method, kept for API consistency)
+        logger: Logger for debug and info messages
+        multi_logger: Callable for warning, error, and critical messages
+
+    Returns:
+        float: BMA similarity score (0-1)
+
+    Note:
+        Input sets MUST be pre-filtered to contain terms of the same namespace only
+        (e.g., all BP terms or all MF terms). This function doesn't perform namespace
+        separation, which is expected to be the caller responsibility.
+    """
+    # Check for empty sets
+    if not set_a:
+        multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- First set is empty")
+        return 0.0
+    if not set_b:
+        multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- Second set is empty")
+        return 0.0
+
+    # Identity case for identical sets
+    if set_a == set_b:
+        logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Sets are identical, returning 1.0")
+        return 1.0
+
+    try:
+        # Initialize Wang calculator once for all terms in their shared namespace (ns)
+        ns_terms = set_a.union(set_b)
+        logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Processing %d terms", len(ns_terms))
+
+        try:
+            wang_calc = SsWang(ns_terms, godag, relationships={'part_of'})
+        except Exception as init_error:
+            multi_logger("error", "TRANSFER_ANNOTS --- BMA_SIM --- Failed to initialize SsWang: %s",
+            str(init_error))
+            return 0.0
+
+        sims_a_to_b = []
+        sims_b_to_a = []
+
+        # A→B: for each term in A, find best match in B
+        for term_a in set_a:
+            similarities = []
+            for term_b in set_b:
+                sim = wang_calc.get_sim(term_a, term_b) or 0.0
+                similarities.append(sim)
+                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Match for term a %s against term b %s: %f", term_a, term_b, sim)
+
+            if similarities:
+                max_sim = max(similarities)
+                sims_a_to_b.append(max_sim)
+                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Best match for a term %s in set B: %f", term_a, max_sim)
+
+        # B→A: for each term in B, find best match in A
+        for term_b in set_b:
+            similarities = []
+            for term_a in set_a:
+                sim = wang_calc.get_sim(term_b, term_a) or 0.0
+                similarities.append(sim)
+                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Match for term b %s against term a %s: %f", term_b, term_a, sim)
+
+            if similarities:
+                max_sim = max(similarities)
+                sims_b_to_a.append(max_sim)
+                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Best match for b term %s in set A: %f", term_b, max_sim)
+
+        # Calculate BMA: average of means
+        if not sims_a_to_b:
+            multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- No A→B similarities calculated")
+            return 0.0
+
+        if not sims_b_to_a:
+            multi_logger("warning", "TRANSFER_ANNOTS --- BMA_SIM --- No B→A similarities calculated")
+            return 0.0
+
+        avg_a_to_b = sum(sims_a_to_b)
+        avg_b_to_a = sum(sims_b_to_a)
+        # Calculate BMA similarity
+        bma = (avg_a_to_b + avg_b_to_a) / ((len(sims_a_to_b) + len(sims_b_to_a)))
+
+        logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Mean A→B: %f, Mean B→A: %f, BMA: %f",
+                  avg_a_to_b, avg_b_to_a, bma)
+
+        return bma
+
+    except Exception as e:
+        multi_logger("error", "TRANSFER_ANNOTS --- BMA_SIM --- Error calculating BMA similarity: %s", str(e))
+        logger.exception("Exception details for BMA similarity calculation")
+        return 0.0
+
 def populate_go_data_for_annotations(
+    logger: logging.Logger,
+    multi_logger: Callable,
     transfer_dict: dict,
     pfam_id: str,
     target_name: str,
     annotations: dict,
     go_terms_annot_key: str,
-    target_gos: set
+    target_go_set: set,
+    resource_dir: str,
 ) -> None:
     """
-    Adds GO data into transfer_dict for each anno_id found, using any overlapping GO terms
-    between the target and conserved/annotated sequences to calculate similarity scores by Jaccard Index.
+    Adds GO data into transfer_dict for each anno_id found, using semantic similarity
+    between the target and annotated sequences' GO terms, separated by MF and BP subsets,
+    through Wang's method using a best-match average (BMA) approach to compare sets.
 
     Args:
         transfer_dict: Transfer dictionary to update
@@ -656,8 +969,50 @@ def populate_go_data_for_annotations(
         target_name: Target sequence name
         annotations: Annotations dictionary
         go_terms_annot_key: Key for GO terms in annotations
-        target_gos: Set of GO terms found for the target sequence
+        target_go_set: Set of GO terms found for the target sequence
+        resource_dir: Directory containing intermediary files, including go-basic.obo
+        multi_logger: Callable function to send logs both main and domain loggers
     """
+    godag, goterms_obsolete, tcnt = load_go_ontology(resource_dir, logger, multi_logger)
+
+    # We need target GO terms to be available
+    if not target_go_set:
+        no_terms_placeholder = {
+            "status": "no_target_terms",
+            "wang_sem_sim_bma_bp": 0.0,
+            "wang_sem_sim_bma_mf": 0.0,
+            "terms": {"BP": {}, "MF": {}}
+        }
+
+        for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
+            interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
+            for _, position_data in interval_data["annotations"]["positions"].items():
+                for _, anno_data in position_data.items():
+                    go_data_for_annotation = {}
+                    for _, evidence_data in anno_data.get("evidence", {}).items():
+                        annot_name = evidence_data.get("rep_mnemo_name")
+                        if annot_name and annot_name in annotations and go_terms_annot_key in annotations[annot_name]:
+                            go_data_for_annotation.setdefault("GO", {}).update({
+                                annot_name: no_terms_placeholder
+                            })
+
+                    if go_data_for_annotation:
+                        anno_data.update(go_data_for_annotation)
+        return
+
+    # Process target GO terms - using the consolidated prepare_go_set function
+    valid_target_go_set_bp, valid_target_go_set_mf, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        target_go_set, godag, goterms_obsolete, logger
+    )
+
+    # Log the processing results
+    log_go_set_processing(
+        logger, target_go_set,
+        valid_target_go_set_bp, valid_target_go_set_mf,
+        bp_replacement_map, mf_replacement_map,
+        "Target GO"
+    )
+
     go_info_cache = {}
     for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
         interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
@@ -669,23 +1024,89 @@ def populate_go_data_for_annotations(
                     if annot_name and annot_name in annotations and go_terms_annot_key in annotations[annot_name]:
                         cache_key = (target_name, annot_name)
                         if cache_key not in go_info_cache:
-                            matched_go_info = {}
-                            annotation_go_set = set()
+                            # Process annotation GO terms
+                            raw_annotation_go_set = set()
+                            term_meanings = {}  # Store all term meanings for lookup
+
+                            # Extract all base/pre-filter GO terms and their meanings from annotations
                             for _, go_terms_with_meanings in annotations[annot_name][go_terms_annot_key].items():
                                 for go_term, meaning in go_terms_with_meanings.items():
-                                    annotation_go_set.add(go_term)
-                                    if go_term in target_gos:
-                                        matched_go_info[go_term] = meaning
-                            intersection = len(target_gos.intersection(annotation_go_set))
-                            union = len(target_gos.union(annotation_go_set))
-                            jaccard_index = round(intersection / union, 4) if union > 0 else 0
+                                    raw_annotation_go_set.add(go_term)
+                                    term_meanings[go_term] = meaning
+                          # Process annotation GO terms - using the consolidated prepare_go_set function
+                            valid_anno_go_set_bp, valid_anno_go_set_mf, anno_bp_map, anno_mf_map = prepare_go_set(
+                                raw_annotation_go_set, godag, goterms_obsolete, logger
+                            )
+
+                            # Log the processing results
+                            log_go_set_processing(
+                                logger, raw_annotation_go_set,
+                                valid_anno_go_set_bp, valid_anno_go_set_mf,
+                                anno_bp_map, anno_mf_map,
+                                f"Annot GO ({annot_name})"
+                            )
+
+                            # Calculate semantic similarity scores
+                            # Set a = target, set b = annotation
+                            bma_similarity_bp = calculate_bma_similarity(logger, multi_logger, valid_target_go_set_bp, valid_anno_go_set_bp, godag, tcnt)
+                            bma_similarity_mf = calculate_bma_similarity(logger, multi_logger, valid_target_go_set_mf, valid_anno_go_set_mf, godag, tcnt)
+                            bma_similarity_bp = round(bma_similarity_bp, 4)
+                            bma_similarity_mf = round(bma_similarity_mf, 4)
+
+                            # Find matching terms between target and annotation - store + meanings
+                            matched_go_info = {"BP": {}, "MF": {}}
+
+                            # Store terms present in both target and annotation GO sets under "terms" key
+                            bp_common_terms = valid_target_go_set_bp.intersection(valid_anno_go_set_bp)
+                            mf_common_terms = valid_target_go_set_mf.intersection(valid_anno_go_set_mf)
+
+                            # Create reverse mapping from new term to original term for meaning lookup
+                            reverse_anno_bp_map = {}
+                            for orig, replacements in anno_bp_map.items():
+                                for repl in replacements:
+                                    reverse_anno_bp_map[repl] = orig
+
+                            reverse_anno_mf_map = {}
+                            for orig, replacements in anno_mf_map.items():
+                                for repl in replacements:
+                                    reverse_anno_mf_map[repl] = orig
+
+                            for term in bp_common_terms:
+                                original_term = reverse_anno_bp_map.get(term, term)
+                                if original_term in term_meanings:
+                                    # Use original meaning from annotations
+                                    matched_go_info["BP"][term] = term_meanings[original_term]
+                                else:
+                                    # Get meaning from GO ontology
+                                    if term in godag:
+                                        matched_go_info["BP"][term] = godag[term].name
+                                    else:
+                                        matched_go_info["BP"][term] = "No meaning available - DEBUG PENDING"
+
+                            for term in mf_common_terms:
+                                original_term = reverse_anno_mf_map.get(term, term)
+                                if original_term in term_meanings:
+                                    # Use original meaning from annotations
+                                    matched_go_info["MF"][term] = term_meanings[original_term]
+                                else:
+                                    # Get meaning from GO ontology
+                                    if term in godag:
+                                        matched_go_info["MF"][term] = godag[term].name
+                                    else:
+                                        matched_go_info["MF"][term] = "No meaning available - DEBUG PENDING"
+
                             go_info_cache[cache_key] = {
                                 annot_name: {
                                     "terms": matched_go_info,
-                                    "jaccard_index": jaccard_index
+                                    "status": "normal",
+                                    "wang_sem_sim_bma_bp": bma_similarity_bp,
+                                    "wang_sem_sim_bma_mf": bma_similarity_mf
                                 }
                             }
+
+                        # Add cached data to annotation
                         go_data_for_annotation.setdefault("GO", {}).update(go_info_cache[cache_key])
+
                 if go_data_for_annotation:
                     anno_data.update(go_data_for_annotation)
 
@@ -698,8 +1119,8 @@ def cleanup_improve_transfer_dict(
     conservations_filepath: str,
     annotations_filepath: str,
     output_dir: str,
-    pfam_interpro_map_filepath: str,
-    cc_go_terms: set
+    resource_dir: str,
+    pfam_interpro_map_filepath: str
 ) -> dict:
     """Main function for enhancing transfer dictionary with conservation and GO data.
 
@@ -795,19 +1216,22 @@ def cleanup_improve_transfer_dict(
                         logger=logger
                     )
             if has_valid_annotations:
-                target_gos = gather_go_terms_for_target(
+                target_go_set = gather_go_terms_for_target(
                     multi_logger, target_name, pfam_id,
                     output_dir, interpro_conv_id, target_hit_start,
-                    target_hit_end, cc_go_terms
+                    target_hit_end
                     )
                 # Populate GO data for each annotation
                 populate_go_data_for_annotations(
+                    logger=logger,
+                    multi_logger=multi_logger,
                     transfer_dict=transfer_dict,
                     pfam_id=pfam_id,
                     target_name=target_name,
                     annotations=annotations,
                     go_terms_annot_key=go_terms_annot_key,
-                    target_gos=target_gos
+                    target_go_set=target_go_set,
+                    resource_dir=resource_dir,
                 )
 
     pfam_data = transfer_dict[pfam_id]
@@ -2003,15 +2427,6 @@ def main():
     multi_logger = get_multi_logger([main_logger, domain_logger])
     domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Running transfer_annotations.py for %s", dom_align)
 
-    cc_go_path = os.path.join(resource_dir, "mappings/cc_go_terms_to_skip.json")
-    try:
-        with open(cc_go_path, "r", encoding="utf-8") as f:
-            cc_go_dict = json.load(f)
-            cc_go_terms = set(cc_go_dict.keys())  # Convert keys to set for O(1) lookups
-    except Exception as e:
-        multi_logger("error", "TRANSFER_ANNOTS --- MAIN --- Failed to load CC GO terms at %s with error %s", cc_go_path, str(e))
-        sys.exit(1)
-
     pfam_id = get_pfam_id_from_hmmalign_result(dom_align)
     annotations_filepath, conservations_filepath = get_annotation_filepath(resource_dir, pfam_id)
     hmmalign_lines, annotations = read_files(dom_align, annotations_filepath)
@@ -2038,7 +2453,7 @@ def main():
     improved_transfer_dict = cleanup_improve_transfer_dict(
         domain_logger, multi_logger, transfer_dict,
         pfam_id, hmmalign_lines, conservations_filepath,
-        annotations_filepath, output_dir, pfam_interpro_map_filepath, cc_go_terms
+        annotations_filepath, output_dir, resource_dir, pfam_interpro_map_filepath
         )
     write_reports(domain_logger, multi_logger, improved_transfer_dict, output_dir)
 

@@ -108,6 +108,20 @@ def mock_aggregated_report_data():
                                                     "count": 1
                                                 }
                                             }
+                                        },
+                                        "GO": {
+                                            "MCRB_ECOLI": {
+                                                "terms": {
+                                                    "BP": {},
+                                                    "MF": {
+                                                        "GO:0005524": "ATP binding",
+                                                        "GO:0016887": "ATP hydrolysis activity"
+                                                    }
+                                                },
+                                                "status": "normal",
+                                                "wang_sem_sim_bma_bp": 0.0,
+                                                "wang_sem_sim_bma_mf": 0.541
+                                            }
                                         }
                                     }
                                 }
@@ -294,9 +308,43 @@ def mock_annotation_subset():
                             "target_residue": "C"
                         },
                         "evidence": {
-                            "ECO:0000269|PubMed:12345678": {"count": 1}
+                            "ECO:0000269|PubMed:12345678": {
+                                "rep_primary_accession": "P15005",
+                                "rep_mnemo_name": "MCRB_ECOLI",
+                                "count": 1
+                            }
                         },
-                        "hit": True
+                        "paired_position": {
+                            "373": {
+                                "rep_primary_accession": "P15005",
+                                "rep_mnemo_name": "MCRB_ECOLI",
+                                "count": 1
+                            }
+                        },
+                        "hit": True,
+                        "additional_keys": {
+                            "annot_position": {
+                                "205": {
+                                    "rep_primary_accession": "P15005",
+                                    "rep_mnemo_name": "MCRB_ECOLI",
+                                    "count": 1
+                                }
+                            }
+                        },
+                        "GO": {
+                            "MCRB_ECOLI": {
+                                "terms": {
+                                    "BP": {},
+                                    "MF": {
+                                        "GO:0005524": "ATP binding",
+                                        "GO:0016887": "ATP hydrolysis activity"
+                                    }
+                                },
+                                "status": "normal",
+                                "wang_sem_sim_bma_bp": 0.0,
+                                "wang_sem_sim_bma_mf": 0.541
+                            }
+                        }
                     }
                 }
             }
@@ -337,7 +385,7 @@ def mock_conservation_subset():
 # sequence_id_mock = "sp|Q9NU22|MDN1_HUMAN"
 # clean_sequence_id_mock = "sp-Q9NU22-MDN1_HUMAN"
 
-###T parse_arguments
+###T parse_arguments - Unit tests
 
 def test_parse_arguments_required():
     sequence_dir_mock = "/home/user/results/sequence1/"
@@ -377,7 +425,7 @@ def test_parse_arguments_optional():
     assert args.sequence_dir == sequence_dir_mock
     assert args.log == log_filepath_mock
 
-###T merge_nested_data - Unit Tests
+###T merge_nested_data - Integration Tests (+ track_position_data())
 
 def test_merge_nested_data(mock_aggregated_report_data):
     """Test nested data merging with position tracking"""
@@ -385,11 +433,16 @@ def test_merge_nested_data(mock_aggregated_report_data):
     target = defaultdict(lambda: defaultdict(dict))
 
     merge_nested_data(source, target, "333")
-
+    print(json.dumps(target, indent=2))
     assert target["essentials"]["type"] == "DISULFID"
     assert "count" in target["essentials"]
     assert isinstance(target["essentials"]["count"], dict)
     assert target["essentials"]["count"]["333"] == 1
+    assert target["GO"]["333"]["MCRB_ECOLI"]["terms"]["MF"]["GO:0016887"] == "ATP hydrolysis activity"
+    assert target["GO"]["333"]["MCRB_ECOLI"]["terms"]["MF"]["GO:0005524"] == "ATP binding"
+    assert target["GO"]["333"]["MCRB_ECOLI"]["status"] == "normal"
+    assert target["GO"]["333"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
+    assert target["GO"]["333"]["MCRB_ECOLI"]["wang_sem_sim_bma_mf"] == 0.541
 
 def test_merge_nested_data_empty():
     """Test merging with empty source"""
@@ -399,7 +452,7 @@ def test_merge_nested_data_empty():
     assert dict(target) == {}
 
 
-###T aggregate_range_positions - Unit Tests
+###T aggregate_range_positions - Integration Tests (+ merge_nested_data())
 
 def test_aggregate_range_positions_annotations(mock_annotation_subset):
     """Test annotation data aggregation"""
@@ -410,9 +463,12 @@ def test_aggregate_range_positions_annotations(mock_annotation_subset):
         "annotations"
     )
 
+    print(json.dumps(result, indent=2))
     assert result["essentials"]["type"] == "DISULFID"
     assert "count" in result["essentials"]
     assert result["essentials"]["count"]["333"] == 1
+    assert result["GO"]["333"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
+
 
 def test_aggregate_range_positions_conservations(mock_conservation_subset):
     """Test conservation data aggregation"""
@@ -446,7 +502,7 @@ def test_aggregate_range_positions_invalid_type(mock_aggregated_report_data):
     )
     assert result == {}
 
-###T transform_to_ranges
+###T transform_to_ranges - Integration Tests (+ aggregate_range_positions())
 
 def test_transform_to_ranges_integration(mock_aggregated_report_data, multi_logger):
     """Test full range transformation"""
@@ -555,7 +611,9 @@ def test_transform_to_ranges_empty(multi_logger):
     result = transform_to_ranges({}, multi_logger)
     assert result == {}
 
-###T process_sequence_report
+###T process_sequence_report - Integration Tests (
+# + convert_lists_to_original_types() + transform_to_ranges() + convert_sets_and_tuples_to_lists() + convert_default_dict_to_dict()
+# )
 
 def test_process_sequence_report_file_not_found(tmp_path, logger, multi_logger):
     """Test handling of missing input file"""
@@ -572,7 +630,7 @@ def test_process_sequence_report_file_not_found(tmp_path, logger, multi_logger):
     assert call_args[2].endswith("/non_existent.json")  # File path ends correctly
     assert isinstance(call_args[3], FileNotFoundError)  # Error type is correct
 
-def test_process_sequence_report_integration(tmp_path, mock_aggregated_report_data, logger, multi_logger):
+def test_process_sequence_report_basic(tmp_path, mock_aggregated_report_data, logger, multi_logger):
     """Test full sequence report processing"""
     sequence_id_mock = "sp|Q9NU22|MDN1_HUMAN"
     report_path = tmp_path / "PF07728_report.json"
@@ -588,7 +646,7 @@ def test_process_sequence_report_integration(tmp_path, mock_aggregated_report_da
     assert "DISULFID | Intrachain (with C-246); in linked form" in ranges["data"]["annotations"]
     assert "conserved_positions" in ranges["data"]["conservations"]
 
-###T write_range_views
+###T write_range_views - Integration tests (+ convert_sets_and_tuples_to_lists())
 
 def test_write_range_views_debug_logging(tmp_path, mock_transformed_data, logger, multi_logger):
     """Test debug logs for directory and file path info."""
@@ -744,7 +802,7 @@ def test_process_and_write_integration(tmp_path, mock_aggregated_report_data, lo
     # Verify logging
     logger.info.assert_called()
 
-###T main
+###T main - Integration tests + everything
 
 def test_complete_workflow_integration(tmp_path, mock_aggregated_report_data, logger, multi_logger):
     """Test complete workflow from processing to file writing with comprehensive verification"""

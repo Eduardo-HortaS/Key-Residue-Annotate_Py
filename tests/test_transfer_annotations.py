@@ -31,6 +31,9 @@ from transfer_annotations import (
     gather_go_terms_for_target,
     get_alignment_sequences,
     populate_conservation,
+    load_go_ontology,
+    prepare_go_set,
+    calculate_bma_similarity,
     populate_go_data_for_annotations,
     cleanup_improve_transfer_dict,
     convert_sets_and_tuples_to_lists,
@@ -50,7 +53,11 @@ from transfer_annotations import (
 from utils import get_logger
 
 import pytest
-
+# New GO parsing needs --- may delete later with better tests!
+from goatools.base import download_go_basic_obo
+from goatools.obo_parser import GODag
+from goatools.semantic import TermCounts
+from goatools.semsim.termwise.wang import SsWang
 
 hmmalign_result_mock = "/home/user/results/human/PF07728_hmmalign.sth"
 hmmalign_result_content_mock = """# STOCKHOLM 1.0
@@ -73,6 +80,7 @@ tr|J3QRW1|J3QRW1_HUMANtarget//108-135                   .........GVLLYGPPGTGKTLL
 """
 
 resource_dir_mock = "/home/user/resources/"
+resource_dir_integration_mock = "/home/eduardohorta/Mestrado/resources/"
 domain_accession_mock = "PF07728"
 output_dir_mock = "/home/user/results/human/PF07728/"
 go_terms_mock = "/home/user/results/human/"
@@ -937,13 +945,29 @@ def logger():
     mock_logger.debug = MagicMock()
     return mock_logger
 
+######### Go back to the old version after finishing testing new/changed GO functions
+# @pytest.fixture
+# def logger():
+#     """Create a real logger with DEBUG level."""
+#     logger = logging.getLogger("test_logger")  # Use a specific name
+#     logger.setLevel(logging.DEBUG)
+#     # Add handler to print to console
+#     ch = logging.StreamHandler()
+#     ch.setLevel(logging.DEBUG)
+#     # Create formatter
+#     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+#     ch.setFormatter(formatter)
+#     logger.addHandler(ch)
+#     return logger
+
 @pytest.fixture
 def multi_logger():
     """Create a mock multi_logger that matches the get_multi_logger behavior"""
     def multi_log(level: str, message: str, *args):
         # This simulates the behavior of the actual multi_logger
         # which formats the message with args and logs to multiple loggers
-        return getattr(logging.getLogger(), level)(message, *args)
+        logger = logging.getLogger()
+        getattr(logger, level)(message, *args)
 
     mock = MagicMock(side_effect=multi_log)
     return mock
@@ -1258,14 +1282,18 @@ def transfer_dict_populated_disulfid_post_gos_Q9NU22(transfer_dict_populated_dis
         anno_key = list(interval_path["annotations"]["positions"][pos].keys())[0]
         interval_path["annotations"]["positions"][pos][anno_key]["GO"] = {
             "MCRB_ECOLI": {
-                "jaccard_index": 0.1667,
                 "terms": {
-                    "GO:0005524": "ATP binding",
-                    "GO:0016887": "ATP hydrolysis activity"
-                }
+                    "BP": {},
+                    "MF": {
+                        "GO:0005524": "ATP binding",
+                        "GO:0016887": "ATP hydrolysis activity"
+                    }
+                },
+                "status": "normal",
+                "wang_sem_sim_bma_bp": 0.0,
+                "wang_sem_sim_bma_mf": 0.541
             }
         }
-
     return extended_dict
 
 @pytest.fixture
@@ -1329,10 +1357,15 @@ def transfer_dict_success_binding_Q9NU22():
                                     "GO": {
                                         "MCRB_ECOLI": {
                                             "terms": {
-                                                "GO:0005524": "ATP binding",
-                                                "GO:0016887": "ATP hydrolysis activity"
+                                                "BP": {},
+                                                "MF": {
+                                                    "GO:0016887": "ATP hydrolysis activity",
+                                                    "GO:0005524": "ATP binding"
+                                                }
                                             },
-                                            "jaccard_index": 0.1667
+                                            "status": "normal",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.541
                                         }
                                     }
                                 }
@@ -1366,10 +1399,15 @@ def transfer_dict_success_binding_Q9NU22():
                                     "GO": {
                                         "MCRB_ECOLI": {
                                             "terms": {
-                                                "GO:0005524": "ATP binding",
-                                                "GO:0016887": "ATP hydrolysis activity"
+                                                "BP": {},
+                                                "MF": {
+                                                    "GO:0016887": "ATP hydrolysis activity",
+                                                    "GO:0005524": "ATP binding"
+                                                }
                                             },
-                                            "jaccard_index": 0.1667
+                                            "status": "normal",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.541
                                         }
                                     }
                                 }
@@ -1526,8 +1564,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "Q5CUW0_CRYPI": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 },
@@ -1565,8 +1608,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1599,8 +1647,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "Q5CUW0_CRYPI": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 },
@@ -1638,8 +1691,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1677,12 +1735,22 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "Q5CUW0_CRYPI": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         },
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1720,12 +1788,22 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "Q5CUW0_CRYPI": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         },
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1758,8 +1836,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "Q5CUW0_CRYPI": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1797,12 +1880,22 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "Q5CUW0_CRYPI": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         },
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1835,8 +1928,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "Q5CUW0_CRYPI": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1860,8 +1958,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1885,8 +1988,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1910,8 +2018,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -1935,8 +2048,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 },
@@ -1958,8 +2076,13 @@ def transfer_dict_success_all_types_H0YB80():
                                     },
                                     "GO": {
                                         "1433_GIAIC": {
-                                            "terms": {},
-                                            "jaccard_index": 0.0
+                                            "status": "no_target_terms",
+                                            "wang_sem_sim_bma_bp": 0.0,
+                                            "wang_sem_sim_bma_mf": 0.0,
+                                            "terms": {
+                                                "BP": {},
+                                                "MF": {}
+                                            }
                                         }
                                     }
                                 }
@@ -3199,6 +3322,23 @@ def annotations_content_Q9NU22_PF07728():
 }
 
 @pytest.fixture
+def annotations_content_wang_benchmark():
+    """Annotations dictionary with GO terms info for reference annotated sequence in PF07728 annotations JSON."""
+    return {
+        "MCRB_ECOLI": {
+            "0": {  # go_terms_annot_key
+                "Molecular Function": {
+                    "GO:0046872": "metal ion binding",
+                    "GO:0008270": "zinc ion binding",
+                    "GO:0009055": "electron transfer activity",
+                    "GO:0020037": "heme binding",
+                    "GO:0005515": "protein binding",
+                }
+            }
+        }
+    }
+
+@pytest.fixture
 def target_id_plus_seq_Q9NU22(minimal_hmmalign_lines_fixture_Q9NU22):
     """Returns target ID and sequence as tuple."""
     lines = minimal_hmmalign_lines_fixture_Q9NU22.splitlines()
@@ -3806,27 +3946,21 @@ def test_read_conservations_and_annotations_empty_files(mock_json_filepaths):
 def test_parse_go_annotations_multiple_terms(cc_go_terms_mock):
     """Test parsing GO terms with multiple terms and sources."""
     go_column = "GO:0000027(PANTHER)|GO:0000055(InterPro)|GO:0005634()|GO:0030687(PANTHER)"
-    result = parse_go_annotations(go_column, cc_go_terms_mock)
+    result = parse_go_annotations(go_column)
     assert result == ["GO:0000027", "GO:0000055", "GO:0005634", "GO:0030687"]
 
 def test_parse_go_annotations_single_term(cc_go_terms_mock):
     """Test parsing single GO term."""
     go_column = "GO:0016887(InterPro)"
-    result = parse_go_annotations(go_column, cc_go_terms_mock)
+    result = parse_go_annotations(go_column)
     assert result == ["GO:0016887"]
 
 def test_parse_go_annotations_empty(cc_go_terms_mock):
     """Test parsing empty GO annotations."""
-    assert parse_go_annotations("", cc_go_terms_mock) == []
-    assert parse_go_annotations("-", cc_go_terms_mock) == []
-    assert parse_go_annotations("  ", cc_go_terms_mock) == []
-    assert parse_go_annotations(None, cc_go_terms_mock) == []
-
-def test_parse_go_annotations_cc_go_terms_filtered(cc_go_terms_mock):
-    """Test parsing GO terms with terms filtered out by cc_go_terms."""
-    go_column = "GO:0005515(InterPro)|GO:0090543(InterPro)|GO:0006302(InterPro)"
-    result = parse_go_annotations(go_column, cc_go_terms_mock)
-    assert result == ["GO:0005515", "GO:0006302"]
+    assert parse_go_annotations("") == []
+    assert parse_go_annotations("-") == []
+    assert parse_go_annotations("  ") == []
+    assert parse_go_annotations(None) == []
 
 ###T check_interval_overlap
 
@@ -3898,11 +4032,10 @@ def test_gather_go_terms_for_target_pfam_match(multi_logger, iprscan_df_Q9NU22_P
             interpro_conv_id="IPR011704",
             hit_start=325,
             hit_end=451,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0005524", "GO:0016887"}
-        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)", cc_go_terms_mock)
+        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)")
 
 def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test gathering GO terms when matching InterPro ID"""
@@ -3922,11 +4055,10 @@ def test_gather_go_terms_for_target_interpro_match(multi_logger, iprscan_df_Q9NU
             interpro_conv_id="IPR027417",
             hit_start=300,
             hit_end=500,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0042623"}
-        mock_parse.assert_called_once_with("GO:0042623(InterPro)", cc_go_terms_mock)
+        mock_parse.assert_called_once_with("GO:0042623(InterPro)")
 
 def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU22_PF07728, cc_go_terms_mock):
     """Test gathering GO terms when only interval matches"""
@@ -3946,7 +4078,6 @@ def test_gather_go_terms_for_target_interval_only(multi_logger, iprscan_df_Q9NU2
             interpro_conv_id="IPR000000",
             hit_start=320,
             hit_end=635,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0016887"}
@@ -3966,7 +4097,6 @@ def test_gather_go_terms_for_target_no_matches(multi_logger, iprscan_df_Q9NU22_P
             interpro_conv_id="IPR000000",
             hit_start=1,
             hit_end=100,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
@@ -3987,7 +4117,6 @@ def test_gather_go_terms_for_target_file_not_found(multi_logger, cc_go_terms_moc
             interpro_conv_id="IPR000000",
             hit_start=1,
             hit_end=100,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
@@ -4012,7 +4141,6 @@ def test_gather_go_terms_for_target_empty_file(multi_logger, mock_empty_df, cc_g
             interpro_conv_id="IPR011704",
             hit_start=325,
             hit_end=451,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
@@ -4045,7 +4173,6 @@ def test_gather_go_terms_for_target_multiple_matches(multi_logger, iprscan_df_Q9
             interpro_conv_id="IPR011704",
             hit_start=325,
             hit_end=451,
-            cc_go_terms=cc_go_terms_mock
         )
 
         # All GO terms from all matching rows should be combined
@@ -4071,7 +4198,6 @@ def test_gather_go_terms_for_target_dash_go_terms(multi_logger, iprscan_df_Q9NU2
             interpro_conv_id="IPR011704",
             hit_start=325,
             hit_end=451,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == set()
@@ -4086,7 +4212,6 @@ def test_gather_go_terms_for_target(multi_logger, go_terms_dir_mock, cc_go_terms
         interpro_conv_id="IPR011704",
         hit_start=325,
         hit_end=451,
-        cc_go_terms=cc_go_terms_mock
     )
     assert go_terms == {"GO:0005524", "GO:0016887"}
 
@@ -4099,7 +4224,6 @@ def test_gather_go_terms_for_target_no_go(multi_logger, go_terms_dir_mock, cc_go
         interpro_conv_id="IPR011704",
         hit_start=325,
         hit_end=451,
-        cc_go_terms=cc_go_terms_mock
     )
     assert go_terms == set()
 
@@ -4121,12 +4245,11 @@ def test_gather_go_terms_for_target_empty_interpro_id(multi_logger, iprscan_df_Q
             interpro_conv_id="",  # Empty string case
             hit_start=325,
             hit_end=451,
-            cc_go_terms=cc_go_terms_mock
         )
 
         assert result == {"GO:0005524", "GO:0016887"}
         # Should only check Signature Accession since interpro_conv_id is empty
-        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)", cc_go_terms_mock)
+        mock_parse.assert_called_once_with("GO:0005524(InterPro)|GO:0016887(InterPro)")
 
 ###T get_alignment_sequences
 
@@ -4333,83 +4456,1038 @@ def test_populate_conservation_mismatch_position(
     assert positions_data["335"]["hit"] is False
     assert "335" in interval_data["conservations"]["indices"]["misses"]
 
+###T load_go_ontology
+
+def test_load_go_ontology_success(logger, multi_logger):
+    """Test successful GO ontology loading when file exists."""
+
+    expected_path = resource_dir_mock + "mappings/go-basic.obo"
+
+    # Mock GO term objects - one with is_obsolete set to True
+    mock_term1 = MagicMock()
+    mock_term1.item_id = "GO:0000001"
+    mock_term1.is_obsolete = True
+
+    mock_term2 = MagicMock()
+    mock_term2.item_id = "GO:0000002"
+    mock_term2.is_obsolete = False
+
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [mock_term1, mock_term2]
+
+    mock_tcnt = MagicMock()
+
+    mock_datetime = MagicMock()
+    mock_datetime.strftime.return_value = "2025-03-20 00:00:00"
+
+    with patch("os.path.join", return_value=expected_path) as mock_join, \
+         patch("os.path.isfile", return_value=True) as mock_isfile, \
+         patch("os.path.getsize", return_value=1024 * 1024) as mock_getsize, \
+         patch("os.path.getmtime", return_value=1614556800) as mock_getmtime, \
+         patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
+         patch("transfer_annotations.download_go_basic_obo") as mock_download, \
+         patch("transfer_annotations.GODag", return_value=mock_godag) as mock_godag_constructor, \
+         patch("transfer_annotations.TermCounts", return_value=mock_tcnt) as mock_termcounts_constructor:
+
+        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+
+        mock_join.assert_called_once_with(resource_dir_mock, "mappings", "go-basic.obo")
+        mock_isfile.assert_called_with(expected_path)
+        mock_getsize.assert_called_once_with(expected_path)
+        mock_getmtime.assert_called_once_with(expected_path)
+        mock_dt.fromtimestamp.assert_called_once_with(1614556800)
+
+        # Verify download was not called (file already exists)
+        mock_download.assert_not_called()
+
+        mock_godag_constructor.assert_called_once_with(
+            expected_path,
+            load_obsolete=True,
+            optional_attrs={'consider', 'replaced_by', 'relationship'},
+            prt=None
+        )
+
+        mock_termcounts_constructor.assert_called_once_with(mock_godag, {})
+
+        assert result_godag == mock_godag
+        assert result_obsolete == {"GO:0000001"}  # Only term1 was marked obsolete
+        assert result_tcnt == mock_tcnt
+
+
+def test_load_go_ontology_download_needed(logger, multi_logger):
+    """Test GO ontology loading when file needs to be downloaded first."""
+    expected_path =  resource_dir_mock + "mappings/go-basic.obo"
+
+    # Mock file checks - first not found, then found after download
+    def mock_isfile_side_effect(path):
+        mock_isfile_side_effect.call_count += 1
+        return mock_isfile_side_effect.call_count > 1
+    mock_isfile_side_effect.call_count = 0
+
+    mock_term = MagicMock()
+    mock_term.item_id = "GO:0000001"
+    mock_term.is_obsolete = False
+
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [mock_term]
+
+    mock_tcnt = MagicMock()
+
+    mock_datetime = MagicMock()
+    mock_datetime.strftime.return_value = "2025-03-20 00:00:00"
+
+    with patch("os.path.join", return_value=expected_path) as mock_join, \
+         patch("os.path.isfile", side_effect=mock_isfile_side_effect) as mock_isfile, \
+         patch("os.path.getsize", return_value=1024 * 1024) as mock_getsize, \
+         patch("os.path.getmtime", return_value=1614556800) as mock_getmtime, \
+         patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
+         patch("transfer_annotations.download_go_basic_obo") as mock_download, \
+         patch("transfer_annotations.GODag", return_value=mock_godag) as mock_godag_constructor, \
+         patch("transfer_annotations.TermCounts", return_value=mock_tcnt) as mock_termcounts_constructor:
+
+        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+
+        # Verify download was called since file didn't exist initially
+        mock_download.assert_called_once_with(expected_path)
+
+        assert mock_isfile.call_count == 2
+        mock_godag_constructor.assert_called_once()
+        mock_termcounts_constructor.assert_called_once()
+
+        assert result_godag == mock_godag
+        assert result_obsolete == set()  # No obsolete terms in mock
+        assert result_tcnt == mock_tcnt
+
+
+def test_load_go_ontology_empty_file(logger, multi_logger):
+    """Test GO ontology loading when file exists but is empty."""
+
+    expected_path = resource_dir_mock + "mappings/go-basic.obo"
+
+    mock_datetime = MagicMock()
+    mock_datetime.strftime.return_value = "2025-03-20 00:00:00"
+
+    with patch("os.path.join", return_value=expected_path) as mock_join, \
+         patch("os.path.isfile", return_value=True) as mock_isfile, \
+         patch("os.path.getsize", return_value=0) as mock_getsize, \
+         patch("os.path.getmtime", return_value=1614556800) as mock_getmtime, \
+         patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
+         patch("transfer_annotations.download_go_basic_obo") as mock_download, \
+         patch("transfer_annotations.GODag") as mock_godag_constructor, \
+         patch("transfer_annotations.TermCounts") as mock_termcounts_constructor:
+
+        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+
+        mock_join.assert_called_once()
+        assert mock_isfile.call_count == 2
+        mock_getsize.assert_called_once()
+        mock_getmtime.assert_called_once()
+
+        multi_logger.assert_called_once_with("error", "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO ontology file is empty")
+
+        # Verify these were NOT called since we exit early
+        mock_godag_constructor.assert_not_called()
+        mock_termcounts_constructor.assert_not_called()
+
+        assert result_godag is None
+        assert result_obsolete is None
+        assert result_tcnt is None
+
+
+def test_load_go_ontology_exception_handling(logger, multi_logger):
+    """Test GO ontology loading when an exception occurs."""
+
+    expected_path = resource_dir_mock + "mappings/go-basic.obo"
+
+    mock_datetime = MagicMock()
+    mock_datetime.strftime.return_value = "2025-03-20 00:00:00"
+
+    with patch("os.path.join", return_value=expected_path) as mock_join, \
+         patch("os.path.isfile", return_value=True) as mock_isfile, \
+         patch("os.path.getsize", return_value=1024 * 1024) as mock_getsize, \
+         patch("os.path.getmtime", return_value=1614556800) as mock_getmtime, \
+         patch("datetime.datetime", **{"fromtimestamp.return_value": mock_datetime}) as mock_dt, \
+         patch("transfer_annotations.GODag", side_effect=Exception("Mock error")) as mock_godag_constructor:
+
+        result_godag, result_obsolete, result_tcnt = load_go_ontology(resource_dir_mock, logger, multi_logger)
+
+        mock_godag_constructor.assert_called_once()
+
+        multi_logger.assert_any_call(
+            "error",
+            "TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Error loading GO ontology: %s",
+            "Mock error"
+        )
+
+        assert result_godag is None
+        assert result_obsolete is None
+        assert result_tcnt is None
+
+###T prepare_go_set
+
+def test_prepare_go_set_basic(logger):
+    """Test basic categorization of terms by namespace."""
+    # Setup GO terms with different namespaces
+    go1 = MagicMock()
+    go1.item_id = "GO:0000001"
+    go1.namespace = "biological_process"
+    go1.is_obsolete = False
+    go1.alt_ids = set()
+
+    go2 = MagicMock()
+    go2.item_id = "GO:0000002"
+    go2.namespace = "molecular_function"
+    go2.is_obsolete = False
+    go2.alt_ids = set()
+
+    go3 = MagicMock()
+    go3.item_id = "GO:0000003"
+    go3.namespace = "cellular_component"  # Should be excluded
+    go3.is_obsolete = False
+    go3.alt_ids = set()
+
+    # Setup mock GODag
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [go1, go2, go3]
+    mock_godag.__getitem__.side_effect = lambda key: {
+        "GO:0000001": go1,
+        "GO:0000002": go2,
+        "GO:0000003": go3
+    }[key]
+    mock_godag.__contains__.side_effect = lambda key: key in {"GO:0000001", "GO:0000002", "GO:0000003"}
+
+    mock_obsolete = set()
+
+    # Call function with all 3 terms in the mock GODag
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:0000001", "GO:0000002", "GO:0000003"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == {"GO:0000001"}
+    assert mf_terms == {"GO:0000002"}
+    # Cellular component terms are implicitly excluded
+    assert bp_replacement_map == {}
+    assert mf_replacement_map == {}
+
+def test_prepare_go_set_empty_input(logger):
+    """Test prepare_go_set with empty input."""
+    mock_godag = MagicMock()
+    mock_obsolete = set()
+
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        set(), mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == set()
+    assert mf_terms == set()
+    assert bp_replacement_map == {}
+    assert mf_replacement_map == {}
+
+def test_prepare_go_set_alternate_ids(logger):
+    """Test normalization of alternate IDs to primary IDs."""
+    # Setup primary and alternate GO terms
+    go1 = MagicMock()
+    go1.item_id = "GO:0000001"
+    go1.namespace = "biological_process"
+    go1.is_obsolete = False
+    go1.alt_ids = {"GO:0000007", "GO:0000008"}
+
+    go2 = MagicMock()
+    go2.item_id = "GO:0000002"
+    go2.namespace = "molecular_function"
+    go2.is_obsolete = False
+    go2.alt_ids = {"GO:0000009"}
+
+    # Setup mock GODag
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [go1, go2]
+    mock_godag.__getitem__.side_effect = lambda key: {
+        "GO:0000001": go1,
+        "GO:0000002": go2
+    }[key]
+    mock_godag.__contains__.side_effect = lambda key: key in {"GO:0000001", "GO:0000002"}
+
+    mock_obsolete = set()
+
+    # Execute function with alternate IDs
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:0000007", "GO:0000009"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == {"GO:0000001"}
+    assert mf_terms == {"GO:0000002"}
+    assert bp_replacement_map == {"GO:0000007": ["GO:0000001"]}
+    assert mf_replacement_map == {"GO:0000009": ["GO:0000002"]}
+
+
+def test_prepare_go_set_obsolete_with_replaced_by(logger):
+    """Test handling of obsolete terms with replaced_by attribute."""
+    # Setup a replaced term
+    replacement1 = MagicMock()
+    replacement1.id = "GO:0000002"
+
+    # Setup an obsolete term with replacement
+    go_obsolete = MagicMock()
+    go_obsolete.item_id = "GO:0000001"
+    go_obsolete.namespace = "biological_process"
+    go_obsolete.is_obsolete = True
+    go_obsolete.alt_ids = set()
+    go_obsolete.replaced_by = [replacement1]
+
+    # Setup the replacement term
+    go_replacement = MagicMock()
+    go_replacement.item_id = "GO:0000002"
+    go_replacement.namespace = "biological_process"
+    go_replacement.is_obsolete = False
+    go_replacement.alt_ids = set()
+
+    # Setup mock GODag
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [go_obsolete, go_replacement]
+    mock_godag.__getitem__.side_effect = lambda key: {
+        "GO:0000001": go_obsolete,
+        "GO:0000002": go_replacement
+    }[key]
+    mock_godag.__contains__.side_effect = lambda key: key in {"GO:0000001", "GO:0000002"}
+
+    mock_obsolete = {"GO:0000001"}
+
+    # Execute function with obsolete term - replaced_by replacement
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == {"GO:0000002"}  # The replacement term
+    assert mf_terms == set()
+    assert bp_replacement_map == {"GO:0000001": ["GO:0000002"]}
+    assert mf_replacement_map == {}
+
+
+def test_prepare_go_set_obsolete_with_consider(logger):
+    """Test handling of obsolete terms with consider attribute."""
+    # Setup a consider term
+    consider1 = MagicMock()
+    consider1.id = "GO:0000002"
+
+    # Setup an obsolete term with consider attribute
+    go_obsolete = MagicMock()
+    go_obsolete.item_id = "GO:0000001"
+    go_obsolete.namespace = "molecular_function"
+    go_obsolete.is_obsolete = True
+    go_obsolete.alt_ids = set()
+    go_obsolete.replaced_by = []
+    go_obsolete.consider = [consider1]
+
+    # Setup the considered term
+    go_consider = MagicMock()
+    go_consider.item_id = "GO:0000002"
+    go_consider.namespace = "molecular_function"
+    go_consider.is_obsolete = False
+    go_consider.alt_ids = set()
+
+    # Setup mock GODag
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [go_obsolete, go_consider]
+    mock_godag.__getitem__.side_effect = lambda key: {
+        "GO:0000001": go_obsolete,
+        "GO:0000002": go_consider
+    }[key]
+    mock_godag.__contains__.side_effect = lambda key: key in {"GO:0000001", "GO:0000002"}
+
+    mock_obsolete = {"GO:0000001"}
+
+    # Execute function with obsolete term - consider replacement
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == set()
+    assert mf_terms == {"GO:0000002"}  # The consider term
+    assert bp_replacement_map == {}
+    assert mf_replacement_map == {"GO:0000001": ["GO:0000002"]}
+
+
+def test_prepare_go_set_obsolete_without_replacements(logger):
+    """Test handling of obsolete terms without any replacements."""
+    # Setup an obsolete term without replacements
+    go_obsolete = MagicMock()
+    go_obsolete.item_id = "GO:0000001"
+    go_obsolete.namespace = "biological_process"
+    go_obsolete.is_obsolete = True
+    go_obsolete.alt_ids = set()
+    go_obsolete.replaced_by = []
+    go_obsolete.consider = []
+
+    # Setup mock GODag
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [go_obsolete]
+    mock_godag.__getitem__.side_effect = lambda key: {
+        "GO:0000001": go_obsolete
+    }[key]
+    mock_godag.__contains__.side_effect = lambda key: key in {"GO:0000001"}
+
+    mock_obsolete = {"GO:0000001"}
+
+    # Execute function with obsolete term - no replacements
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == set()
+    assert mf_terms == set()
+    assert bp_replacement_map == {}
+    assert mf_replacement_map == {}
+
+def test_prepare_go_set_term_not_in_ontology(logger):
+    """Test handling of terms not found in the ontology."""
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = []
+    mock_godag.__contains__.side_effect = lambda key: False
+
+    mock_obsolete = set()
+
+    # Execute function with non-existent term
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:9999999"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == set()
+    assert mf_terms == set()
+    assert bp_replacement_map == {}
+    assert mf_replacement_map == {}
+
+def test_prepare_go_set_replaced_by_string(logger):
+    """Test handling of obsolete terms with replaced_by as string instead of list."""
+    # Setup an obsolete term with string replacement
+    go_obsolete = MagicMock()
+    go_obsolete.item_id = "GO:0000001"
+    go_obsolete.namespace = "biological_process"
+    go_obsolete.is_obsolete = True
+    go_obsolete.alt_ids = set()
+    go_obsolete.replaced_by = "GO:0000002"  # String instead of list
+
+    # Setup the replacement term
+    go_replacement = MagicMock()
+    go_replacement.item_id = "GO:0000002"
+    go_replacement.namespace = "biological_process"
+    go_replacement.is_obsolete = False
+    go_replacement.alt_ids = set()
+
+    # Setup mock GODag
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [go_obsolete, go_replacement]
+    mock_godag.__getitem__.side_effect = lambda key: {
+        "GO:0000001": go_obsolete,
+        "GO:0000002": go_replacement
+    }[key]
+    mock_godag.__contains__.side_effect = lambda key: key in {"GO:0000001", "GO:0000002"}
+
+    mock_obsolete = {"GO:0000001"}
+
+    # Execute function with obsolete term - string replaced_by attribute value
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == {"GO:0000002"}
+    assert mf_terms == set()
+    assert bp_replacement_map == {"GO:0000001": ["GO:0000002"]}
+    assert mf_replacement_map == {}
+
+
+def test_prepare_go_set_consider_string(logger):
+    """Test handling of obsolete terms with consider as string instead of list."""
+    # Setup an obsolete term with string consider attribute value
+    go_obsolete = MagicMock()
+    go_obsolete.item_id = "GO:0000001"
+    go_obsolete.namespace = "molecular_function"
+    go_obsolete.is_obsolete = True
+    go_obsolete.alt_ids = set()
+    go_obsolete.replaced_by = []
+    go_obsolete.consider = "GO:0000002"  # String instead of list
+
+    # Setup the consider term
+    go_consider = MagicMock()
+    go_consider.item_id = "GO:0000002"
+    go_consider.namespace = "molecular_function"
+    go_consider.is_obsolete = False
+    go_consider.alt_ids = set()
+
+    # Setup mock GODag
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [go_obsolete, go_consider]
+    mock_godag.__getitem__.side_effect = lambda key: {
+        "GO:0000001": go_obsolete,
+        "GO:0000002": go_consider
+    }[key]
+    mock_godag.__contains__.side_effect = lambda key: key in {"GO:0000001", "GO:0000002"}
+
+    mock_obsolete = {"GO:0000001"}
+
+    # Execute function with obsolete term - consider string attribute value
+    bp_terms, mf_terms, bp_replacement_map, mf_replacement_map = prepare_go_set(
+        {"GO:0000001"}, mock_godag, mock_obsolete, logger
+    )
+
+    assert bp_terms == set()
+    assert mf_terms == {"GO:0000002"}
+    assert bp_replacement_map == {}
+    assert mf_replacement_map == {"GO:0000001": ["GO:0000002"]}
+
+###T calculate_bma_similarity
+
+def test_calculate_bma_similarity_empty_set_a(logger, multi_logger):
+    """Test BMA similarity when first set is empty."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    result = calculate_bma_similarity(
+        logger=logger,
+        multi_logger=multi_logger,
+        set_a=set(),
+        set_b={"GO:0005515", "GO:0008270"},
+        godag=mock_godag,
+        tcnt=mock_tcnt
+    )
+
+    multi_logger.assert_called_once_with("warning", "TRANSFER_ANNOTS --- BMA_SIM --- First set is empty")
+    assert result == 0.0
+
+def test_calculate_bma_similarity_empty_set_b(logger, multi_logger):
+    """Test BMA similarity when second set is empty."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    result = calculate_bma_similarity(
+        logger=logger,
+        multi_logger=multi_logger,
+        set_a={"GO:0004022", "GO:0008270"},
+        set_b=set(),
+        godag=mock_godag,
+        tcnt=mock_tcnt
+    )
+
+    multi_logger.assert_called_once_with("warning", "TRANSFER_ANNOTS --- BMA_SIM --- Second set is empty")
+    assert result == 0.0
+
+def test_calculate_bma_similarity_identical_sets(logger, multi_logger, caplog):
+    """Test BMA similarity when both sets are identical."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    test_set = {"GO:0004022", "GO:0008270", "GO:0016491"}
+
+    result = calculate_bma_similarity(
+        logger=logger,
+        multi_logger=multi_logger,
+        set_a=test_set,
+        set_b=test_set,
+        godag=mock_godag,
+        tcnt=mock_tcnt
+    )
+
+    assert result == 1.0
+
+def test_calculate_bma_similarity_basic_calculation(logger, multi_logger):
+    """Test BMA similarity calculation with normal input sets."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    set_a = {"GO:0004022", "GO:0008270", "GO:0016491"}
+    set_b = {"GO:0005515", "GO:0008270", "GO:0046872"}
+
+    # Mock SsWang object and its get_sim method
+    mock_wang = MagicMock()
+    # Set mock similarity values
+    # For set_a -> set_b
+    mock_wang.get_sim.side_effect = lambda term_a, term_b: {
+        ("GO:0004022", "GO:0005515"): 0.2,
+        ("GO:0004022", "GO:0008270"): 0.3,
+        ("GO:0004022", "GO:0046872"): 0.1,
+        ("GO:0008270", "GO:0005515"): 0.3,
+        ("GO:0008270", "GO:0008270"): 1.0,  # Same term should have similarity 1.0
+        ("GO:0008270", "GO:0046872"): 0.5,
+        ("GO:0016491", "GO:0005515"): 0.2,
+        ("GO:0016491", "GO:0008270"): 0.4,
+        ("GO:0016491", "GO:0046872"): 0.3,
+        # For set_b -> set_a (reverse direction)
+        ("GO:0005515", "GO:0004022"): 0.2,
+        ("GO:0005515", "GO:0008270"): 0.3,
+        ("GO:0005515", "GO:0016491"): 0.2,
+        ("GO:0008270", "GO:0004022"): 0.3,
+        ("GO:0008270", "GO:0008270"): 1.0,
+        ("GO:0008270", "GO:0016491"): 0.4,
+        ("GO:0046872", "GO:0004022"): 0.1,
+        ("GO:0046872", "GO:0008270"): 0.5,
+        ("GO:0046872", "GO:0016491"): 0.3,
+    }.get((term_a, term_b), 0.0)
+
+    with patch("transfer_annotations.SsWang", return_value=mock_wang):
+        result = calculate_bma_similarity(
+            logger=logger,
+            multi_logger=multi_logger,
+            set_a=set_a,
+            set_b=set_b,
+            godag=mock_godag,
+            tcnt=mock_tcnt
+        )
+
+    # Expected calculation:
+    # A→B: best matches are [0.3, 1.0, 0.4] (sum=1.7)
+    # B→A: best matches are [0.3, 1.0, 0.5] (sum=1.8)
+    # BMA = (1.7 + 1.8) / (3 + 3) = 3.5 / 6 = 0.5833...
+    assert round(result, 4) == 0.5833
+
+def test_calculate_bma_similarity_single_items(logger, multi_logger):
+    """Test BMA similarity with single-item sets."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    set_a = {"GO:0004022"}
+    set_b = {"GO:0005515"}
+
+    mock_wang = MagicMock()
+    mock_wang.get_sim.return_value = 0.4
+
+    with patch("transfer_annotations.SsWang", return_value=mock_wang):
+        result = calculate_bma_similarity(
+            logger=logger,
+            multi_logger=multi_logger,
+            set_a=set_a,
+            set_b=set_b,
+            godag=mock_godag,
+            tcnt=mock_tcnt
+        )
+
+    # Expected: BMA = (0.4 + 0.4) / (1 + 1) = 0.4
+    assert result == 0.4
+
+
+def test_calculate_bma_similarity_sswang_initialization_error(logger, multi_logger):
+    """Test BMA similarity when SsWang initialization fails."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    set_a = {"GO:0004022", "GO:0008270"}
+    set_b = {"GO:0005515", "GO:0046872"}
+
+    with patch("transfer_annotations.SsWang", side_effect=Exception("Test error initializing SsWang")):
+        result = calculate_bma_similarity(
+            logger=logger,
+            multi_logger=multi_logger,
+            set_a=set_a,
+            set_b=set_b,
+            godag=mock_godag,
+            tcnt=mock_tcnt
+        )
+
+    multi_logger.assert_any_call(
+        "error",
+        "TRANSFER_ANNOTS --- BMA_SIM --- Failed to initialize SsWang: %s",
+        "Test error initializing SsWang"
+    )
+    assert result == 0.0
+
+
+def test_calculate_bma_similarity_general_exception(logger, multi_logger):
+    """Test BMA similarity when a general exception occurs during calculation."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    set_a = {"GO:0004022", "GO:0008270"}
+    set_b = {"GO:0005515", "GO:0046872"}
+
+    # Create mock SsWang that raises an exception when get_sim is called
+    mock_wang = MagicMock()
+    mock_wang.get_sim.side_effect = Exception("Test calculation error")
+
+    with patch("transfer_annotations.SsWang", return_value=mock_wang):
+        result = calculate_bma_similarity(
+            logger=logger,
+            multi_logger=multi_logger,
+            set_a=set_a,
+            set_b=set_b,
+            godag=mock_godag,
+            tcnt=mock_tcnt
+        )
+
+    multi_logger.assert_any_call(
+        "error",
+        "TRANSFER_ANNOTS --- BMA_SIM --- Error calculating BMA similarity: %s",
+        "Test calculation error"
+    )
+    assert result == 0.0
+
+def test_calculate_bma_similarity_wang_benchmark_mocked(logger, multi_logger):
+    """Test BMA similarity with Wang's benchmark terms using proper mocking."""
+    mock_godag = MagicMock()
+    mock_tcnt = MagicMock()
+
+    # Wang's benchmark set ADh4 (set A) and Ldb3 (set B) - MF terms
+    # Full set with obsolete terms
+    set_a_input = {"GO:0004023", "GO:0004024", "GO:0046872", "GO:0016491", "GO:0004022", "GO:0008270", "GO:0004174"}
+    # The actual processed set after replacing obsolete terms (as seen in real test logs)
+    set_a = {"GO:0046872", "GO:0016491", "GO:0004022", "GO:0008270", "GO:0004174"}
+    set_b = {"GO:0046872", "GO:0008270", "GO:0009055", "GO:0020037", "GO:0005515"}
+
+    # Expected BMA similarity value from the Wang benchmark (adjusted for current ontology)
+    expected_bma_similarity = 0.6146
+
+    # Create mock SsWang calculator
+    mock_wang = MagicMock()
+
+    # Exact similarity values from the real test log
+    similarity_map = {
+        # Values for GO:0046872 vs all terms in set_b
+        ("GO:0046872", "GO:0046872"): 1.000000,
+        ("GO:0046872", "GO:0005515"): 0.355226,
+        ("GO:0046872", "GO:0020037"): 0.284475,
+        ("GO:0046872", "GO:0008270"): 0.770713,
+        ("GO:0046872", "GO:0009055"): 0.205433,
+
+        # Values for GO:0016491 vs all terms in set_b
+        ("GO:0016491", "GO:0046872"): 0.157878,
+        ("GO:0016491", "GO:0005515"): 0.262295,
+        ("GO:0016491", "GO:0020037"): 0.213650,
+        ("GO:0016491", "GO:0008270"): 0.128723,
+        ("GO:0016491", "GO:0009055"): 0.339623,
+
+        # Values for GO:0008270 vs all terms in set_b
+        ("GO:0008270", "GO:0046872"): 0.770713,
+        ("GO:0008270", "GO:0005515"): 0.289626,
+        ("GO:0008270", "GO:0020037"): 0.228290,
+        ("GO:0008270", "GO:0008270"): 1.000000,
+        ("GO:0008270", "GO:0009055"): 0.169383,
+
+        # Values for GO:0004174 vs all terms in set_b
+        ("GO:0004174", "GO:0046872"): 0.113967,
+        ("GO:0004174", "GO:0005515"): 0.176757,
+        ("GO:0004174", "GO:0020037"): 0.148576,
+        ("GO:0004174", "GO:0008270"): 0.094805,
+        ("GO:0004174", "GO:0009055"): 0.490790,
+
+        # Values for GO:0004022 vs all terms in set_b
+        ("GO:0004022", "GO:0046872"): 0.077195,
+        ("GO:0004022", "GO:0005515"): 0.141149,
+        ("GO:0004022", "GO:0020037"): 0.112139,
+        ("GO:0004022", "GO:0008270"): 0.058164,
+        ("GO:0004022", "GO:0009055"): 0.184675,
+
+        # Values for obsolete terms (not used in actual calculation)
+        ("GO:0004023", "GO:0046872"): 0.077195,
+        ("GO:0004023", "GO:0005515"): 0.141149,
+        ("GO:0004023", "GO:0020037"): 0.112139,
+        ("GO:0004023", "GO:0008270"): 0.058164,
+        ("GO:0004023", "GO:0009055"): 0.184675,
+
+        ("GO:0004024", "GO:0046872"): 0.077195,
+        ("GO:0004024", "GO:0005515"): 0.141149,
+        ("GO:0004024", "GO:0020037"): 0.112139,
+        ("GO:0004024", "GO:0008270"): 0.058164,
+        ("GO:0004024", "GO:0009055"): 0.184675,
+    }
+
+    # Add the reverse direction (B→A) for symmetry
+    for (term_a, term_b), sim_value in list(similarity_map.items()):
+        similarity_map[(term_b, term_a)] = sim_value
+
+    # Set up the mock to return values from our similarity map
+    def get_sim_value(term_a, term_b):
+        return similarity_map.get((term_a, term_b), 0.1)  # Default to 0.1 for any missing pairs
+
+    mock_wang.get_sim.side_effect = get_sim_value
+
+    with patch("transfer_annotations.SsWang", return_value=mock_wang):
+        result = calculate_bma_similarity(
+            logger=logger,
+            multi_logger=multi_logger,
+            set_a=set_a,  # Using the filtered set that excludes obsolete terms
+            set_b=set_b,
+            godag=mock_godag,
+            tcnt=mock_tcnt
+        )
+
+    # Assert we get the expected similarity score rounded to 4 decimal places
+    assert round(result, 4) == expected_bma_similarity
+
+    # Verify key similarity calculations were performed
+    mock_wang.get_sim.assert_any_call("GO:0004022", "GO:0009055")  # Best match for GO:0004022
+    mock_wang.get_sim.assert_any_call("GO:0016491", "GO:0009055")  # Best match for GO:0016491
+    mock_wang.get_sim.assert_any_call("GO:0046872", "GO:0046872")  # Identical term match
 
 ###T populate_go_data_for_annotations
 
-def test_populate_go_data_basic_match(
-    transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
-    annotations_content_Q9NU22_PF07728
+# Single Integration test below for GO term processing:
+# reveals basic behavior through to the end. Skip, until I decide between providing a static go-basic.obo or mocking its contents
+# enough to provide stability to this and other tests relying on its actual contents.
+# Similarity value observed in actual test == 0.6146 - go-basic.obo (2025-02-06), Table 4 MF terms for ADh4 and Ldb3.
+# Original result in Wang's paper was 0.693, but discrepancy is due to changes in the DAG
+# (replacement of both GO:0004023 and GO:0004024 with GO:0004022).
+
+@pytest.mark.skip("Skipping due to GO ontology dependency - needs a fixed go-basic.obo file for stable testing")
+def test_populate_go_data_wang_benchmark(
+    caplog, logger, multi_logger,
+    transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22, annotations_content_wang_benchmark
 ):
-    """Test GO term population with matching terms."""
-    # Target GOs from test_gather_go_terms_for_target_multiple_matches
-    target_gos = {"GO:0005524", "GO:0016887", "GO:0042623"}
+    """Test GO term population with Wang's benchmark terms."""
+    caplog.set_level(logging.DEBUG)
+
+    # Target == Set A ; Annotations == Set B
+    set_a = {"GO:0004023", "GO:0004024", "GO:0046872", "GO:0016491", "GO:0004022", "GO:0008270", "GO:0004174"}
 
     populate_go_data_for_annotations(
+        logger=logger,
+        multi_logger=multi_logger,
         transfer_dict=transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
-        pfam_id="PF07728",
-        target_name="sp|Q9NU22|MDN1_HUMAN",
-        annotations=annotations_content_Q9NU22_PF07728,
+        pfam_id=pfam_id_mock_Q9NU22,
+        target_name=target_name_mock_Q9NU22,
+        annotations=annotations_content_wang_benchmark,
         go_terms_annot_key="0",
-        target_gos=target_gos
+        target_go_set=set_a,
+        resource_dir=resource_dir_integration_mock
     )
 
     anno_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
 
     assert "GO" in anno_data
     assert "MCRB_ECOLI" in anno_data["GO"]
-    assert len(anno_data["GO"]["MCRB_ECOLI"]["terms"]) == 2 # Missing GO:0042623, not in annotations
-    assert anno_data["GO"]["MCRB_ECOLI"]["jaccard_index"] == 0.1538
+    assert len(anno_data["GO"]["MCRB_ECOLI"]["terms"]) == 2
+    assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
+    assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_mf"] == 0.6146
 
+def test_populate_go_data_wang_benchmark_mocked(
+    caplog, logger, multi_logger,
+    transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
+    annotations_content_wang_benchmark
+):
+    """Test GO term population with Wang's benchmark terms using mocks."""
+    caplog.set_level(logging.DEBUG)
 
-def test_populate_go_data_no_matches(
+    # Target == Set A ; Annotations == Set B (annotations_content_wang_benchmark)
+    set_a = {"GO:0004023", "GO:0004024", "GO:0046872", "GO:0016491", "GO:0004022", "GO:0008270", "GO:0004174"}
+
+    # Mock return objects for load_go_ontology()
+    mock_godag = MagicMock()
+    mock_obsolete = {"GO:0004023", "GO:0004024"}
+    mock_tcnt = MagicMock()
+
+    # Expected processed values for target GO terms
+    target_bp_terms = set()
+    target_mf_terms = {"GO:0004022", "GO:0004174", "GO:0008270", "GO:0016491", "GO:0046872"}
+    target_bp_map = {}
+    target_mf_map = {"GO:0004023": ["GO:0004022"], "GO:0004024": ["GO:0004022"]}
+
+    # Expected processed values for annotation GO terms
+    anno_bp_terms = set()
+    anno_mf_terms = {"GO:0005515", "GO:0008270", "GO:0009055", "GO:0020037", "GO:0046872"}
+    anno_bp_map = {}
+    anno_mf_map = {}
+
+    # Similarity value observed in actual test == 0.6146 - go-basic.obo from 12/02/25, Table 4 MF terms for ADh4 and Ldb3.
+    # Original result was 0.693, but discrepancy is due to changes in the DAG (replacement of both GO:0004023 and GO:0004024 with GO:0004022)
+    expected_mf_similarity = 0.6146
+
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology, \
+         patch("transfer_annotations.log_go_set_processing") as mock_log_processing, \
+         patch("transfer_annotations.prepare_go_set") as mock_prepare_go_set, \
+         patch("transfer_annotations.calculate_bma_similarity") as mock_bma_sim:
+
+        # Set up mock_prepare_go_set to return different values based for 2 separate calls
+        mock_prepare_go_set.side_effect = [
+            (target_bp_terms, target_mf_terms, target_bp_map, target_mf_map),
+            (anno_bp_terms, anno_mf_terms, anno_bp_map, anno_mf_map)
+        ]
+
+        mock_bma_sim.side_effect = [0.0, expected_mf_similarity]  # BP is empty, mind
+
+        populate_go_data_for_annotations(
+            logger=logger,
+            multi_logger=multi_logger,
+            transfer_dict=transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
+            pfam_id=pfam_id_mock_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            annotations=annotations_content_wang_benchmark,
+            go_terms_annot_key="0",
+            target_go_set=set_a,
+            resource_dir=resource_dir_mock
+        )
+
+        # Verify that mocks were called correctly
+        mock_load_ontology.assert_called_once_with(resource_dir_mock, logger, multi_logger)
+        assert mock_prepare_go_set.call_count == 2
+        assert mock_bma_sim.call_count == 2
+        assert mock_log_processing.call_count == 2
+
+        # Verify result
+        anno_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
+        assert "GO" in anno_data
+        assert "MCRB_ECOLI" in anno_data["GO"]
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_mf"] == expected_mf_similarity
+
+def test_populate_go_data_basic_match_mocked(
+    caplog, logger, multi_logger,
     transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
     annotations_content_Q9NU22_PF07728
 ):
-    """Test GO term population with no matching terms."""
-    target_gos = {"GO:0000000"}  # Non-existent term
+    """Test GO term population with matching terms using mocks."""
+    caplog.set_level(logging.DEBUG)
 
-    populate_go_data_for_annotations(
-        transfer_dict=transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
-        pfam_id="PF07728",
-        target_name="sp|Q9NU22|MDN1_HUMAN",
-        annotations=annotations_content_Q9NU22_PF07728,
-        go_terms_annot_key="0",
-        target_gos=target_gos
-    )
+    # Target GOs from test_gather_go_terms_for_target_multiple_matches
+    target_gos = {"GO:0005524", "GO:0016887", "GO:0042623"}
 
-    interval_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]
-    anno_data = interval_data["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
+    mock_godag = MagicMock()
+    mock_obsolete = {"GO:0000003"}
+    mock_tcnt = MagicMock()
 
-    assert "GO" in anno_data
-    assert "MCRB_ECOLI" in anno_data["GO"]
-    assert anno_data["GO"]["MCRB_ECOLI"]["terms"] == {}
-    assert anno_data["GO"]["MCRB_ECOLI"]["jaccard_index"] == 0.0
+    # Expected processed values
+    target_bp_terms = set()
+    target_mf_terms = {"GO:0005524", "GO:0016887", "GO:0042623"}
+    target_bp_map = {}
+    target_mf_map = {}
 
-def test_populate_go_data_empty_target_gos(
+    anno_bp_terms = set()
+    anno_mf_terms = {"GO:0005524", "GO:0016887"}  # GO:0042623 not in annotations
+    anno_bp_map = {}
+    anno_mf_map = {}
+
+    # Similarity value observed in the original test == 0.541 - go-basic.obo from 12/02/25.
+    expected_mf_similarity = 0.541
+
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology, \
+         patch("transfer_annotations.log_go_set_processing") as mock_log_processing, \
+         patch("transfer_annotations.prepare_go_set") as mock_prepare_go_set, \
+         patch("transfer_annotations.calculate_bma_similarity") as mock_bma_sim:
+
+        mock_prepare_go_set.side_effect = [
+            (target_bp_terms, target_mf_terms, target_bp_map, target_mf_map),  # For target
+            (anno_bp_terms, anno_mf_terms, anno_bp_map, anno_mf_map)  # For annotation
+        ]
+
+        mock_bma_sim.side_effect = [0.0, expected_mf_similarity]  # BP (empty), MF
+
+        populate_go_data_for_annotations(
+            logger=logger,
+            multi_logger=multi_logger,
+            transfer_dict=transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
+            pfam_id="PF07728",
+            target_name="sp|Q9NU22|MDN1_HUMAN",
+            annotations=annotations_content_Q9NU22_PF07728,
+            go_terms_annot_key="0",
+            target_go_set=target_gos,
+            resource_dir="mock_resource_dir"
+        )
+
+        # Verify that mocks were called correctly
+        mock_load_ontology.assert_called_once_with("mock_resource_dir", logger, multi_logger)
+        assert mock_prepare_go_set.call_count == 2
+        assert mock_bma_sim.call_count == 2
+        assert mock_log_processing.call_count == 2
+
+        # Verify result
+        anno_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
+        assert "GO" in anno_data
+        assert "MCRB_ECOLI" in anno_data["GO"]
+        assert len(anno_data["GO"]["MCRB_ECOLI"]["terms"]["MF"]) == 2
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_mf"] == expected_mf_similarity
+
+def test_populate_go_data_no_matches_mocked(
+    logger, multi_logger,
     transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
     annotations_content_Q9NU22_PF07728
 ):
-    """Test GO term population with empty target GOs."""
-    target_gos = set()
+    """Test GO term population with no matching terms using mocks."""
+    # Non-existent term
+    target_gos = {"GO:0000000"}
 
-    populate_go_data_for_annotations(
-        transfer_dict=transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
-        pfam_id="PF07728",
-        target_name="sp|Q9NU22|MDN1_HUMAN",
-        annotations=annotations_content_Q9NU22_PF07728,
-        go_terms_annot_key="0",
-        target_gos=target_gos
-    )
+    # Mock GODag and related objects
+    mock_godag = MagicMock()
+    mock_obsolete = set()
+    mock_tcnt = MagicMock()
 
-    interval_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]
-    anno_data = interval_data["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
+    # Empty sets for both target and annotation terms
+    empty_terms = set()
+    empty_map = {}
 
-    assert "GO" in anno_data
-    assert "MCRB_ECOLI" in anno_data["GO"]
-    assert anno_data["GO"]["MCRB_ECOLI"]["terms"] == {}
-    assert anno_data["GO"]["MCRB_ECOLI"]["jaccard_index"] == 0.0
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology, \
+         patch("transfer_annotations.log_go_set_processing") as mock_log_processing, \
+         patch("transfer_annotations.prepare_go_set") as mock_prepare_go_set, \
+         patch("transfer_annotations.calculate_bma_similarity") as mock_bma_sim:
 
+        # Set up mocks to return empty sets
+        mock_prepare_go_set.side_effect = [
+            (empty_terms, empty_terms, empty_map, empty_map),  # For target
+            (empty_terms, empty_terms, empty_map, empty_map)   # For annotation
+        ]
+        # Set up mock_bma_sim to return zero similarity
+        mock_bma_sim.return_value = 0.0
 
+        populate_go_data_for_annotations(
+            logger=logger,
+            multi_logger=multi_logger,
+            transfer_dict=transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
+            pfam_id=pfam_id_mock_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            annotations=annotations_content_Q9NU22_PF07728,
+            go_terms_annot_key="0",
+            target_go_set=target_gos,
+            resource_dir=resource_dir_mock
+        )
+
+        # Verify that mocks were called correctly
+        mock_load_ontology.assert_called_once_with(resource_dir_mock, logger, multi_logger)
+        assert mock_prepare_go_set.call_count == 2
+        assert mock_bma_sim.call_count >= 1
+
+        # Verify result
+        anno_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
+        assert "GO" in anno_data
+        assert "MCRB_ECOLI" in anno_data["GO"]
+        assert anno_data["GO"]["MCRB_ECOLI"]["terms"] == {'BP': {}, 'MF': {}}
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_mf"] == 0.0
+
+def test_populate_go_data_empty_target_gos_mocked(
+    logger, multi_logger,
+    transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
+    annotations_content_Q9NU22_PF07728
+):
+    """Test GO term population with empty target GOs using mocks."""
+    target_gos = set()  # Empty set
+
+    mock_godag = MagicMock()
+    mock_obsolete = set()
+    mock_tcnt = MagicMock()
+
+    with patch("transfer_annotations.load_go_ontology", return_value=(mock_godag, mock_obsolete, mock_tcnt)) as mock_load_ontology:
+        # Note: When target_go_set is empty, the function returns early without calling prepare_go_set()
+
+        # Call function under test
+        populate_go_data_for_annotations(
+            logger=logger,
+            multi_logger=multi_logger,
+            transfer_dict=transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22,
+            pfam_id=pfam_id_mock_Q9NU22,
+            target_name=target_name_mock_Q9NU22,
+            annotations=annotations_content_Q9NU22_PF07728,
+            go_terms_annot_key="0",
+            target_go_set=target_gos,
+            resource_dir=resource_dir_mock
+        )
+
+        # Verify load_go_ontology was called and other functions weren't
+        mock_load_ontology.assert_called_once_with(resource_dir_mock, logger, multi_logger)
+
+        # Verify result
+        anno_data = transfer_dict_populated_disulfid_post_conservation_inside_cleanup_Q9NU22["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["DISULFID | Intrachain (with C-246); in linked form"]
+
+        assert "GO" in anno_data
+        assert "MCRB_ECOLI" in anno_data["GO"]
+        assert anno_data["GO"]["MCRB_ECOLI"]["status"] == "no_target_terms"
+        assert anno_data["GO"]["MCRB_ECOLI"]["terms"] == {'BP': {}, 'MF': {}}
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
+        assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_mf"] == 0.0
 
 ###T cleanup_improve_transfer_dict
 
@@ -4425,7 +5503,6 @@ def test_cleanup_improve_transfer_dict_basic(
     conservation_id_plus_seq_Q9NU22_PF07728,
     transfer_dict_populated_disulfid_post_conservation_Q9NU22,
     transfer_dict_populated_disulfid_post_gos_Q9NU22,
-    cc_go_terms_mock
 ):
     # Define mocks that directly apply fixture data
     def mock_populate_conservation(transfer_dict, **kwargs):
@@ -4479,7 +5556,7 @@ def test_cleanup_improve_transfer_dict_basic(
             annotations_filepath="fake.json",
             output_dir="fake_dir",
             pfam_interpro_map_filepath="fake.tsv",
-            cc_go_terms=cc_go_terms_mock
+            resource_dir=resource_dir_mock
         )
         assert result == transfer_dict_populated_disulfid_post_gos_Q9NU22
 
@@ -4492,7 +5569,6 @@ def test_cleanup_improve_transfer_dict_conservations_only(
     target_id_plus_seq_Q9NU22,
     conservation_id_plus_seq_Q9NU22_PF07728,
     transfer_dict_populated_disulfid_post_conservation_Q9NU22,
-    cc_go_terms_mock
 ):
     """Test handling when only conservations data exists"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4522,7 +5598,7 @@ def test_cleanup_improve_transfer_dict_conservations_only(
             annotations_filepath="nonexistent.json",
             output_dir="fake_dir",
             pfam_interpro_map_filepath="fake.tsv",
-            cc_go_terms=cc_go_terms_mock
+            resource_dir=resource_dir_mock
         )
 
         # Verify only conservation data was populated
@@ -4538,7 +5614,6 @@ def test_cleanup_improve_transfer_dict_handles_empty_conservations(
     target_gos_Q9NU22_MCRB_ECOLI,
     target_id_plus_seq_Q9NU22,
     conservation_id_plus_seq_Q9NU22_PF07728,
-    cc_go_terms_mock
 ):
     """Test handling of empty conservations data"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4566,7 +5641,7 @@ def test_cleanup_improve_transfer_dict_handles_empty_conservations(
             annotations_filepath="fake.json",
             output_dir="fake_dir",
             pfam_interpro_map_filepath="fake.tsv",
-            cc_go_terms=cc_go_terms_mock
+            resource_dir=resource_dir_mock
         )
 
         # Verify structure is maintained but without conservation data
@@ -4584,7 +5659,6 @@ def test_cleanup_improve_transfer_dict_only_conservations_valid(
     target_id_plus_seq_Q9NU22,
     conservation_id_plus_seq_Q9NU22_PF07728,
     transfer_dict_populated_disulfid_post_conservation_Q9NU22,
-    cc_go_terms_mock
 ):
     """Test handling when only conservations data is valid"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4615,7 +5689,7 @@ def test_cleanup_improve_transfer_dict_only_conservations_valid(
             annotations_filepath="fake.json",
             output_dir="fake_dir",
             pfam_interpro_map_filepath="fake.tsv",
-            cc_go_terms=cc_go_terms_mock
+            resource_dir=resource_dir_mock
         )
 
         # Verify only conservation data was added
@@ -4631,7 +5705,6 @@ def test_cleanup_improve_transfer_dict_only_annotations_valid(
     mapping_content_Q9NU22_and_H0YB80_domains,
     target_gos_Q9NU22_MCRB_ECOLI,
     transfer_dict_populated_disulfid_post_gos_Q9NU22,
-    cc_go_terms_mock
 ):
     """Test handling when only annotations data is valid"""
     mapping_df = pd.read_csv(StringIO(mapping_content_Q9NU22_and_H0YB80_domains), sep="\t")
@@ -4662,7 +5735,7 @@ def test_cleanup_improve_transfer_dict_only_annotations_valid(
             annotations_filepath="fake.json",
             output_dir="fake_dir",
             pfam_interpro_map_filepath="fake.tsv",
-            cc_go_terms=cc_go_terms_mock
+            resource_dir=resource_dir_mock
         )
 
         # Verify only GO data was added
@@ -7308,8 +8381,8 @@ def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU2
             os.path.join(resource_dir_mock, "PF07728", "conservations.json"),
             os.path.join(resource_dir_mock, "PF07728", "annotations.json"),
             output_dir_mock,
-            os.path.join(resource_dir_mock, "mappings/interpro_pfam_accession_mapping.tsv"),
-            set(cc_go_terms_mock.keys())
+            resource_dir_mock,
+            os.path.join(resource_dir_mock, "mappings/interpro_pfam_accession_mapping.tsv")
         )
         mock_write.assert_called_once_with(
             logger,
@@ -7341,6 +8414,12 @@ def test_main_cc_go_load_error(logger, multi_logger):
         mock_sys_exit.assert_called_once_with(1)
 
 # Integration tests
+
+# NOTE: These tests depend on the GO ontology which changes over time.
+# Tests using semantic similarity will either need periodic updates or use a static copy of the GO obo file.
+# Current tests based on go-basic.obo (2025-02-06).
+
+@pytest.mark.skip("Skipping due to GO ontology dependency - needs a fixed go-basic.obo file for stable testing")
 def test_main_integration_binding_Q9NU22_PF07728(
     minimal_hmmalign_lines_fixture_Q9NU22, transfer_dict_success_binding_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728,
     conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains, iprscan_content_Q9NU22, cc_go_terms_mock
@@ -7405,6 +8484,7 @@ def test_main_integration_binding_Q9NU22_PF07728(
         assert os.path.exists(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"))
         assert transfer_dict_success_binding_Q9NU22 == json.load(open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"), "r", encoding="utf-8"))
 
+@pytest.mark.skip("Skipping due to GO ontology dependency - needs a fixed go-basic.obo file for stable testing")
 def test_main_integration_disulfid_Q9NU22_PF07728(
     minimal_hmmalign_lines_fixture_Q9NU22,
     transfer_dict_populated_disulfid_post_gos_list_Q9NU22,
@@ -7465,13 +8545,14 @@ def test_main_integration_disulfid_Q9NU22_PF07728(
             logger, _ = get_logger(args.log)
             main()
 
-        # with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
-        #     transfer_dict = json.load(f)
-        #     print(json.dumps(transfer_dict, indent=4))
+        with open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json")) as f:
+            transfer_dict = json.load(f)
+            print(json.dumps(transfer_dict, indent=4))
 
         assert os.path.exists(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"))
         assert transfer_dict_populated_disulfid_post_gos_list_Q9NU22 == json.load(open(os.path.join(output_dir, "sp-Q9NU22-MDN1_HUMAN", "PF07728_report.json"), "r", encoding="utf-8"))
 
+@pytest.mark.skip("Skipping due to GO ontology dependency - needs a fixed go-basic.obo file for stable testing")
 def test_main_integration_all_types_H0YB80(
     minimal_hmmalign_lines_fixture_H0YB80,
     transfer_dict_success_all_types_H0YB80,
@@ -7532,11 +8613,11 @@ def test_main_integration_all_types_H0YB80(
             logger, _ = get_logger(args.log)
             main()
 
-        # with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
-        #     transfer_dict = json.load(f)
-        #     print(json.dumps(transfer_dict, indent=4))
-            # with open("expected.json", "w") as expected:
-            #     json.dump(transfer_dict, expected, indent=4)
+        with open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json")) as f:
+            transfer_dict = json.load(f)
+            print(json.dumps(transfer_dict, indent=4))
+            with open("expected.json", "w") as expected:
+                json.dump(transfer_dict, expected, indent=4)
 
         assert os.path.exists(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"))
         assert transfer_dict_success_all_types_H0YB80 == json.load(open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"), "r", encoding="utf-8"))
