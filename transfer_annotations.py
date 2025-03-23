@@ -55,7 +55,7 @@ _add_single_annotation -> update_position_ranges -> merge_adjacent_ranges
 
 ANNOTATIONS PRESENT FINAL STEPS -> cleanup_improve_transfer_dict -> read_conservations_and_annotations ->
 get_alignment_sequences -> populate_conservation -> gather_go_terms_for_target
--> populate_go_data_for_annotations -> write_reports
+-> populate_go_data_for_annotations -> load_go_ontology -> prepare_go_set -> calculate_bma_similarity -> write_reports
 
 """
 
@@ -105,13 +105,26 @@ def parse_arguments():
 
 def get_pfam_id_from_hmmalign_result(hmmalign_result: str) -> str:
     """
-    Extracts the PFAM ID from the hmmalign result filename.
+    Extracts the Pfam ID from the hmmalign result filename.
+
+    Args:
+        hmmalign_result: Path to the hmmalign result file.
+
+    Returns:
+        str: Pfam ID extracted from the filename.
     """
     return os.path.splitext(os.path.basename(hmmalign_result))[0].split('_')[-2]
 
 def get_annotation_filepath(resource_dir: str, pfam_id: str) -> str:
     """
-    Constructs and returns the filepaths for annotations JSON based on the PFAM ID.
+    Constructs and returns the filepaths for annotations JSON based on the Pfam ID.
+
+    Args:
+        resource_dir: Resource directory path
+        pfam_id: Pfam domain accession
+
+    Returns:
+        str: Filepath for the annotations JSON file
     """
     base_dir = os.path.join(resource_dir, pfam_id)
     annotations_filepath = os.path.join(base_dir, "annotations.json")
@@ -122,6 +135,13 @@ def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[st
     """
     Reads and returns the content of the hmmalign result and annotations files,
     respectively, as lists of lines and a loaded JSON object.
+
+    Args:
+        hmmalign_result: Path to the hmmalign result file
+        annotations_filepath: Path to the annotations JSON file
+
+    Returns:
+        tuple: (hmmalign_lines, annotations)
     """
     with open(hmmalign_result, 'r', encoding="utf-8") as hmmaligned_file:
         hmmalign_lines = [line.rstrip('\n') for line in hmmaligned_file]
@@ -147,6 +167,17 @@ def iterate_aligned_sequences(
     Yields index, current positions (source_pos, target_pos), and characters (source_char, target_char).
     Positions are incremented only when the respective character is alphabetic.
     For target sequence, positions are None when encountering deletion relative to consensus ('-') or insertion gap markers ('.').
+
+    Args:
+        source_sequence: Source sequence to iterate over
+        target_sequence: Target sequence to iterate over
+        source_start: Start position of the source sequence (UniProt)
+        target_start: Start position of the target sequence (UniProt)
+        source_end: End position of the source sequence (UniProt)
+        target_end: End position of the target sequence (UniProt)
+
+    Yields:
+        Tuple: (index, source_pos, target_pos, source_char, target_char)
     """
     source_pos = None
     target_pos = None
@@ -175,10 +206,12 @@ def iterate_aligned_sequences(
 
 def extract_target_info_from_hmmalign(logger: logging.Logger, multi_logger: Callable, hmmalign_lines: list) -> dict:
     """Extracts target sequence information from hmmalign lines for both annotations and conservations.
+
     Args:
-        hmmalign_lines (list): List of lines from the hmmalign alignment file.
-        logger (logging.Logger): Logger object for logging.
-        multi_logger (Callable): Callable for logging to multiple loggers.
+        hmmalign_lines: List of lines from the hmmalign alignment file.
+        logger: logger object to log info and debug messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
+
     Returns:
         dict: Format {target_name: {target_hit_interval: [(target_hit_start, target_hit_end, target_hit_sequence),...]}}
         where target_hit_interval is "start-end"
@@ -211,11 +244,13 @@ def extract_target_info_from_hmmalign(logger: logging.Logger, multi_logger: Call
 
 def setup_for_conservations_only(logger: logging.Logger, multi_logger: Callable, hmmalign_lines: list, pfam_id: str) -> dict:
     """Creates transfer dictionary structure for cases where only conservation data is available.
+
     Args:
-        logger (logging.Logger): Logger object for logging.
-        multi_logger (Callable): Callable for logging to multiple loggers.
-        hmmalign_lines (list): List of lines from the hmmalign alignment file.
-        pfam_id (str): Pfam domain accession being processed.
+        logger: Logger object for logging info and debug messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
+        hmmalign_lines: List of lines from the hmmalign alignment file
+        pfam_id: Pfam domain accession being processed
+
     Returns:
         dict: Transfer dict with necessary keys for conservations: sequence_id, hit_intervals,
         sequence, length, hit_start/end, annotations (stays empty later),
@@ -275,11 +310,11 @@ def find_and_map_annots(
     to keep track of visited positions across calls, where relevant, and sends it to map_and_filter_annot_pos.
 
     Args:
-        logger (logging.Logger): Logger object for logging.
-        multi_logger (Callable): Callable for logging to multiple loggers.
-        hmmalign_lines (list): List of lines from the hmmalign alignment file.
-        annotations (dict): Loaded annotations JSON object.
-        good_eco_codes (list): List of ECO codes to filter annotations.
+        logger: Logger object for logging info and debug messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
+        hmmalign_lines: List of lines from the hmmalign alignment file
+        annotations: Loaded annotations JSON object
+        good_eco_codes: List of ECO codes to filter annotations
 
     Returns:
         dict: Transfer dictionary containing annotations for each sequence-domain pair.
@@ -304,6 +339,8 @@ def find_and_map_annots(
                 offset_end = int(splitted[1].split('-')[1].split()[0])
                 annot_sequence = splitted[1].split()[1]
                 for target_name, target_per_interval in target_info.items():
+                    if target_name == entry_mnemo_name:
+                        continue
                     for target_hit_interval, target_info_list in target_per_interval.items():
                         for target_hit_start, target_hit_end, target_hit_sequence in target_info_list:
                             entry_annotations_copy = copy.deepcopy(entry_annotations)
@@ -386,7 +423,7 @@ def check_interval_overlap(
     considering the different algorithms used by iprscan to find domains.
 
     Args:
-        multi_logger: Callable for logging to multiple loggers
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
         iprscan_start: Start position from InterProScan
         iprscan_end: End position from InterProScan
         hit_start: Start position from HMMER hit
@@ -423,17 +460,17 @@ def gather_go_terms_for_target(
     The GO terms base dir is expected to be the same as the output dir,
     since this function requires the previous scripts to have been run.\
     Checks for:
-    - Matching InterProScan lines with the PFAM ID or InterPro ID.
+    - Matching InterProScan lines with the Pfam ID or InterPro ID.
     - Matching intervals with the hit start and end.
 
     Args:
-        logger (logging.Logger): Logger object for logging.
-        target_name (str): Target sequence name.
-        pfam_id (str): PFAM domain accession being processed.
-        go_terms_dir (str): Directory containing target sequence subdirs where iprscan.tsv lies.
-        interpro_conv_id (str): InterPro ID for the domain.
-        hit_start (int): Start position of the hit.
-        hit_end (int): End position of the hit.
+        multi_logger: callable to log to multiple loggers - use for warning+ level
+        target_name: Target sequence name.
+        pfam_id: Pfam domain accession being processed.
+        go_terms_dir: Directory containing target sequence subdirs where iprscan.tsv lies.
+        interpro_conv_id: InterPro ID that corresponds to the Pfam ID.
+        hit_start: Start position of the hit.
+        hit_end: End position of the hit.
 
     Returns:
         set: GO terms found for the target sequence.
@@ -493,7 +530,6 @@ def gather_go_terms_for_target(
 
     return target_go_set
 
-
 def get_alignment_sequences(
     hmmalign_lines: list, target_id: str, conservation_id: str,
     logger: logging.Logger, multi_logger: Callable
@@ -504,8 +540,8 @@ def get_alignment_sequences(
         hmmalign_lines: Alignment file content
         target_id: Target sequence identifier
         conservation_id: Conservation sequence identifier
-        logger: Domain-specific logger
-        multi_logger: Callable for logging to multiple loggers
+        logger: Logger object for info and debug messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
 
     Returns:
         tuple: (target_sequence, conservation_sequence) or (None, None) on failure
@@ -565,7 +601,7 @@ def populate_conservation(
 
     Args:
         transfer_dict: Transfer dictionary to update
-        pfam_id: PFAM domain identifier
+        pfam_id: Pfam domain identifier
         target_name: Target sequence name
         target_seq: Target sequence
         conservation_seq: Conservation reference sequence
@@ -577,7 +613,7 @@ def populate_conservation(
         interval_key: Key for current hit interval in the transfer_dict
         conservation_start: Start position in conservation reference sequence
         conservation_end: End position in conservation reference sequence
-        logger: Logger object for registering debug messages
+        logger: Logger object for info and debug messages
     """
     ranges_dict_key = "conservation_ranges"
     range_id = "conserved_positions"
@@ -701,7 +737,7 @@ def prepare_go_set(
     go_set: set,
     godag: GODag,
     goterms_obsolete: set,
-) -> tuple[set, set, dict, dict]:
+) -> tuple[set, set]:
     """
     Process GO terms: normalize alternate IDs, categorize by namespace, update obsolete terms.
     Note that cellular component terms are excluded in our analysis and results.
@@ -782,7 +818,7 @@ def calculate_bma_similarity(
 
     Args:
         logger: Logger for debug and info messages
-        multi_logger: Callable for warning, error, and critical messages
+        multi_logger: Callable for warning+ messages
         set_a: First set of GO terms (must be from same namespace/subontology)
         set_b: Second set of GO terms (must be from same namespace/subontology)
         godag: GO ontology loaded from OBO file in GOATools
@@ -879,14 +915,15 @@ def populate_go_data_for_annotations(
     The SemSim is calculated through Wang's method with a best-match average (BMA) approach to compare sets.
 
     Args:
+        logger: Logger object for info and debug messages
+        multi_logger: Callable function to send messages to multiple loggers - use for warning+ level
         transfer_dict: Transfer dictionary to update
-        pfam_id: PFAM domain identifier
+        pfam_id: Pfam domain identifier
         target_name: Target sequence name
         annotations: Annotations dictionary
         go_terms_annot_key: Key for GO terms in annotations
         target_go_set: Set of GO terms found for the target sequence
         resource_dir: Directory containing intermediary files - go-basic.obo will locate here
-        multi_logger: Callable function to send logs both main and domain loggers
     """
     godag, goterms_obsolete = load_go_ontology(resource_dir, logger, multi_logger)
 
@@ -1002,16 +1039,18 @@ def cleanup_improve_transfer_dict(
     Coordinates data population from conservations.json and annotations.json.
     Uses helper functions for sequence extraction from alignment,
     GO term retrieval from iprscan.tsv,
-    and positional and GO term conservation scores calculation (latter 2 done by the populate_*).
+    and positional and GO term conservation scores calculation (latter 2 done by the populate_* functions).
 
     Args:
-        logger: Process logging handler
-        multi_logger: Callable for logging to multiple loggers
+        logger: Logger object for info and debug messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
         transfer_dict: Dictionary to enhance
         pfam_id: Domain identifier
         hmmalign_lines: Alignment file content
         *_filepath: Paths to required JSON files
         output_dir: Directory for output files
+        resource_dir: Directory for resource intermediate files
+        pfam_interpro_map_filepath: Path to interpro_pfam_accession_mapping.tsv
 
     Returns:
         dict: Enhanced transfer dictionary with format:
@@ -1157,7 +1196,8 @@ def write_reports(
        Individual target-domain data.
 
     Args:
-        logger: Process logging handler
+        logger: Logger for debug and info messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
         transfer_dict: Transfer results to be written
         output_dir: Base output directory
 
@@ -1250,8 +1290,8 @@ def map_and_filter_annot_pos(
     2. Single positions: Routes normal annotation validation
 
     Args:
-        logger: Process logging handler
-        multi_logger: Callable for logging to multiple loggers
+        logger: Logger object for debug and info messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
         good_eco_codes: Valid evidence codes
         target_*: Target sequence data (sequence, name, boundaries)
         offset_*: Alignment boundaries (start, end)
@@ -1341,16 +1381,14 @@ def add_to_transfer_dict(
 
     Args:
         hit: Whether position matches between target/annotation
-        logger: Process logging handler
-        multi_logger: Callable for logging to multiple loggers
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
         transfer_dict: Output dictionary being built
         target_*: Target sequence information
         anno_*: Annotation data (id, total dict)
         entry_*: Source entry identifiers
         paired_*: Optional paired annotation data
 
-    Structure built:
-        transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval] = {
+    The resulting structure: transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval] = {
             sequence data,
             annotations data,
             conservations data,
@@ -1627,6 +1665,9 @@ def merge_adjacent_ranges(ranges: list) -> None:
 
     Helper for _update_annotation_ranges. Maintains sorted,
     non-overlapping ranges list by merging adjacent intervals.
+
+    Args:
+        ranges: List of position ranges to merge
     """
     if not ranges:
         return
@@ -1668,6 +1709,7 @@ def make_anno_total_dict(
         counter_*: Current positions in target/annotation sequences
         index: Position in alignment
         target_residue: Target sequence residue at current position
+        logger: Logger object for info and debug messages
         caller_target_pos_str: For paired annotations, caller's target position
 
     Returns:
@@ -1776,18 +1818,19 @@ def process_annotation(
     (map_and_filter_annot_pos() attempts to validate_paired_positions()).
 
     Args:
-        logger: Process logging handler
-        multi_logger: Callable for logging to multiple loggers
+        res_hit: Whether current position matches
+        logger: Logger object for debug and info messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
         good_eco_codes: Valid evidence codes
-        target_*: Target data (name, sequence, positions, residue)
         entry_*: Source entry data (name, annotations)
+        target_*: Target data (name, start, end, sequence, residue)
         annotation_*: Current annotation info (dict, key)
         transfer_dict: Output dictionary for results
         offset_*: Alignment boundaries
+        annot_sequence: Source sequence data
         counter_*: Position strings being processed
-        index: Current position in alignment
+        index: Current position in alignment/column
         processed_annotations: Set of handled annotations
-        res_hit: Whether current position matches
     """
     result_dict = make_anno_total_dict(
         good_eco_codes=good_eco_codes,
@@ -2148,16 +2191,17 @@ def validate_annotations(
     Regardless of hit, send to process_annotation, granted that processed_annotations does not contain the annotation key (entry_mnemo_name, target_name, counter_annot_pos_str, counter_target_pos_str and anno_type), avoiding reprocessing.
 
     Args:
-        logger: Logger for process tracking
-        multi_logger: Callable for logging to multiple loggers
+        logger: Logger object for debug and info messages
+        multi_logger: Callable for logging to multiple loggers - use for warning+ level
         good_eco_codes: List of valid evidence codes
-        target_*: Target sequence info (sequence, name, hit_start/end)
-        offset_*: Alignment offset positions (start/end)
-        annot_*: Annotation source info (sequence, entry_mnemo_name)
-        entry_annotations: Dictionary of position-based annotations
+        target_*: Target sequence info (sequence, name, start, end)
+        offset_*: Alignment offset positions (start, end)
+        annot_sequence: Annotation/source sequence
+        entry_mnemo_name: Source entry mnemonic name
+        entry_annotations: Dictionary of positional annotations in source
         transfer_dict: Output dictionary for storing results
         processed_annotations: Set of already handled annotations
-        counter_*: Current position counters (target/annot)
+        counter_*: Current position counters (target, annot)
     """
     annotated_annot_pos_list = [int(key) for key in entry_annotations.keys() if key != "0"]
     if not any(pos in range(offset_start, offset_end + 1) for pos in annotated_annot_pos_list):
