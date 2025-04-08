@@ -92,6 +92,9 @@ decorators.py: contains decorators used for future optimizations.
 Currently, the output files include:
 
 PF*_report.json: transferred annotations and metadata per domain for a sequence, containing only data for subsequences that were hits for that domain.
+
 aggregated_report.json: groups the same data as the files above, but for the whole sequence and all hits across domains.
+
 PF*_ranges.json: versions of the PF*_report.json files for consumption by Nightingale in a pending visualization step (as of 07/04/2025).
+
 iprscan.tsv: internally used, but may be consumed by downstream analyses. The same can be said of any other requested formats (JSON, XML, GFF3) from InterProScan.
