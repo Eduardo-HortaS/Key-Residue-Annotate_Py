@@ -33,7 +33,6 @@ env/
 *.seed
 *.json
 *.docx
-*.yml
 *.sh
 results/
 work/
