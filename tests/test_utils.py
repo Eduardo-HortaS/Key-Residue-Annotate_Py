@@ -18,11 +18,8 @@ from utils import (
     make_dirs_and_write_fasta,
     translate_sequence,
     seqrecord_yielder,
-    parallelize,
     convert_lists_to_original_types,
-    convert_sets_and_tuples_to_lists,
-    parse_arguments,
-    setup_logging
+    convert_sets_and_tuples_to_lists
 )
 
 import pytest

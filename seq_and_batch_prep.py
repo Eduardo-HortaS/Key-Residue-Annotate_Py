@@ -5,7 +5,7 @@ Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
@@ -18,21 +18,20 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
-This script contains all functions dealing directly with hmmsearch and needs 3 arguments:
-a FASTA file, a HMM targets file and the path to the output directory. Optionally,
-a flag to indicate nucleotide sequences and a log file path.
+This script prepares sequences from a FASTA file for batch processing:
 
-1 - Splits multifasta file into individual sequence fastas,
-each inside its respective {sequence_name} subdir.
+1. Creates a JSON mapping (all_sequences.json) that organizes sequence IDs
+   into batches of configurable size
 
-2 - B
+2. Creates individual directories for each sequence and writes the
+   corresponding sequence to a FASTA file within each directory
 
-# Moved these general functions to utils.py, for better modularity:
-    2 - Parses the FASTA file and stores each sequence's queryname (ex.: TTHY_XENLA) in a list,
-    and generates a SeqRecord object to be used sequentially and *only once*.
-
-    3 - For each sequence with at least 1 domain hit, creates a directory
-    and writes the sequence to a 'sequence.fasta' file in the directory.
+The script accepts the following parameters:
+- FASTA file path (required)
+- Output directory path (required)
+- Batch size (default: 2000)
+- Flag to indicate nucleotide sequences (default: protein sequences)
+- Log file path (optional)
 
 """
 

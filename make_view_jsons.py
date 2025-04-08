@@ -5,7 +5,7 @@ Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
@@ -18,17 +18,24 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
-This script contains functions to create JSON structures properly formatted
-for consumption by Nightingale components in the report app.
+This script transforms position-based annotation data into range-based JSON structures
+formatted for visualization in Nightingale components.
+
+The script:
+1. Reads aggregated_report.json files containing position-specific annotations
+2. Converts individual position annotations into continuous ranges
+3. Aggregates annotation data (including residues, counts, and metadata) for each range
+4. Organizes outputs by domain and range coordinates
+5. Writes domain-specific JSON files compatible with Nightingale visualization
 
 Functions:
 1. process_sequence_report: Reads per-sequence report JSONs and processes annotations
 2. transform_to_ranges: Converts position-based annotations to range-based format
-3. aggregate_range_annotations: Combines annotation data for continuous ranges
-4. write_range_views: Outputs data in a Nightingale-compatible format
+3. aggregate_range_positions: Combines annotation data for continuous ranges
+4. write_range_views: Outputs domain-specific JSONs for Nightingale visualization
 
-Input: Per-sequence JSON reports from transfer_annotations.py
-Output: Range-based JSON views for Nightingale visualization
+Input: aggregated_report.json containing position-based annotation data
+Output: Domain-specific *_ranges.json files for Nightingale visualization
 """
 
 

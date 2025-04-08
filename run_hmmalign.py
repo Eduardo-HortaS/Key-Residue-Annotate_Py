@@ -5,7 +5,7 @@ Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
@@ -18,10 +18,24 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
-This script contains a function for running hmmalign and needs 1 argument:
-a domain info JSON file with paths to the HMM file, seed alignment, domain fasta and output file.
+This script aligns domain sequences to a profile HMM using HMMER's hmmalign tool,
+leveraging the seed alignment structure and adding new sequences to it. This is necessary
+for the transfer_annotations.py step, which requires both seed and target/query/novel protein sequences.
 
-1 - run_hmmalign - Runs hmmalign for the domain in the domain_info JSON.
+The script requires a domain info JSON file containing:
+- hmm_file: Path to the profile HMM file
+- seed_alignment: Path to the seed alignment file
+- dom_fasta: Path to FASTA file containing domain sequences to align
+- pfam_id_hmmaligned: Output file path for the Stockholm alignment
+
+Command-line arguments:
+- dom-info: Path to domain info JSON file with required paths
+- domain-accession: Domain identifier used for scoped logging
+- log: Optional path for log file (default: logs/run_hmmalign.log)
+
+The script uses the following hmmalign options:
+- --outformat Pfam: Outputs alignment in Pfam format
+- --mapali: Maps the new sequences onto the existing seed alignment
 """
 
 import argparse

@@ -5,7 +5,7 @@ Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
+the Free Software Foundation; either version 3 of the License, or
 (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
@@ -18,11 +18,16 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 MA 02110-1301, USA.
 
-This script contains 1 function:
+This script merges multiple domain-specific PF*_report.json files for a sequence
+into a single aggregated_report.json file. It is designed to run after transfer_annotations.py.
 
-merge_sequences - merges a sequence's PF*_report.json files into a single JSON, with structure:
-report[sequence][domain] = {<pair's data>} and stores in the sequence directory.
-Required arguments: output dir path, sequence identifier and sequence directory.
+The main function:
+merge_sequences - combines a sequence's domain reports into a single JSON with structure:
+report[sequence][domain] = {<pair's data>} and stores as aggregated_report.json in the sequence directory.
+
+Required command-line arguments:
+- sequence: Sequence identifier for scoped logging
+- sequence-dir: Path to the sequence directory containing PF*_report.json files
 """
 
 import os
