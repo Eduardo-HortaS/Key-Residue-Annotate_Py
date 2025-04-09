@@ -22,18 +22,16 @@ This script contains all utility functions used by KRA.
 
 """
 
-import argparse
 import logging
 import os
 import pyhmmer.easel
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from multiprocessing import Pool
 from typing import Iterator
 from datetime import datetime
 from Bio import SeqIO
 from collections import defaultdict
-from typing import TypeVar, List, Callable, Optional, Literal, Any
+from typing import List, Callable, Literal, Any
 
 Scope = Literal["main", "domain", "sequence", "seq_batch"]
 
