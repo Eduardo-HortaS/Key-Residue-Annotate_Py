@@ -1,5 +1,5 @@
 """
-executor.py
+run_iprscan.py
 
 Copyright 2025 Eduardo Horta Santos <GitHub: Eduardo-HortaS>
 
@@ -34,7 +34,9 @@ Command Format:
 
 Functions:
     1 - parse_arguments - Parse command-line arguments for running InterProScan.
+    2 - create_batch_fasta - Creates a FASTA file containing all sequences in a batch.
     3 - run_interproscan - Run InterProScan with the given arguments.
+    4 - split_iprscan_output - Splits InterProScan output files by sequence.
 
 Reference for TSV output columns:
 https://interproscan-docs.readthedocs.io/en/latest/OutputFormats.html#tab-separated-values-format-tsv
