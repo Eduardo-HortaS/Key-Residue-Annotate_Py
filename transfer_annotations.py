@@ -1501,7 +1501,6 @@ def _add_single_annotation(
 
     # Moved out of the conditional below, because we'll track anno_id in annotations-indices-index_type
     # across the multiple annotations a single position may have.
-    index_type = "matches" if hit else "misses"
     interval_dict = transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval_key]
 
     # Initial setup for target position, including all references to it
@@ -1510,51 +1509,54 @@ def _add_single_annotation(
         interval_dict["position_conversion"]["target_to_aln"][target_position_str] = index_position_str
         interval_dict["position_conversion"]["aln_to_target"][index_position_str] = target_position_str
 
-    # Check if annotation exists in the opposite index,
-    # to prioritize match tracking over miss tracking
-    opposite_index_type = "misses" if hit else "matches"
-
-    # If we're adding a match and it already exists as a miss, remove it from misses
-    if hit and target_position_str in interval_dict["annotations"]["indices"][opposite_index_type] and \
-       anno_id in interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]:
-        interval_dict["annotations"]["indices"][opposite_index_type][target_position_str].remove(anno_id)
-        # If the set is now empty, clean it up
-        if not interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]:
-            del interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]
-
-    # If we were to add as a miss but it already exists as a match, skip everything
-    elif not hit and target_position_str in interval_dict["annotations"]["indices"][opposite_index_type] and \
-         anno_id in interval_dict["annotations"]["indices"][opposite_index_type][target_position_str]:
-        # Return early - we don't process misses for target_pos + anno_id combos that matched in earlier calls
-        return
-    else:
-        # Initialize index_type set if it doesn't exist for this position
-        if target_position_str not in interval_dict["annotations"]["indices"][index_type]:
-            interval_dict["annotations"]["indices"][index_type][target_position_str] = set()
-        # Add anno_id to tracking set for the position
-        interval_dict["annotations"]["indices"][index_type][target_position_str].add(anno_id)
-
     positions_dict = interval_dict["annotations"]["positions"][target_position_str]
+    existing_entry = positions_dict.get(anno_id, None)
+    existing_hit = existing_entry.get("hit") if existing_entry else None
 
-    # Populate essentials under anno_id for the position
-    if anno_id not in positions_dict:
-        essentials = {
-            "type": type_value,
-            "description": description_value if description_value is not None else "",
-            "count": count_value,
-            "annot_residue": annot_residue,
-            "target_residue": target_residue
+    # Handle index tracking first
+    index_type = "matches" if hit else "misses"
+    opposite_index = "misses" if hit else "matches"
+
+    # Clean any existing 'misses' index entries if we're adding as hit
+    if hit and existing_entry and not existing_hit:
+        if target_position_str in interval_dict["annotations"]["indices"][opposite_index]:
+            if anno_id in interval_dict["annotations"]["indices"][opposite_index][target_position_str]:
+                interval_dict["annotations"]["indices"][opposite_index][target_position_str].remove(anno_id)
+                if not interval_dict["annotations"]["indices"][opposite_index][target_position_str]:
+                    del interval_dict["annotations"]["indices"][opposite_index][target_position_str]
+
+    # Skip processing if we were adding as miss but match exists
+    if not hit and existing_hit:
+        return
+
+    # Essentials initialization/update
+    if not existing_entry or (hit and not existing_hit):
+        positions_dict[anno_id] = {
+            "essentials": {
+                "type": type_value,
+                "description": description_value or "",
+                "count": count_value,
+                "annot_residue": annot_residue,
+                "target_residue": target_residue
+            },
+            "hit": hit
         }
-        positions_dict[anno_id] = {}
-        positions_dict[anno_id].setdefault("essentials", essentials)
+        positions_dict[anno_id].pop("evidence", None)
+        positions_dict[anno_id].pop("paired_position", None)
+        positions_dict[anno_id].pop("additional_keys", None)
     else:
         positions_dict[anno_id]["essentials"]["count"] += 1
+        if hit:  # Update residues for subsequent hits
+            positions_dict[anno_id]["essentials"].update({
+                "annot_residue": annot_residue,
+                "target_residue": target_residue
+            })
 
-    # For consistent hit status, if we have a match anywhere, always set hit to True
-    if hit:
-        positions_dict[anno_id]["hit"] = True
-    elif "hit" not in positions_dict[anno_id]:
-        positions_dict[anno_id]["hit"] = hit
+    # Add to indices for the index_type
+    if hit or not existing_entry:
+        if target_position_str not in interval_dict["annotations"]["indices"][index_type]:
+            interval_dict["annotations"]["indices"][index_type][target_position_str] = set()
+        interval_dict["annotations"]["indices"][index_type][target_position_str].add(anno_id)
 
     update_position_ranges(
         interval_dict=interval_dict,
@@ -1563,58 +1565,66 @@ def _add_single_annotation(
         range_id=anno_id
         )
 
-    if evidence_value:
-        if "evidence" not in positions_dict[anno_id]:
-            positions_dict[anno_id].setdefault("evidence", {})
-        if evidence_value not in positions_dict[anno_id]["evidence"]:
-            positions_dict[anno_id]["evidence"][evidence_value] = {
-                "rep_primary_accession": entry_primary_accession,
-                "rep_mnemo_name": entry_mnemo_name,
-                "count": 1
-            }
-        else:
-            positions_dict[anno_id]["evidence"][evidence_value]["count"] += 1
+    # Delimit when metadata should be added
+    # For hits: Always accumulate
+    # For misses: Only if no match present
+    allow_metadata = hit or (not hit and not existing_hit)
+    if allow_metadata:
+        if evidence_value:
+            if hit or (not hit and not existing_hit):
+                if "evidence" not in positions_dict[anno_id]:
+                    positions_dict[anno_id].setdefault("evidence", {})
+                if evidence_value not in positions_dict[anno_id]["evidence"]:
+                    positions_dict[anno_id]["evidence"][evidence_value] = {
+                        "rep_primary_accession": entry_primary_accession,
+                        "rep_mnemo_name": entry_mnemo_name,
+                        "count": 1
+                    }
+                else:
+                    positions_dict[anno_id]["evidence"][evidence_value]["count"] += 1
 
-    if "paired_target_position" in anno_total:
-        if "paired_position" not in positions_dict[anno_id]:
-            positions_dict[anno_id].setdefault("paired_position", {})
-        if paired_target_position_str not in positions_dict[anno_id]["paired_position"]:
-            pair_info = {
-                "rep_primary_accession": entry_primary_accession,
-                "rep_mnemo_name": entry_mnemo_name,
-                "count": 1
-            }
-            # Possibly add gap or insert status to paired position
-            if anno_total.get("gapped_paired", False):
-                pair_info["gapped_target"] = True
-            elif anno_total.get("insert_column_paired", False):
-                pair_info["insert_column"] = True
-            elif anno_total.get("paired_target_pos_unreachable", False):
-                pair_info["unreachable_target"] = True
-            positions_dict[anno_id]["paired_position"][paired_target_position_str] = pair_info
-        else:
-            positions_dict[anno_id]["paired_position"][paired_target_position_str]["count"] += 1
+        if "paired_target_position" in anno_total:
+            if hit or (not hit and not existing_hit):
+                if "paired_position" not in positions_dict[anno_id]:
+                    positions_dict[anno_id].setdefault("paired_position", {})
+                if paired_target_position_str not in positions_dict[anno_id]["paired_position"]:
+                    pair_info = {
+                        "rep_primary_accession": entry_primary_accession,
+                        "rep_mnemo_name": entry_mnemo_name,
+                        "count": 1
+                    }
+                    # Possibly add gap or insert status to paired position
+                    if anno_total.get("gapped_paired", False):
+                        pair_info["gapped_target"] = True
+                    elif anno_total.get("insert_column_paired", False):
+                        pair_info["insert_column"] = True
+                    elif anno_total.get("paired_target_pos_unreachable", False):
+                        pair_info["unreachable_target"] = True
+                    positions_dict[anno_id]["paired_position"][paired_target_position_str] = pair_info
+                else:
+                    positions_dict[anno_id]["paired_position"][paired_target_position_str]["count"] += 1
 
-    # Helps analyze annotations that, in their description,
-    # relate positions in annotated sequence uniprot numbering.
-    # Note that those with sequence ranges are a bit tricky yet, but I"ll leave it as is for now
-    if type_value in ["CROSSLNK", "DISULFID", "MUTAGEN"] and description_value and re.search(r"\b[A-Z]-\d+", description_value):
-        additional_keys["annot_position"] = annot_position_str
+        # Helps analyze annotations that, in their description,
+        # relate positions in annotated sequence uniprot numbering.
+        # Note that those with sequence ranges are a bit tricky yet, but I"ll leave it as is for now
+        if type_value in ["CROSSLNK", "DISULFID", "MUTAGEN"] and description_value and re.search(r"\b[A-Z]-\d+", description_value):
+            additional_keys["annot_position"] = annot_position_str
 
-    if additional_keys and type_value in ["BINDING", "ACT_SITE", "CROSSLNK", "DISULFID", "MUTAGEN"]:
-        if "additional_keys" not in positions_dict[anno_id]:
-            positions_dict[anno_id].setdefault("additional_keys", {})
-        for key, value in additional_keys.items():
-            if key not in positions_dict[anno_id]["additional_keys"]:
-                positions_dict[anno_id]["additional_keys"][key] = {}
-            if value not in positions_dict[anno_id]["additional_keys"][key]:
-                positions_dict[anno_id]["additional_keys"][key][value] = {
-                    "rep_primary_accession": entry_primary_accession,
-                    "rep_mnemo_name": entry_mnemo_name,
-                    "count": 1
-                }
-            else:
-                positions_dict[anno_id]["additional_keys"][key][value]["count"] += 1
+        if additional_keys and type_value in ["BINDING", "ACT_SITE", "CROSSLNK", "DISULFID", "MUTAGEN"]:
+            if hit or (not hit and not existing_hit):
+                if "additional_keys" not in positions_dict[anno_id]:
+                    positions_dict[anno_id].setdefault("additional_keys", {})
+                for key, value in additional_keys.items():
+                    if key not in positions_dict[anno_id]["additional_keys"]:
+                        positions_dict[anno_id]["additional_keys"][key] = {}
+                    if value not in positions_dict[anno_id]["additional_keys"][key]:
+                        positions_dict[anno_id]["additional_keys"][key][value] = {
+                            "rep_primary_accession": entry_primary_accession,
+                            "rep_mnemo_name": entry_mnemo_name,
+                            "count": 1
+                        }
+                    else:
+                        positions_dict[anno_id]["additional_keys"][key][value]["count"] += 1
 
 def update_position_ranges(interval_dict: dict, target_position_str: str, ranges_dict_key: str = "annotation_ranges", range_id: str = "") -> None:
     """Generic function for maintaining continuous position ranges.
