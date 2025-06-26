@@ -20,7 +20,7 @@ MA 02110-1301, USA.
 
 This script contains all functions dealing directly with hmmsearch and needs 3 arguments:
 a FASTA file, a HMM targets file and the path to the output directory. Optionally,
-a flag to indicate nucleotide sequences and a log file path.
+a flag to indicate nucleotide sequences, bit score cutoffs for reporting hits, and a log file path.
 
 1 - Runs pyHMMER hmmsearch on the FASTA file using the provided HMM database file,
 generates a 'hmmsearch_per_domain.json' file in the output directory.
@@ -29,6 +29,15 @@ file in the output directory, these last two contain the sequence IDs with at le
 
     1.5 - Loads the sequence file, either as a SequenceFile or a DigitalSequenceBlock,
     depending on size and available memory. For nucleotide sequences, performs translation to protein sequences before searching.
+
+This script assumes that the user will provide HMM profiles from a curated database,
+where specific bit score thresholds for each profile should be present,
+including both per-sequence and per-domain reporting and inclusion thresholds.
+Particularly, the HMMs should come from Pfam, ensuring that the default choice - "gathering" - is available.
+We also accept "trusted" and "noise" bit score cutoffs, defined as follows:
+    - gathering: Used to define what gets included in Pfam Full alignments based on searches with Pfam seed models. Reliable curated thresholds for defining family membership.
+    - trusted: Represents the score of the lowest-scoring known true positive in a family that is above all known false positives.
+    - noise: Represents the score of the highest-scoring known false positive for the family.
 """
 
 import os
@@ -64,6 +73,9 @@ def parse_arguments():
     parser.add_argument("-n", "--nucleotide",
                         help="Flag to indicate nucleotide instead of default protein sequences",
                         action="store_true")
+    parser.add_argument("-bc", "--bit-cutoffs",
+                        help="Bit score cutoffs for reporting hits. Options: 'noise', 'gathering', 'trusted'",
+                        required=False, type=str, default="gathering")
     parser.add_argument("-l", "--log",
                         help="Log path",
                         required=False, type=str, default="logs/run_hmmsearch.log")
@@ -107,7 +119,7 @@ def load_and_translate_sequence_file(fasta_path: str, logger: logging.Logger, is
                 targets = targets.translate()
     return targets
 
-def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Logger, is_nucleotide: bool = False) -> None:
+def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Logger, bit_cutoffs: str = "gathering", is_nucleotide: bool = False) -> None:
     """Run HMMER search against target sequences and save results.
 
     Executes hmmsearch using HMM profiles as queries against target sequences.
@@ -118,6 +130,7 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
         fasta_path: Path to target sequences FASTA file
         output_dir: Directory to save output files
         logger: Logger instance for tracking execution
+        bit_cutoffs: Bit score cutoffs for reporting hits ("noise", "gathering", or "trusted")
         is_nucleotide: If True, treats input as nucleotide sequences (default: False)
 
     Returns:
@@ -138,6 +151,11 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
         - ali_range: Formatted string of alignment range
         - subseq: Aligned subsequence without gaps
     """
+    valid_cutoffs = ["noise", "gathering", "trusted"]
+    if bit_cutoffs not in valid_cutoffs:
+        logger.warning("RUN_HMMSEARCH --- RUN --- Invalid bit_cutoffs value: '%s'. Using default 'gathering'.", bit_cutoffs)
+        bit_cutoffs = "gathering"
+
     os.makedirs(output_dir, exist_ok=True)
 
     with open(hmm, 'rb') as f:
@@ -148,7 +166,7 @@ def run_hmmsearch(hmm: str, fasta_path: str, output_dir: str, logger: logging.Lo
     hits_per_domain = {}
     hit_sequences = set()
 
-    for top_hits in pyhmmer.hmmsearch(hmms, targets, bit_cutoffs="gathering"):
+    for top_hits in pyhmmer.hmmsearch(hmms, targets, bit_cutoffs=bit_cutoffs):
         for hit in top_hits:
             target_seq = hit.name.decode("utf-8")
             hit_sequences.add(target_seq)
@@ -205,11 +223,12 @@ def main():
     input_fasta = args.fasta
     input_hmm = args.hmm
     output_dir = args.output_dir
+    bit_cutoffs = args.bit_cutoffs
     is_nucleotide = args.nucleotide
     logger.info("RUN_HMMSEARCH --- MAIN --- Running hmmsearch with arguments: %s", args)
 
     # Run hmmsearch for all sequences
-    run_hmmsearch(input_hmm, input_fasta, output_dir, logger, is_nucleotide)
+    run_hmmsearch(input_hmm, input_fasta, output_dir, logger, bit_cutoffs, is_nucleotide)
 
 if __name__ == '__main__':
     main()

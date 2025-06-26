@@ -75,6 +75,10 @@ def load_config(config_file=None):
             fallback=None),
             "nucleotide": config.getboolean("Parameters", "nucleotide",
             fallback=False),
+            "bit_cutoffs": config.get("Parameters", "bit_cutoffs",
+            fallback="gathering"),
+            "trim": config.getboolean("Parameters", "trim",
+            fallback=False),
             "eco_codes": config.get("Parameters", "eco_codes",
             fallback="").split(),
         }
@@ -130,6 +134,13 @@ def parse_arguments():
     parser.add_argument("-n", "--nucleotide", action="store_true",
                         help="Flag for nucleotide sequences",
                         required=False)
+    parser.add_argument("-bc", "--bit-cutoffs", type=str,
+                        help="Bit score cutoffs for PyHMMER's hmmsearch. \
+                        Options: 'noise', 'gathering', 'trusted'",
+                        required=False, default="gathering")
+    parser.add_argument("--trim", action="store_true",
+                        help="Flag to enable trimming in hmmalign",
+                        required=False)
     parser.add_argument("-e", "--eco-codes", nargs="*",
                         help="Space-separated ECO codes",
                         required=False, default="")
@@ -155,6 +166,12 @@ def parse_arguments():
             cmd_args[k] = v
 
     config.update(cmd_args)
+
+    # Validate bit_cutoffs parameter
+    if "bit_cutoffs" in config:
+        valid_cutoffs = ["noise", "gathering", "trusted"]
+        if not isinstance(config["bit_cutoffs"], str) or config["bit_cutoffs"] not in valid_cutoffs:
+            parser.error(f"Invalid bit_cutoffs value: '{config['bit_cutoffs']}'. Must be one of: {', '.join(valid_cutoffs)}")
 
     # Validate required parameters
     required = ["fasta", "hmm", "iprscan_path", "resource_dir", "output_dir"]
@@ -319,6 +336,8 @@ def main():
     threads = args.threads
     total_memory = args.total_memory
     nucleotide = args.nucleotide
+    bit_cutoffs = args.bit_cutoffs
+    trim = args.trim
     python_executable = args.python
     logger, timestamped_log = get_logger(args.log)
     all_sequences_json = os.path.join(output_dir, "all_sequences.json")
@@ -335,6 +354,7 @@ def main():
             "-iF", input_fasta,
             "-iH", input_hmm,
             "-o", output_dir,
+            "-bc", bit_cutoffs,
             "-l", timestamped_log,
         ]
         if nucleotide:
@@ -457,13 +477,16 @@ def main():
             if os.path.isdir(subdir_path) and subdir.startswith("PF"):
                 domain_info = os.path.join(subdir_path, "domain_info.json")
                 if os.path.isfile(domain_info):
-                    run_hmmalign_tasks.append([
+                    task = [
                         python_executable,
                         "run_hmmalign.py",
                         "-iDI", domain_info,
                         "-d", subdir,
                         "-l", timestamped_log
-                    ])
+                    ]
+                    if trim:
+                        task.append("--trim")
+                    run_hmmalign_tasks.append(task)
         Parallel(n_jobs=threads)(
             delayed(run_command)(task, logger)
             for task in run_hmmalign_tasks

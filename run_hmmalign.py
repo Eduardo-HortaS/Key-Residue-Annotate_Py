@@ -31,11 +31,13 @@ The script requires a domain info JSON file containing:
 Command-line arguments:
 - dom-info: Path to domain info JSON file with required paths
 - domain-accession: Domain identifier used for scoped logging
+- trim: Optional flag to enable trimming nonhomologous residues from the multiple sequence alignment (default: False)
 - log: Optional path for log file (default: logs/run_hmmalign.log)
 
 The script uses the following hmmalign options:
 - --outformat Pfam: Outputs alignment in Pfam format
 - --mapali: Maps the new sequences onto the existing seed alignment
+- --trim: Trims nonhomologous residues from the MSA output (optional)
 """
 
 import argparse
@@ -60,15 +62,21 @@ def parse_arguments():
     aiming to generate a <domain_accession>_hmmalign.sto file inside the domain's folder.")
     parser.add_argument("-iDI", "--dom-info", help="Path to domain info JSON with paths", required=True, type=str)
     parser.add_argument("-d", "--domain-accession", help="Domain accession for scoped logging", required=True, type=str)
+    parser.add_argument("--trim", help="Flag to enable trimming in hmmalign", action="store_true")
     parser.add_argument("-l", "--log", help="Log path", \
         required=False, type=str, default="logs/run_hmmalign.log")
     return parser.parse_args()
 
 #@measure_time_and_memory
 #@profile
-def run_hmmalign(dom_info_json: str, multi_logger: Callable) -> None:
+def run_hmmalign(dom_info_json: str, multi_logger: Callable, trim: bool = False) -> None:
     """
     Runs hmmalign for the domain in the domain_info JSON.
+
+    Args:
+        dom_info_json: Path to domain info JSON file
+        multi_logger: Logger function for output
+        trim: If True, adds --trim flag to hmmalign command
     """
     with open(dom_info_json, 'r', encoding='utf-8') as dom_info_file:
         dom_info_json = json.load(dom_info_file)
@@ -78,7 +86,10 @@ def run_hmmalign(dom_info_json: str, multi_logger: Callable) -> None:
     pfam_id_hmmaligned = dom_info_json['pfam_id_hmmaligned']
     dom_fasta = dom_info_json['dom_fasta']
 
-    command = f"hmmalign --outformat Pfam --mapali {seed_alignment_path} {hmm_file_path} {dom_fasta} > {pfam_id_hmmaligned}"
+    command = f"hmmalign --outformat Pfam --mapali {seed_alignment_path}"
+    if trim:
+        command += " --trim"
+    command += f" {hmm_file_path} {dom_fasta} > {pfam_id_hmmaligned}"
 
     result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
 
@@ -91,14 +102,14 @@ def main():
     """Main function, initializes this script"""
     args = parse_arguments()
     domain_info_json = args.dom_info
+    trim = args.trim
 
-    # Can also get main logger if needed
     main_logger, _ = get_logger(args.log, scope="main")
     domain_logger, _ = get_logger(args.log, scope="domain", identifier=args.domain_accession)
     log_to_both = get_multi_logger([main_logger, domain_logger])
     log_to_both("info", "RUN_HMMALIGN --- Running hmmalign for domain info JSON: %s", domain_info_json)
 
-    run_hmmalign(domain_info_json, log_to_both)
+    run_hmmalign(domain_info_json, log_to_both, trim)
 
 if __name__ == '__main__':
     main()
