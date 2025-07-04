@@ -76,6 +76,34 @@ from utils import get_logger, get_multi_logger
 # from modules.decorators import measure_time_and_memory
 # from memory_profiler import profile
 
+REDUCED_ALPHABETS = {
+    "exact": None,  # No grouping - exact matches only
+    # Using BLOSUM62 scores to group amino acids - optimized as flat dicts
+    "murphy_16": {
+        "F": "0", "Y": "1", "W": "2", "P": "3", "C": "4",
+        "L": "5", "I": "5", "V": "5", "M": "6", "A": "7",
+        "S": "8", "T": "9", "R": "10", "K": "10",
+        "Q": "11", "E": "11", "N": "12", "D": "13", "H": "14", "G": "15"
+    },
+    "murphy_12": {
+        "F": "0", "Y": "0", "W": "1", "P": "2", "C": "3",
+        "L": "4", "I": "4", "V": "4", "M": "4", "A": "5",
+        "S": "6", "T": "7", "R": "8", "K": "8", "Q": "8", "E": "8",
+        "N": "9", "D": "9", "H": "10", "G": "11"
+    },
+    "murphy_8": {
+        "F": "0", "Y": "0", "W": "0", "P": "1", "C": "2",
+        "L": "3", "I": "3", "V": "3", "M": "3", "A": "4", "S": "4", "T": "4",
+        "R": "5", "K": "5", "Q": "5", "E": "5", "N": "5", "D": "5",
+        "H": "6", "G": "7"
+    },
+    "murphy_4": {
+        "F": "0", "Y": "0", "W": "0", "P": "1",
+        "C": "2", "L": "2", "I": "2", "V": "2", "M": "2",
+        "A": "3", "S": "3", "T": "3", "R": "3", "K": "3", "Q": "3",
+        "E": "3", "N": "3", "D": "3", "H": "3", "G": "3"
+    }
+}
 
 def parse_arguments():
     """Parse command-line arguments for transferring annotations
@@ -93,6 +121,9 @@ def parse_arguments():
     parser.add_argument("-d", "--domain-accession", help="Domain accession for scoped logging", required=True, type=str)
     parser.add_argument("-o", "--output-dir", required=True, type=str, help="Output dir path")
     parser.add_argument("-e", "--eco-codes", required=False, default=[], nargs="*", help="Space-separated ECO codes to filter annotations")
+    parser.add_argument("-a", "--alphabet", required=False, default="exact", type=str,
+                       choices=["exact", "murphy_16", "murphy_12", "murphy_8", "murphy_4"],
+                       help="Reduced alphabet to use for residue classification")
     parser.add_argument("-l", "--log", required=False, default="logs/transfer_annotations.log", type=str, help="Log path")
 
     args = parser.parse_args()
@@ -154,17 +185,67 @@ def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[st
 
     return hmmalign_lines, annotations
 
-### New Helper Functions
+### Helper Functions
+def get_residue_group(residue: str, alphabet: str) -> str:
+    """Get the group index for a residue in the specified alphabet.
+
+    Args:
+        residue: Single letter amino acid code
+        alphabet: Name of the reduced alphabet to use
+
+    Returns:
+        Group index as string or the residue itself if exact alphabet
+    """
+    if alphabet == "exact" or alphabet not in REDUCED_ALPHABETS:
+        return residue
+
+    alphabet_dict = REDUCED_ALPHABETS[alphabet]
+    if alphabet_dict is None:  # exact case
+        return residue
+
+    # O(1) lookup, fallbacks to residue
+    return alphabet_dict.get(residue.upper(), residue)
+
+def classify_residue_match(source_char: str, target_char: str, alphabet: str = "exact") -> str:
+    """Classify the match between two residues.
+
+    Args:
+        source_char: Source sequence residue
+        target_char: Target sequence residue
+        alphabet: Reduced alphabet to use for classification
+        If "exact", only exact matches are considered valid.
+        If "murphy_16", "murphy_12", "murphy_8", or "murphy_4",
+        residues are grouped according to the specified alphabet.
+
+    Returns:
+        "exact", "similar", or "miss"
+    """
+    if source_char == target_char:
+        return "exact"
+
+    if alphabet == "exact":
+        return "miss"
+
+    source_group = get_residue_group(source_char, alphabet)
+    target_group = get_residue_group(target_char, alphabet)
+
+    if source_group == target_group and source_group != source_char:  # Same group, not fallback ### What do you mean by source_group != source_char?
+        return "similar"
+
+    return "miss"
+
 def iterate_aligned_sequences(
     source_sequence: str,
     target_sequence: str,
     source_start: int,
     target_start: int,
     source_end: int,
-    target_end: int
-) -> Generator[Tuple[int, Optional[int], Optional[int], str, str], None, None]:
+    target_end: int,
+    alphabet: str = "exact"
+) -> Generator[Tuple[int, Optional[int], Optional[int], str, str, Optional[str]], None, None]:
     """
-    Yields index, current positions (source_pos, target_pos), and characters (source_char, target_char).
+    Yields index, current positions (source_pos, target_pos),
+    characters (source_char, target_char) and match classification.
     Positions are incremented only when the respective character is alphabetic.
     For target sequence, positions are None when encountering deletion relative to consensus ('-') or insertion gap markers ('.').
 
@@ -175,9 +256,11 @@ def iterate_aligned_sequences(
         target_start: Start position of the target sequence (UniProt)
         source_end: End position of the source sequence (UniProt)
         target_end: End position of the target sequence (UniProt)
+        alphabet: Reduced alphabet to use for residue classification
 
     Yields:
-        Tuple: (index, source_pos, target_pos, source_char, target_char)
+        Tuple: (index, source_pos, target_pos, source_char, target_char, match_type)
+        where match_type is "exact", "similar", "miss" or None for gaps/insertions.
     """
     source_pos = None
     target_pos = None
@@ -199,7 +282,12 @@ def iterate_aligned_sequences(
         else: # Deletion ("-") or Insertion (".") gap - set None
             target_pos = None
 
-        yield index, source_pos, target_pos, source_char, target_char
+        match_type = None
+        if (source_char.isalpha() and target_char.isalpha() and
+            not (source_char.islower() or target_char.islower())):
+            match_type = classify_residue_match(source_char, target_char, alphabet)
+
+        yield index, source_pos, target_pos, source_char, target_char, match_type
 
         if (source_pos is not None and source_pos == source_end) or (last_valid_target_pos is not None and last_valid_target_pos == target_end):
             break
@@ -280,7 +368,7 @@ def setup_for_conservations_only(logger: logging.Logger, multi_logger: Callable,
                     "annotations": {},
                     "conservations": {
                         "positions": {},
-                        "indices": {"matches": set(), "misses": set()}
+                        "indices": {"exact": set(), "similar": set(), "miss": set()}
                     },
                     "position_conversion": {
                         "target_to_aln": {},
@@ -300,7 +388,8 @@ def find_and_map_annots(
     multi_logger: Callable,
     hmmalign_lines: list,
     annotations: dict,
-    good_eco_codes: list) -> dict:
+    good_eco_codes: list,
+    alphabet: str = "exact") -> dict:
     """
     -> extract_target_info_from_hmmalign() = From the hmmalign alignment lines,
     finds target lines and stores data for them in target_info,
@@ -315,6 +404,7 @@ def find_and_map_annots(
         hmmalign_lines: List of lines from the hmmalign alignment file
         annotations: Loaded annotations JSON object
         good_eco_codes: List of ECO codes to filter annotations
+        alphabet: Reduced alphabet to use for classification
 
     Returns:
         dict: Transfer dictionary containing annotations for each sequence-domain pair.
@@ -358,7 +448,8 @@ def find_and_map_annots(
                                 entry_mnemo_name=entry_mnemo_name,
                                 entry_annotations=entry_annotations_copy,
                                 transfer_dict=transfer_dict,
-                                processed_annotations=processed_annotations
+                                processed_annotations=processed_annotations,
+                                alphabet=alphabet
                             )
                             logger.debug(f"TRANSFER_ANNOTS --- FIND_AND_MAP --- Mapped, filtered and possibly added to transfer_dict: target {target_name} and annotated {entry_mnemo_name} at target hit interval {target_hit_interval}")
     return transfer_dict
@@ -593,6 +684,7 @@ def populate_conservation(
     conservation_start: int,
     conservation_end: int,
     logger: Optional[logging.Logger] = None,
+    alphabet: str = "exact"
 ) -> None:
     """Updates transfer_dict with conservation scores.
 
@@ -614,6 +706,7 @@ def populate_conservation(
         conservation_start: Start position in conservation reference sequence
         conservation_end: End position in conservation reference sequence
         logger: Logger object for info and debug messages
+        alphabet: Reduced alphabet to use for classification
     """
     ranges_dict_key = "conservation_ranges"
     range_id = "conserved_positions"
@@ -621,14 +714,15 @@ def populate_conservation(
     interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
     conservations_dict = interval_data["conservations"]
 
-    for index, counter_cons_pos, counter_target_pos, char_cons, char_target in iterate_aligned_sequences(
+    for index, counter_cons_pos, counter_target_pos, char_cons, char_target, match_type in iterate_aligned_sequences(
         source_sequence=conservation_seq,
         target_sequence=target_seq,
         source_start=conservation_start,
         target_start=target_hit_start,
         source_end=conservation_end,
-        target_end=target_hit_end
-    ):
+        target_end=target_hit_end,
+        alphabet=alphabet):
+
         if counter_target_pos is None or counter_cons_pos is None:
             continue
 
@@ -645,24 +739,23 @@ def populate_conservation(
             conserved_amino = conserved_data["amino_acid"]
             score_data = conserved_data["conservation"]
 
-            is_match = (char_target == conserved_amino and char_target not in '.-' and conserved_amino not in '.-')
-            cons_type = "matches" if is_match else "misses"
-
             # Add to conservation_ranges-conserved_positions
             update_position_ranges(
                 interval_data, counter_target_pos_str,
                 ranges_dict_key, range_id
             )
 
+            match_type_clean = match_type if match_type else "miss"
+
             counter_target_pos_info = {
                 "conservation": score_data,
                 "cons_residue": conserved_amino,
                 "target_residue": char_target,
-                "hit": is_match
+                "hit_status": match_type_clean
             }
 
             conservations_dict["positions"][counter_target_pos_str] = counter_target_pos_info
-            conservations_dict["indices"][cons_type].add(counter_target_pos_str)
+            conservations_dict["indices"][match_type_clean].add(counter_target_pos_str)
             # Add position conversion info
             interval_data["position_conversion"]["target_to_aln"][counter_target_pos_str] = index_str
             aln_dict = interval_data["position_conversion"]["aln_to_target"]
@@ -1032,7 +1125,8 @@ def cleanup_improve_transfer_dict(
     annotations_filepath: str,
     output_dir: str,
     resource_dir: str,
-    pfam_interpro_map_filepath: str
+    pfam_interpro_map_filepath: str,
+    alphabet: str = "exact"
 ) -> dict:
     """Main function for enhancing transfer dictionary with conservation and GO data.
 
@@ -1051,6 +1145,7 @@ def cleanup_improve_transfer_dict(
         output_dir: Directory for output files
         resource_dir: Directory for resource intermediate files
         pfam_interpro_map_filepath: Path to interpro_pfam_accession_mapping.tsv
+        alphabet: Reduced alphabet to use for classification
 
     Returns:
         dict: Enhanced transfer dictionary with format:
@@ -1282,7 +1377,8 @@ def map_and_filter_annot_pos(
     processed_annotations: set = None,
     paired_annot_pos_str: str = None,
     caller_target_pos_str: str = None,
-    paired_annotation_dict: Optional[Dict[str, Any]] = None) -> Optional[tuple[bool, dict]]:
+    paired_annotation_dict: Optional[Dict[str, Any]] = None,
+    alphabet: str = "exact") -> Optional[tuple[bool, dict]]:
     """Routes annotation position mapping between target and source/annotated sequences.
 
     Core routing function in annotation transfer pipeline. Handles two cases:
@@ -1301,9 +1397,10 @@ def map_and_filter_annot_pos(
         processed_*: Set of handled annotations
         paired_*: Optional paired annotation data
         caller_target_pos_str: First position of pair in target
+        alphabet: Reduced alphabet to use for classification
 
     Returns:
-        For paired positions: (match_status, annotation_dict)
+        For paired positions: (paired_match_type, annotation_dict)
         For single positions: None
     """
     counter_annot_pos = None
@@ -1327,7 +1424,8 @@ def map_and_filter_annot_pos(
             counter_annot_pos=counter_annot_pos,
             paired_annot_pos_str=paired_annot_pos_str,
             caller_target_pos_str=caller_target_pos_str,
-            processed_annotations=processed_annotations
+            processed_annotations=processed_annotations,
+            alphabet=alphabet
         )
         return paired_tuple_res_hit_result_dict
     try:
@@ -1347,7 +1445,8 @@ def map_and_filter_annot_pos(
             transfer_dict=transfer_dict,
             processed_annotations=processed_annotations,
             counter_target_pos=counter_target_pos,
-            counter_annot_pos=counter_annot_pos
+            counter_annot_pos=counter_annot_pos,
+            alphabet=alphabet
         )
         return None
     except Exception as e:
@@ -1356,7 +1455,7 @@ def map_and_filter_annot_pos(
         raise
 
 def add_to_transfer_dict(
-    hit: bool,
+    match_type: Optional[str],
     multi_logger: Callable,
     transfer_dict: dict,
     target_name: str,
@@ -1367,7 +1466,7 @@ def add_to_transfer_dict(
     anno_total: dict,
     entry_mnemo_name: str,
     entry_primary_accession: str,
-    paired_position_res_hit: Optional[bool] = None,
+    paired_match_type: Optional[bool] = None,
     paired_anno_id: Optional[str] = "",
     paired_anno_total: Optional[dict] = None) -> None:
     """
@@ -1380,7 +1479,7 @@ def add_to_transfer_dict(
     - _merge_adjacent_ranges: Combines overlapping ranges for storage
 
     Args:
-        hit: Whether position matches between target/annotation
+        match_type: The residue match type ("exact", "similar", "miss" or None)
         multi_logger: Callable for logging to multiple loggers - use for warning+ level
         transfer_dict: Output dictionary being built
         target_*: Target sequence information
@@ -1429,8 +1528,8 @@ def add_to_transfer_dict(
             "length": len(target_sequence_continuous),
             "hit_start": target_hit_start,
             "hit_end": target_hit_end,
-            "annotations": {"positions": {}, "indices": {"matches": {}, "misses": {}}},
-            "conservations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
+            "annotations": {"positions": {}, "indices": {"exact": {}, "similar": {}, "miss": {}}},
+            "conservations": {"positions": {}, "indices": {"exact": set(), "similar": set(), "miss": set()}},
             "position_conversion": {
                 "target_to_aln": {},
                 "aln_to_target": {}
@@ -1441,7 +1540,7 @@ def add_to_transfer_dict(
 
     # Process main annotation
     _add_single_annotation(
-        hit=hit,
+        match_type=match_type,
         transfer_dict=transfer_dict,
         target_name=target_name,
         interval_key=interval_key,
@@ -1457,7 +1556,7 @@ def add_to_transfer_dict(
         paired_additional_keys = extract_additional_keys(paired_anno_total, multi_logger)
 
         _add_single_annotation(
-            hit=paired_position_res_hit,
+            match_type=paired_match_type,
             transfer_dict=transfer_dict,
             target_name=target_name,
             interval_key=interval_key,
@@ -1469,7 +1568,7 @@ def add_to_transfer_dict(
         )
 
 def _add_single_annotation(
-    hit: bool,
+    match_type: Optional[str],
     transfer_dict: dict,
     target_name: str,
     interval_key: str,
@@ -1499,6 +1598,10 @@ def _add_single_annotation(
     annot_residue = anno_total.get("annot_residue", None)
     target_residue = anno_total.get("target_residue", None)
 
+    # Determine if this is a hit (exact or similar) or a miss
+    is_hit = match_type in ["exact", "similar"]
+    match_category = match_type if match_type in ["exact", "similar", "miss"] else "miss"
+
     # Moved out of the conditional below, because we'll track anno_id in annotations-indices-index_type
     # across the multiple annotations a single position may have.
     interval_dict = transfer_dict["DOMAIN"]["sequence_id"][target_name]["hit_intervals"][interval_key]
@@ -1513,50 +1616,48 @@ def _add_single_annotation(
     existing_entry = positions_dict.get(anno_id, None)
     existing_hit = existing_entry.get("hit") if existing_entry else None
 
-    # Handle index tracking first
-    index_type = "matches" if hit else "misses"
-    opposite_index = "misses" if hit else "matches"
-
     # Clean any existing 'misses' index entries if we're adding as hit
-    if hit and existing_entry and not existing_hit:
-        if target_position_str in interval_dict["annotations"]["indices"][opposite_index]:
-            if anno_id in interval_dict["annotations"]["indices"][opposite_index][target_position_str]:
-                interval_dict["annotations"]["indices"][opposite_index][target_position_str].remove(anno_id)
-                if not interval_dict["annotations"]["indices"][opposite_index][target_position_str]:
-                    del interval_dict["annotations"]["indices"][opposite_index][target_position_str]
+    if is_hit and existing_entry and not existing_hit:
+        if target_position_str in interval_dict["annotations"]["indices"]["miss"]:
+            if anno_id in interval_dict["annotations"]["indices"]["miss"][target_position_str]:
+                interval_dict["annotations"]["indices"]["miss"][target_position_str].remove(anno_id)
+                if not interval_dict["annotations"]["indices"]["miss"][target_position_str]:
+                    del interval_dict["annotations"]["indices"]["miss"][target_position_str]
 
-    # Skip processing if we were adding as miss but match exists
-    if not hit and existing_hit:
+    # Skip processing if we're trying to add a miss but a hit already exists
+    if not is_hit and existing_hit:
         return
 
     # Essentials initialization/update
-    if not existing_entry or (hit and not existing_hit):
+    if not existing_entry or (is_hit and not existing_hit):
         positions_dict[anno_id] = {
             "essentials": {
                 "type": type_value,
                 "description": description_value or "",
                 "count": count_value,
                 "annot_residue": annot_residue,
-                "target_residue": target_residue
+                "target_residue": target_residue,
+                "match_type": match_category
             },
-            "hit": hit
+            "hit": is_hit
         }
         positions_dict[anno_id].pop("evidence", None)
         positions_dict[anno_id].pop("paired_position", None)
         positions_dict[anno_id].pop("additional_keys", None)
     else:
         positions_dict[anno_id]["essentials"]["count"] += 1
-        if hit:  # Update residues for subsequent hits
+        if is_hit:  # Update residue and match_type for subsequent hits
             positions_dict[anno_id]["essentials"].update({
                 "annot_residue": annot_residue,
-                "target_residue": target_residue
+                "target_residue": target_residue,
+                "match_type": match_category
             })
 
     # Add to indices for the index_type
-    if hit or not existing_entry:
-        if target_position_str not in interval_dict["annotations"]["indices"][index_type]:
-            interval_dict["annotations"]["indices"][index_type][target_position_str] = set()
-        interval_dict["annotations"]["indices"][index_type][target_position_str].add(anno_id)
+    if is_hit or not existing_entry:
+        if target_position_str not in interval_dict["annotations"]["indices"][match_category]:
+            interval_dict["annotations"]["indices"][match_category][target_position_str] = set()
+        interval_dict["annotations"]["indices"][match_category][target_position_str].add(anno_id)
 
     update_position_ranges(
         interval_dict=interval_dict,
@@ -1567,11 +1668,11 @@ def _add_single_annotation(
 
     # Delimit when metadata should be added
     # For hits: Always accumulate
-    # For misses: Only if no match present
-    allow_metadata = hit or (not hit and not existing_hit)
+    # For misses: Only if no hit present
+    allow_metadata = is_hit or (not is_hit and not existing_hit)
     if allow_metadata:
         if evidence_value:
-            if hit or (not hit and not existing_hit):
+            if is_hit or (not is_hit and not existing_hit):
                 if "evidence" not in positions_dict[anno_id]:
                     positions_dict[anno_id].setdefault("evidence", {})
                 if evidence_value not in positions_dict[anno_id]["evidence"]:
@@ -1584,7 +1685,7 @@ def _add_single_annotation(
                     positions_dict[anno_id]["evidence"][evidence_value]["count"] += 1
 
         if "paired_target_position" in anno_total:
-            if hit or (not hit and not existing_hit):
+            if is_hit or (not is_hit and not existing_hit):
                 if "paired_position" not in positions_dict[anno_id]:
                     positions_dict[anno_id].setdefault("paired_position", {})
                 if paired_target_position_str not in positions_dict[anno_id]["paired_position"]:
@@ -1611,7 +1712,7 @@ def _add_single_annotation(
             additional_keys["annot_position"] = annot_position_str
 
         if additional_keys and type_value in ["BINDING", "ACT_SITE", "CROSSLNK", "DISULFID", "MUTAGEN"]:
-            if hit or (not hit and not existing_hit):
+            if is_hit or (not is_hit and not existing_hit):
                 if "additional_keys" not in positions_dict[anno_id]:
                     positions_dict[anno_id].setdefault("additional_keys", {})
                 for key, value in additional_keys.items():
@@ -1798,7 +1899,7 @@ def make_anno_total_dict(
 #@measure_time_and_memory
 #@profile
 def process_annotation(
-    res_hit: bool,
+    match_type: Optional[str],
     logger: logging.Logger,
     multi_logger: Callable,
     good_eco_codes: list,
@@ -1818,7 +1919,8 @@ def process_annotation(
     index: int,
     target_residue: str,
     processed_annotations: set,
-    annotation_key: tuple
+    annotation_key: tuple,
+    alphabet: str = "exact"
 ) -> None:
     """
     Directs annotations to preview if we should add them to transfer_dict by calling make_anno_total_dict()
@@ -1828,7 +1930,7 @@ def process_annotation(
     (map_and_filter_annot_pos() attempts to validate_paired_positions()).
 
     Args:
-        res_hit: Whether current position matches
+        match_type: The residue match type ("exact", "similar", "miss" or None)
         logger: Logger object for debug and info messages
         multi_logger: Callable for logging to multiple loggers - use for warning+ level
         good_eco_codes: Valid evidence codes
@@ -1841,6 +1943,7 @@ def process_annotation(
         counter_*: Position strings being processed
         index: Current position in alignment/column
         processed_annotations: Set of handled annotations
+        alphabet: Name of the reduced alphabet to use
     """
     result_dict = make_anno_total_dict(
         good_eco_codes=good_eco_codes,
@@ -1868,7 +1971,7 @@ def process_annotation(
                 (annotation for annotation in paired_annotations if annotation["type"] == anno_type), None
             )
             if paired_annotation_dict:
-                paired_position_res_hit, paired_result_dict = map_and_filter_annot_pos(
+                paired_match_type, paired_result_dict = map_and_filter_annot_pos(
                     logger=logger,
                     multi_logger=multi_logger,
                     good_eco_codes=good_eco_codes,
@@ -1885,7 +1988,8 @@ def process_annotation(
                     processed_annotations=processed_annotations,
                     paired_annot_pos_str=paired_annot_pos_str,
                     caller_target_pos_str=counter_target_pos_str,
-                    paired_annotation_dict=paired_annotation_dict
+                    paired_annotation_dict=paired_annotation_dict,
+                    alphabet=alphabet
                 )
                 if paired_result_dict.get("gapped_paired", False):
                     # Gapped paired position, will only add caller position
@@ -1913,20 +2017,20 @@ def process_annotation(
                     paired_anno_id = paired_result_dict["anno_id"]
                     paired_target_position_str = paired_anno_total.get("target_position", "0")
             else:
-                paired_position_res_hit = False
+                paired_match_type = None
                 paired_anno_total = None
                 paired_anno_id = None
                 paired_target_position_str = "0"
             anno_total["paired_target_position"] = paired_target_position_str
             logger.debug(
                 f"TRANSFER_ANNOTS --- PROCESS_ANNOT --- Paired Position Valid (Present in Entry Annotations) with "
-                f"target---caller_pos-hit_status-paired_pos-hit_status {target_name}---{counter_target_pos_str}-{res_hit}-"
-                f"{paired_target_position_str}-{paired_position_res_hit} and "
+                f"target---caller_pos-hit_status-paired_pos-hit_status {target_name}---{counter_target_pos_str}-{match_type}-"
+                f"{paired_target_position_str}-{paired_match_type} and "
                 f"annotated {entry_mnemo_name}"
             )
             try:
                 add_to_transfer_dict(
-                    hit=res_hit,
+                    match_type=match_type,
                     multi_logger=multi_logger,
                     transfer_dict=transfer_dict,
                     target_name=target_name,
@@ -1937,7 +2041,7 @@ def process_annotation(
                     anno_total=anno_total,
                     entry_mnemo_name=entry_mnemo_name,
                     entry_primary_accession=entry_primary_accession,
-                    paired_position_res_hit=paired_position_res_hit,
+                    paired_match_type=paired_match_type,
                     paired_anno_id=paired_anno_id,
                     paired_anno_total=paired_anno_total,
                 )
@@ -2002,7 +2106,7 @@ def process_annotation(
                 raise
         else:
             add_to_transfer_dict(
-                hit=res_hit,
+                match_type=match_type,
                 multi_logger=multi_logger,
                 transfer_dict=transfer_dict,
                 target_name=target_name,
@@ -2050,7 +2154,8 @@ def validate_paired_annotations(
     counter_annot_pos: Optional[None],
     paired_annot_pos_str: str,
     caller_target_pos_str: str,
-    processed_annotations: set
+    processed_annotations: set,
+    alphabet: str = "exact"
 ) -> tuple[bool, dict]:
     """
     Validates the 2nd member of a paired position by checking
@@ -2072,9 +2177,10 @@ def validate_paired_annotations(
         counter_*: Current positions in sequences
         caller_target_pos_str: ideally first position (or second if the former was a gap in target_sequence) of pair in target_sequence
         processed_annotations: Set of handled annotations
+        alphabet: Name of the reduced alphabet to use
 
     Returns:
-        tuple: (match_status, paired_result_dict)
+        tuple: (paired_match_type, paired_result_dict)
     """
     earlier_annotation_key_gapped = (
         entry_mnemo_name,
@@ -2102,14 +2208,13 @@ def validate_paired_annotations(
         "insert_column_paired": first_pos_in_insert_col,
         "paired_target_pos_unreachable": False
     }
-
-    paired_position_res_hit = False
+    paired_match_type = None
 
     # Paired pos. came earlier than caller, and paired was a gap in target_sequence
     # or located in an insert column - Sent to processed_annotations(),
     # and previously flagged in validate_annotations()
     if has_gap_in_first_pos or first_pos_in_insert_col:
-        return paired_position_res_hit, paired_result_dict
+        return paired_match_type, paired_result_dict
 
     paired_annot_pos_int = int(paired_annot_pos_str)
 
@@ -2121,25 +2226,26 @@ def validate_paired_annotations(
         f"and Paired Annot Position {paired_annot_pos_str}"
     )
 
-    for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
+    for index, counter_annot_pos, counter_target_pos, char_annot, char_target, paired_match_type in iterate_aligned_sequences(
         source_sequence=annot_sequence,
         target_sequence=target_sequence,
         source_start=offset_start,
         target_start=target_hit_start,
         source_end=offset_end,
-        target_end=target_hit_end
-        ):
+        target_end=target_hit_end,
+        alphabet=alphabet):
+
         if counter_annot_pos is None:
             continue
 
         if counter_annot_pos == paired_annot_pos_int:
             if char_annot.islower() or char_target.islower():
                 paired_result_dict["insert_column_paired"] = True
-                return paired_position_res_hit, paired_result_dict
+                return paired_match_type, paired_result_dict
 
         if counter_annot_pos == paired_annot_pos_int and counter_target_pos is None:
             paired_result_dict["gapped_paired"] = True
-            return paired_position_res_hit, paired_result_dict
+            return paired_match_type, paired_result_dict
 
         if counter_annot_pos == paired_annot_pos_int and counter_target_pos is not None:
             counter_target_pos_str = str(counter_target_pos)
@@ -2154,7 +2260,6 @@ def validate_paired_annotations(
             logger.debug(f"TRANSFER_ANNOTS --- VAL_PAIRED --- Annot Window: {annot_window} + Target Window: {target_window}")
 
             paired_target_residue = target_sequence[index]
-            paired_position_res_hit = bool(char_target == char_annot)
 
             paired_result_dict.update(make_anno_total_dict(
                 good_eco_codes=good_eco_codes,
@@ -2169,13 +2274,13 @@ def validate_paired_annotations(
                 caller_target_pos_str=caller_target_pos_str,
             ))
 
-            return paired_position_res_hit, paired_result_dict
+            return paired_match_type, paired_result_dict
 
         if counter_target_pos == target_hit_end or counter_annot_pos == offset_end:
             break
 
     paired_result_dict["paired_target_pos_unreachable"] = True
-    return paired_position_res_hit, paired_result_dict
+    return paired_match_type, paired_result_dict
 
 #@measure_time_and_memory
 #@profile
@@ -2195,7 +2300,8 @@ def validate_annotations(
     transfer_dict: dict,
     processed_annotations: set,
     counter_target_pos: None,
-    counter_annot_pos: None) -> None:
+    counter_annot_pos: None,
+    alphabet: str = "exact") -> None:
     """
     Iterate on both annotated and target sequences to find columns where the annotated sequence has annotations. See if the residue at target sequence is the same as the one on the annotated sequence, storing the result in a boolean "res_hit".
     Regardless of hit, send to process_annotation, granted that processed_annotations does not contain the annotation key (entry_mnemo_name, target_name, counter_annot_pos_str, counter_target_pos_str and anno_type), avoiding reprocessing.
@@ -2212,6 +2318,7 @@ def validate_annotations(
         transfer_dict: Output dictionary for storing results
         processed_annotations: Set of already handled annotations
         counter_*: Current position counters (target, annot)
+        alphabet: Reduced alphabet to use for classification
     """
     annotated_annot_pos_list = [int(key) for key in entry_annotations.keys() if key != "0"]
     if not any(pos in range(offset_start, offset_end + 1) for pos in annotated_annot_pos_list):
@@ -2219,13 +2326,14 @@ def validate_annotations(
         return
     failure_target_pos = "0"
 
-    for index, counter_annot_pos, counter_target_pos, char_annot, char_target in iterate_aligned_sequences(
+    for index, counter_annot_pos, counter_target_pos, char_annot, char_target, match_type in iterate_aligned_sequences(
         source_sequence=annot_sequence,
         target_sequence=target_sequence,
         source_start=offset_start,
         target_start=target_hit_start,
         source_end=offset_end,
-        target_end=target_hit_end):
+        target_end=target_hit_end,
+        alphabet=alphabet):
 
         if counter_target_pos == target_hit_end and counter_annot_pos:
             # Check if there are any remaining paired annotations
@@ -2300,7 +2408,6 @@ def validate_annotations(
             logger.debug(f"TRANSFER_ANNOTS --- VAL_ANNOTS --- Annot Window: {annot_window} + Target Window: {target_window}")
 
             target_residue = target_sequence[index]
-            res_hit = bool(char_target == char_annot)
             for annotation_dict in entry_annotations[counter_annot_pos_str]:
                 anno_type = annotation_dict.get("type", None)
                 match_annotation_key = (
@@ -2315,7 +2422,7 @@ def validate_annotations(
                     continue
                 try:
                     process_annotation(
-                        res_hit=res_hit,
+                        match_type=match_type,
                         logger=logger,
                         multi_logger=multi_logger,
                         good_eco_codes=good_eco_codes,
@@ -2350,6 +2457,7 @@ def main():
     resource_dir = args.resource_dir
     output_dir = args.output_dir
     good_eco_codes = args.eco_codes
+    alphabet = args.alphabet
     pfam_interpro_map_filepath = os.path.join(resource_dir, "mappings/interpro_pfam_accession_mapping.tsv")
     main_logger, _ = get_logger(args.log, scope="main")
     domain_logger, _ = get_logger(args.log, scope="domain", identifier=args.domain_accession)
@@ -2368,7 +2476,7 @@ def main():
         else:
             # ANNOTATIONS + CONSERVATIONS PATH
             domain_logger.debug("TRANSFER_ANNOTS --- MAIN --- Anno. + Cons. mode - Good ECO Codes to Filter by %s", good_eco_codes)
-            transfer_dict = find_and_map_annots(domain_logger, multi_logger, hmmalign_lines, annotations, good_eco_codes)
+            transfer_dict = find_and_map_annots(domain_logger, multi_logger, hmmalign_lines, annotations, good_eco_codes, alphabet)
         if not transfer_dict:
             domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Transfer Dict was EMPTY")
         else:
