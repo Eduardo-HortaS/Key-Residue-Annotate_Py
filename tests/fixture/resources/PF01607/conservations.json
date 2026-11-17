@@ -1,0 +1,32 @@
+{
+    "Q9VW34_DROME/48-105": {
+        "48": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        },
+        "54": {
+            "conservation": 0.8105,
+            "amino_acid": "G"
+        },
+        "67": {
+            "conservation": 0.8919,
+            "amino_acid": "C"
+        },
+        "73": {
+            "conservation": 0.998,
+            "amino_acid": "C"
+        },
+        "83": {
+            "conservation": 0.9993,
+            "amino_acid": "C"
+        },
+        "96": {
+            "conservation": 0.9999,
+            "amino_acid": "C"
+        },
+        "105": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        }
+    }
+}

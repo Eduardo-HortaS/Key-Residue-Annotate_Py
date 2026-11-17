@@ -1,0 +1,132 @@
+{
+    "POLG_DEN1W/120-204": {
+        "120": {
+            "conservation": 1.0,
+            "amino_acid": "R"
+        },
+        "128": {
+            "conservation": 0.8,
+            "amino_acid": "V"
+        },
+        "134": {
+            "conservation": 1.0,
+            "amino_acid": "G"
+        },
+        "135": {
+            "conservation": 1.0,
+            "amino_acid": "K"
+        },
+        "139": {
+            "conservation": 1.0,
+            "amino_acid": "F"
+        },
+        "141": {
+            "conservation": 1.0,
+            "amino_acid": "T"
+        },
+        "142": {
+            "conservation": 0.8,
+            "amino_acid": "S"
+        },
+        "144": {
+            "conservation": 1.0,
+            "amino_acid": "G"
+        },
+        "148": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        },
+        "149": {
+            "conservation": 0.8,
+            "amino_acid": "T"
+        },
+        "159": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        },
+        "161": {
+            "conservation": 0.8,
+            "amino_acid": "D"
+        },
+        "163": {
+            "conservation": 1.0,
+            "amino_acid": "M"
+        },
+        "165": {
+            "conservation": 1.0,
+            "amino_acid": "Y"
+        },
+        "167": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        },
+        "168": {
+            "conservation": 1.0,
+            "amino_acid": "P"
+        },
+        "174": {
+            "conservation": 1.0,
+            "amino_acid": "E"
+        },
+        "175": {
+            "conservation": 1.0,
+            "amino_acid": "P"
+        },
+        "176": {
+            "conservation": 1.0,
+            "amino_acid": "D"
+        },
+        "177": {
+            "conservation": 1.0,
+            "amino_acid": "D"
+        },
+        "179": {
+            "conservation": 1.0,
+            "amino_acid": "D"
+        },
+        "180": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        },
+        "181": {
+            "conservation": 1.0,
+            "amino_acid": "W"
+        },
+        "182": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        },
+        "186": {
+            "conservation": 0.8,
+            "amino_acid": "E"
+        },
+        "189": {
+            "conservation": 1.0,
+            "amino_acid": "V"
+        },
+        "191": {
+            "conservation": 1.0,
+            "amino_acid": "Y"
+        },
+        "192": {
+            "conservation": 1.0,
+            "amino_acid": "G"
+        },
+        "194": {
+            "conservation": 1.0,
+            "amino_acid": "C"
+        },
+        "198": {
+            "conservation": 1.0,
+            "amino_acid": "G"
+        },
+        "201": {
+            "conservation": 1.0,
+            "amino_acid": "R"
+        },
+        "202": {
+            "conservation": 1.0,
+            "amino_acid": "R"
+        }
+    }
+}

@@ -1,0 +1,36 @@
+# STOCKHOLM 1.0
+#=GF ID   Flavi_propep
+#=GF AC   PF01570.22
+#=GF DE   Flavivirus polyprotein propeptide
+#=GF AU   Bashton M;0000-0002-6847-1525
+#=GF AU   Bateman A;0000-0002-6982-4660
+#=GF SE   Pfam-B_304 (release 4.1)
+#=GF GA   27.60 27.60;
+#=GF TC   30.00 88.60;
+#=GF NC   27.10 22.50;
+#=GF BM   hmmbuild HMM.ann SEED.ann
+#=GF SM   hmmsearch --cpu 4 -E 1000 -Z 81514348 HMM pfamseq
+#=GF TP   Family
+#=GF RN   [1]
+#=GF RM   2174669
+#=GF RT   Flavivirus genome organization, expression, and replication. 
+#=GF RA   Chambers TJ, Hahn CS, Galler R, Rice CM; 
+#=GF RL   Annu Rev Microbiol 1990;44:649-688.
+#=GF DR   INTERPRO; IPR002535;
+#=GF DR   SO; 0100021; polypeptide_conserved_region;
+#=GF CC   The flaviviruses are small enveloped animal viruses containing a
+#=GF CC   single positive strand genomic RNA [1].  The genome encodes one
+#=GF CC   large ORF a polyprotein which undergos proteolytic processing
+#=GF CC   into mature viral  peptide chains. This family consists of a
+#=GF CC   propeptide region of approximately 90 amino acid length.
+#=GF SQ   2
+#=GS POLG_DEN1W/120-204  AC P17763.2
+#=GS POLG_YEFV1/126-209  AC P03314.1
+#=GS POLG_YEFV1/126-209  DR PDB; 6EPK E; 505-580;
+#=GS POLG_YEFV1/126-209  DR PDB; 6EPK B; 505-580;
+POLG_DEN1W/120-204             RGGEPHMI.VSKQERGKSLLFKTSAGVNMCTLIAMDLGELCEDTMTYKCPRIT.ETEPDDVDCWCNATE.TWVTYGTCSQTGEHRRDK
+POLG_YEFV1/126-209             RKNRWLLLNVTSEDLGKTF....SVGTGNCTTNILEAKYWCPDSMEYNCPNLSPREEPDDIDCWCYGVENVRVAYGKCDSAGRSRRSR
+#=GR POLG_YEFV1/126-209  SS    EETTEEEEE--GGGTT-EE....EETTEEEEE--TT--EEEEEEEEEEE-EE-TT----S-SEEEES--SEEEEEEEE--XXXXXXXX
+#=GC SS_cons                   EETTEEEEE--GGGTT-EE....EETTEEEEE--TT--EEEEEEEEEEE-EE-TT----S-SEEEES--SEEEEEEEE--XXXXXXXX
+#=GC seq_cons                  Rtsc.hhl.Vopp-hGKoh....SsGss.CTh.hh-ht.hC.DoMpYpCPplo.cpEPDDlDCWC.usE.shVsYGpCspsGcpRRs+
+//

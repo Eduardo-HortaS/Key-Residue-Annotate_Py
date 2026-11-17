@@ -1,0 +1,7 @@
+tr|A7K940|A7K940_9PHYC	ed611553fd0ed5f5f21b1caf22ca9e6a	635	SMART	SM00494	chi_10	551	607	0.0093	T	16-04-2025	IPR002557	Chitin binding domain	GO:0005576(InterPro)|GO:0008061(InterPro)	-
+tr|A7K940|A7K940_9PHYC	ed611553fd0ed5f5f21b1caf22ca9e6a	635	Gene3D	G3DSA:3.20.20.80	Glycosidases	482	613	3.9E-9	T	16-04-2025	-	-	-	-
+tr|A7K940|A7K940_9PHYC	ed611553fd0ed5f5f21b1caf22ca9e6a	635	ProSiteProfiles	PS50940	Chitin-binding type-2 domain profile.	550	608	8.97861	T	16-04-2025	IPR002557	Chitin binding domain	GO:0005576(InterPro)|GO:0008061(InterPro)	-
+tr|A7K940|A7K940_9PHYC	ed611553fd0ed5f5f21b1caf22ca9e6a	635	SUPERFAMILY	SSF57625	Invertebrate chitin-binding proteins	547	603	6.8E-7	T	16-04-2025	IPR036508	Chitin binding domain superfamily	GO:0008061(InterPro)	-
+tr|A7K940|A7K940_9PHYC	ed611553fd0ed5f5f21b1caf22ca9e6a	635	Pfam	PF19202	Family of unknown function (DUF5874)	276	338	3.9E-10	T	16-04-2025	IPR043659	Exolysin-like, DUF5874	-	-
+tr|A7K940|A7K940_9PHYC	ed611553fd0ed5f5f21b1caf22ca9e6a	635	Pfam	PF01607	Chitin binding Peritrophin-A domain	564	603	0.056	T	16-04-2025	IPR002557	Chitin binding domain	GO:0005576(InterPro)|GO:0008061(InterPro)	-
+tr|A7K940|A7K940_9PHYC	ed611553fd0ed5f5f21b1caf22ca9e6a	635	SUPERFAMILY	SSF57184	Growth factor receptor domain	241	350	6.02E-9	T	16-04-2025	IPR009030	Growth factor receptor cysteine-rich domain superfamily	-	-

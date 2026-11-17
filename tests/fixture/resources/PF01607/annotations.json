@@ -1,0 +1,502 @@
+{
+    "CBD1_CAEEL": {
+        "327": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00498",
+                "entry": "O45599",
+                "aminoacid": "N"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0008061": "chitin binding"
+            },
+            "Biological Process": {
+                "GO:0030703": "eggshell formation",
+                "GO:1904778": "positive regulation of protein localization to cell cortex",
+                "GO:1903078": "positive regulation of protein localization to plasma membrane"
+            }
+        },
+        "348": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "335"
+            }
+        ],
+        "335": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "348"
+            }
+        ],
+        "721": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "734"
+            }
+        ],
+        "734": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "721"
+            }
+        ],
+        "827": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "814"
+            }
+        ],
+        "814": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "827"
+            }
+        ],
+        "929": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "916"
+            }
+        ],
+        "916": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "929"
+            }
+        ],
+        "1152": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "1139"
+            }
+        ],
+        "1139": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "1152"
+            }
+        ],
+        "1226": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "1213"
+            }
+        ],
+        "1213": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "1226"
+            }
+        ],
+        "1274": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "1287"
+            }
+        ],
+        "1287": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "O45599",
+                "aminoacid": "C",
+                "paired_position": "1274"
+            }
+        ]
+    },
+    "PE1_ANOGA": {
+        "63": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine",
+                "evidence": "ECO:0000255",
+                "entry": "O76217",
+                "aminoacid": "N"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0008061": "chitin binding"
+            }
+        }
+    },
+    "CPG2_CAEEL": {
+        "355": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine",
+                "evidence": "ECO:0000255",
+                "entry": "P41996",
+                "aminoacid": "N"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0008061": "chitin binding"
+            },
+            "Biological Process": {
+                "GO:0030703": "eggshell formation",
+                "GO:0009792": "embryo development ending in birth or egg hatching",
+                "GO:0000281": "mitotic cytokinesis",
+                "GO:0032465": "regulation of cytokinesis"
+            }
+        },
+        "497": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine",
+                "evidence": "ECO:0000255",
+                "entry": "P41996",
+                "aminoacid": "N"
+            }
+        ],
+        "67": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "54"
+            }
+        ],
+        "54": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "67"
+            }
+        ],
+        "168": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "181"
+            }
+        ],
+        "181": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "168"
+            }
+        ],
+        "290": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "277"
+            }
+        ],
+        "277": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "290"
+            }
+        ],
+        "337": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "350"
+            }
+        ],
+        "350": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "337"
+            }
+        ],
+        "432": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "445"
+            }
+        ],
+        "445": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "432"
+            }
+        ],
+        "514": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "500"
+            }
+        ],
+        "500": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "P41996",
+                "aminoacid": "C",
+                "paired_position": "514"
+            }
+        ]
+    },
+    "CHIT_CAEEL": {
+        "524": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q11174",
+                "aminoacid": "C",
+                "paired_position": "511"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0008061": "chitin binding",
+                "GO:0004568": "chitinase activity",
+                "GO:0008843": "endochitinase activity"
+            },
+            "Biological Process": {
+                "GO:0036500": "ATF6-mediated unfolded protein response",
+                "GO:0006032": "chitin catabolic process",
+                "GO:0000272": "polysaccharide catabolic process",
+                "GO:0009620": "response to fungus"
+            }
+        },
+        "511": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q11174",
+                "aminoacid": "C",
+                "paired_position": "524"
+            }
+        ],
+        "594": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q11174",
+                "aminoacid": "C",
+                "paired_position": "607"
+            }
+        ],
+        "607": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q11174",
+                "aminoacid": "C",
+                "paired_position": "594"
+            }
+        ]
+    },
+    "CPG1_CAEEL": {
+        "104": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q17802",
+                "aminoacid": "C",
+                "paired_position": "91"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0008061": "chitin binding"
+            },
+            "Biological Process": {
+                "GO:0030703": "eggshell formation",
+                "GO:0009792": "embryo development ending in birth or egg hatching",
+                "GO:0000281": "mitotic cytokinesis",
+                "GO:0032465": "regulation of cytokinesis"
+            }
+        },
+        "91": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q17802",
+                "aminoacid": "C",
+                "paired_position": "104"
+            }
+        ],
+        "257": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q17802",
+                "aminoacid": "C",
+                "paired_position": "244"
+            }
+        ],
+        "244": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q17802",
+                "aminoacid": "C",
+                "paired_position": "257"
+            }
+        ],
+        "554": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q17802",
+                "aminoacid": "C",
+                "paired_position": "567"
+            }
+        ],
+        "567": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q17802",
+                "aminoacid": "C",
+                "paired_position": "554"
+            }
+        ]
+    },
+    "OBSTE_DROME": {
+        "70": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q9VMM6",
+                "aminoacid": "C",
+                "paired_position": "54"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0008061": "chitin binding",
+                "GO:0005214": "structural constituent of chitin-based cuticle",
+                "GO:0008010": "structural constituent of chitin-based larval cuticle",
+                "GO:0008011": "structural constituent of pupal chitin-based cuticle"
+            },
+            "Biological Process": {
+                "GO:0040003": "chitin-based cuticle development"
+            }
+        },
+        "54": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q9VMM6",
+                "aminoacid": "C",
+                "paired_position": "70"
+            }
+        ]
+    },
+    "CHI10_DROME": {
+        "840": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q9W5U2",
+                "aminoacid": "C",
+                "paired_position": "827"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0008061": "chitin binding",
+                "GO:0004568": "chitinase activity",
+                "GO:0008843": "endochitinase activity"
+            },
+            "Biological Process": {
+                "GO:0006032": "chitin catabolic process",
+                "GO:0000272": "polysaccharide catabolic process"
+            }
+        },
+        "827": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q9W5U2",
+                "aminoacid": "C",
+                "paired_position": "840"
+            }
+        ],
+        "897": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q9W5U2",
+                "aminoacid": "C",
+                "paired_position": "910"
+            }
+        ],
+        "910": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00144",
+                "entry": "Q9W5U2",
+                "aminoacid": "C",
+                "paired_position": "897"
+            }
+        ]
+    }
+}

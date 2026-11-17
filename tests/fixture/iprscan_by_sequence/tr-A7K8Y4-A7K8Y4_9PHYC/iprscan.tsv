@@ -1,0 +1,10 @@
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	Pfam	PF00967	Barwin family	205	309	1.0E-17	T	16-04-2025	IPR001153	Barwin domain	GO:0042742(InterPro)|GO:0050832(InterPro)	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	ProSiteProfiles	PS51174	Barwin domain profile.	202	312	14.332603	T	16-04-2025	IPR001153	Barwin domain	GO:0042742(InterPro)|GO:0050832(InterPro)	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	Pfam	PF01607	Chitin binding Peritrophin-A domain	126	158	2.3E-5	T	16-04-2025	IPR002557	Chitin binding domain	GO:0005576(InterPro)|GO:0008061(InterPro)	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	Gene3D	G3DSA:2.170.140.10	Chitin binding domain	120	173	1.4E-9	T	16-04-2025	-	-	-	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	SUPERFAMILY	SSF50685	Barwin-like endoglucanases	206	309	3.4E-16	T	16-04-2025	IPR036908	RlpA-like domain superfamily	-	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	Gene3D	G3DSA:2.40.40.10	-	204	311	5.5E-30	T	16-04-2025	IPR036908	RlpA-like domain superfamily	-	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	ProSiteProfiles	PS50940	Chitin-binding type-2 domain profile.	111	163	8.458546	T	16-04-2025	IPR002557	Chitin binding domain	GO:0005576(InterPro)|GO:0008061(InterPro)	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	SUPERFAMILY	SSF57625	Invertebrate chitin-binding proteins	126	157	3.14E-9	T	16-04-2025	IPR036508	Chitin binding domain superfamily	GO:0008061(InterPro)	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	PANTHER	PTHR46351	WOUND-INDUCED PROTEIN WIN2	204	308	4.5E-14	T	16-04-2025	IPR044301	Pathogenesis-related protein-4	GO:0004540(InterPro)|GO:0006952(InterPro)	-
+tr|A7K8Y4|A7K8Y4_9PHYC	aca1c542f7122afdfd6c3bbb3ea1bd71	312	SMART	SM00494	chi_10	112	160	1.1E-6	T	16-04-2025	IPR002557	Chitin binding domain	GO:0005576(InterPro)|GO:0008061(InterPro)	-

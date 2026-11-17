@@ -1,0 +1,36 @@
+{
+    "VF019_IIV6/3-91": {
+        "7": {
+            "conservation": 0.9977,
+            "amino_acid": "Y"
+        },
+        "18": {
+            "conservation": 0.9956,
+            "amino_acid": "Y"
+        },
+        "20": {
+            "conservation": 0.9987,
+            "amino_acid": "G"
+        },
+        "29": {
+            "conservation": 0.9889,
+            "amino_acid": "R"
+        },
+        "71": {
+            "conservation": 0.8038,
+            "amino_acid": "A"
+        },
+        "77": {
+            "conservation": 0.9993,
+            "amino_acid": "E"
+        },
+        "90": {
+            "conservation": 0.8547,
+            "amino_acid": "Y"
+        },
+        "91": {
+            "conservation": 0.9844,
+            "amino_acid": "N"
+        }
+    }
+}

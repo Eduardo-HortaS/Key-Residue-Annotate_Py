@@ -1,0 +1,20 @@
+{
+    "G8NRA6_GRAMM/165-201": {
+        "165": {
+            "conservation": 0.9688,
+            "amino_acid": "G"
+        },
+        "177": {
+            "conservation": 0.8134,
+            "amino_acid": "S"
+        },
+        "182": {
+            "conservation": 0.9705,
+            "amino_acid": "G"
+        },
+        "189": {
+            "conservation": 0.9434,
+            "amino_acid": "G"
+        }
+    }
+}
