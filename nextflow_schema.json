@@ -1,0 +1,209 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/nf-core/kra/master/nextflow_schema.json",
+    "title": "nf-core/kra pipeline parameters",
+    "description": "Key Residue Annotate - Genomic-scale protein function annotation using Pfam domains",
+    "type": "object",
+    "definitions": {
+        "input_output_options": {
+            "title": "Input/output options",
+            "type": "object",
+            "fa_icon": "fas fa-terminal",
+            "description": "Define where the pipeline should find input data and save output data.",
+            "required": ["fasta", "hmm", "resources", "outdir"],
+            "properties": {
+                "fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/plain",
+                    "pattern": "^\\S+\\.fa(sta)?(\\.gz)?$",
+                    "description": "Path to input FASTA file containing protein sequences.",
+                    "fa_icon": "fas fa-file-code"
+                },
+                "hmm": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to Pfam-A HMM database file.",
+                    "fa_icon": "fas fa-database"
+                },
+                "resources": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Path to KRA resources directory containing domain annotations and conservations.",
+                    "fa_icon": "fas fa-folder"
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "The output directory where the results will be saved.",
+                    "default": "./results",
+                    "fa_icon": "fas fa-folder-open"
+                }
+            }
+        },
+        "interproscan_options": {
+            "title": "InterProScan options",
+            "type": "object",
+            "fa_icon": "fas fa-search",
+            "description": "Options for InterProScan execution.",
+            "properties": {
+                "iprscan_path": {
+                    "type": "string",
+                    "description": "Path to local InterProScan executable (interproscan.sh).",
+                    "fa_icon": "fas fa-terminal"
+                },
+                "iprscan_analyses": {
+                    "type": "string",
+                    "default": "panther,pfam,smart,gene3d,superfamily,prositepatterns,prositeprofiles,pirsf",
+                    "description": "Comma-separated list of InterProScan analyses to run.",
+                    "fa_icon": "fas fa-list"
+                },
+                "iprscan_output_format": {
+                    "type": "string",
+                    "default": "TSV",
+                    "enum": ["TSV", "JSON", "XML", "GFF3"],
+                    "description": "Output format for InterProScan results.",
+                    "fa_icon": "fas fa-file-alt"
+                },
+                "iprscan_enable_precalc": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable InterProScan pre-calculated match lookup.",
+                    "fa_icon": "fas fa-bolt"
+                },
+                "iprscan_disable_res": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Disable InterProScan residue annotations.",
+                    "fa_icon": "fas fa-ban"
+                },
+                "seq_batch_size": {
+                    "type": "integer",
+                    "default": 2000,
+                    "description": "Number of sequences per InterProScan batch.",
+                    "fa_icon": "fas fa-layer-group"
+                },
+                "iprscan_precomputed": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Directory of precomputed InterProScan results, one <sequence>/iprscan.tsv per sequence; used instead of running InterProScan.",
+                    "fa_icon": "fas fa-folder-open"
+                }
+            }
+        },
+        "resource_options": {
+            "title": "Resource options",
+            "type": "object",
+            "fa_icon": "fas fa-microchip",
+            "description": "Set resource allocation for the pipeline.",
+            "properties": {
+                "threads": {
+                    "type": "integer",
+                    "default": 11,
+                    "description": "Number of CPU threads for parallelization.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "total_memory": {
+                    "type": "integer",
+                    "default": 14,
+                    "description": "Total memory in GB for the pipeline.",
+                    "fa_icon": "fas fa-memory"
+                },
+                "cpu_cores_iprscan": {
+                    "type": "integer",
+                    "default": 11,
+                    "description": "CPU cores for InterProScan.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "max_cpus": {
+                    "type": "integer",
+                    "default": 16,
+                    "description": "Maximum number of CPUs.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "max_memory": {
+                    "type": "string",
+                    "default": "128.GB",
+                    "description": "Maximum amount of memory.",
+                    "fa_icon": "fas fa-memory"
+                },
+                "max_time": {
+                    "type": "string",
+                    "default": "240.h",
+                    "description": "Maximum amount of time.",
+                    "fa_icon": "far fa-clock"
+                }
+            }
+        },
+        "sequence_options": {
+            "title": "Sequence options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Options for input sequence handling.",
+            "properties": {
+                "nucleotide": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Input contains nucleotide sequences (will be translated).",
+                    "fa_icon": "fas fa-dna"
+                },
+                "eco_codes": {
+                    "type": "string",
+                    "default": "",
+                    "description": "ECO codes to filter annotations (space-separated).",
+                    "fa_icon": "fas fa-filter"
+                },
+                "bit_cutoffs": {
+                    "type": "string",
+                    "default": "gathering",
+                    "enum": ["gathering", "trusted", "noise"],
+                    "description": "Model-specific bit score thresholds used by hmmsearch.",
+                    "fa_icon": "fas fa-sliders-h"
+                },
+                "trim": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Trim nonhomologous residues in hmmalign.",
+                    "fa_icon": "fas fa-cut"
+                }
+            }
+        },
+        "generic_options": {
+            "title": "Generic options",
+            "type": "object",
+            "fa_icon": "fas fa-file-import",
+            "description": "Less common options for the pipeline.",
+            "properties": {
+                "publish_dir_mode": {
+                    "type": "string",
+                    "default": "copy",
+                    "enum": ["copy", "symlink", "rellink", "link", "copyNoFollow", "move"],
+                    "description": "Method used to save pipeline results to output directory.",
+                    "fa_icon": "fas fa-copy"
+                },
+                "help": {
+                    "type": "boolean",
+                    "description": "Display help text.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                },
+                "version": {
+                    "type": "boolean",
+                    "description": "Display version and exit.",
+                    "fa_icon": "fas fa-question-circle",
+                    "hidden": true
+                }
+            }
+        }
+    },
+    "allOf": [
+        { "$ref": "#/definitions/input_output_options" },
+        { "$ref": "#/definitions/interproscan_options" },
+        { "$ref": "#/definitions/resource_options" },
+        { "$ref": "#/definitions/sequence_options" },
+        { "$ref": "#/definitions/generic_options" }
+    ]
+}

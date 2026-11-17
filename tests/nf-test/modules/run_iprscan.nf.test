@@ -1,0 +1,86 @@
+nextflow_process {
+
+    name "Test Process RUN_IPRSCAN"
+    script "modules/local/run_iprscan.nf"
+    process "RUN_IPRSCAN"
+
+    test("Should produce InterProScan results in stub mode") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                // Create stub batch fasta file
+                def seqDir = file("${workDir}/sequence_fastas/tr-A7K9T9-A7K9T9_9PHYC")
+                seqDir.mkdirs()
+                seqDir.resolve("sequence.fasta").text = '>tr|A7K9T9|A7K9T9_9PHYC\\nMSEQVENCE\\n'
+
+                input[0] = [ 1, [ 'tr|A7K9T9|A7K9T9_9PHYC' ] ]
+                input[1] = file("${workDir}/sequence_fastas")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.iprscan_results
+            assert process.out.versions
+        }
+
+    }
+
+    test("Should create TSV output file") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                def seqDir = file("${workDir}/sequence_fastas/tr-A7K9T9-A7K9T9_9PHYC")
+                seqDir.mkdirs()
+                seqDir.resolve("sequence.fasta").text = '>tr|A7K9T9|A7K9T9_9PHYC\\nMSEQVENCE\\n'
+
+                input[0] = [ 1, [ 'tr|A7K9T9|A7K9T9_9PHYC' ] ]
+                input[1] = file("${workDir}/sequence_fastas")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            
+            // Check that a per-sequence TSV file is created
+            def resultsDir = process.out.iprscan_results.get(0)
+            assert file("${resultsDir}/tr-A7K9T9-A7K9T9_9PHYC/iprscan.tsv").exists()
+        }
+
+    }
+
+    test("Should handle batch with multiple sequences") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                ['SEQ1', 'SEQ2', 'SEQ3'].each { name ->
+                    def seqDir = file("${workDir}/sequence_fastas_multi/tr-" + name + "-" + name + "_MOCK")
+                    seqDir.mkdirs()
+                    seqDir.resolve("sequence.fasta").text = ">tr|" + name + "|" + name + "_MOCK\\nMSEQVENCE\\n"
+                }
+
+                input[0] = [ 1, [ 'tr|SEQ1|SEQ1_MOCK', 'tr|SEQ2|SEQ2_MOCK', 'tr|SEQ3|SEQ3_MOCK' ] ]
+                input[1] = file("${workDir}/sequence_fastas_multi")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.iprscan_results
+        }
+
+    }
+
+}

@@ -1,0 +1,30 @@
+nextflow_process {
+
+    name "Test Process HMMSEARCH"
+    script "modules/local/hmmsearch.nf"
+    process "HMMSEARCH"
+
+    test("Should produce hmmsearch output files in stub mode") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/assets/test_data/test_sequences.fasta")
+                input[1] = file("${projectDir}/assets/test_data/test.hmm")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.hmmsearch_per_domain_json
+            assert process.out.hmmsearch_sequences_json
+            assert process.out.hmmsearch_sequences_txt
+            assert process.out.versions
+        }
+
+    }
+
+}

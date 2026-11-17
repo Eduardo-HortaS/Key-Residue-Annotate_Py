@@ -1,0 +1,62 @@
+nextflow_process {
+
+    name "Test Process PREPARE_FASTA"
+    script "modules/local/prepare_fasta.nf"
+    process "PREPARE_FASTA"
+
+    test("Should create domain directories in stub mode") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/assets/test_data/test_hmmsearch_per_domain.json")
+                input[1] = file("${projectDir}/assets/test_data/test_sequences.fasta")
+                input[2] = file("${projectDir}/assets/test_data/resources")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.domain_dirs
+            assert process.out.versions
+            
+            // Check that at least one domain directory was created
+            with(process.out.domain_dirs) {
+                assert size() >= 1
+            }
+        }
+
+    }
+
+    test("Should produce domain_info.json and hits fasta in stub mode") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/assets/test_data/test_hmmsearch_per_domain.json")
+                input[1] = file("${projectDir}/assets/test_data/test_sequences.fasta")
+                input[2] = file("${projectDir}/assets/test_data/resources")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            
+            // Domain directories should contain expected files
+            def domainDir = process.out.domain_dirs.get(0)
+            assert file(domainDir).isDirectory()
+            
+            // Check for domain_info.json in the domain directory
+            def domainInfoFile = file("${domainDir}/domain_info.json")
+            assert domainInfoFile.exists()
+        }
+
+    }
+
+}

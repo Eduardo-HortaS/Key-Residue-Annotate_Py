@@ -1,0 +1,62 @@
+nextflow_process {
+
+    name "Test Process MERGE_REPORTS"
+    script "modules/local/merge_reports.nf"
+    process "MERGE_REPORTS"
+
+    test("Should create sequence directories with aggregated reports in stub mode") {
+
+        options "-stub"
+
+        setup {
+            run("PREPARE_FASTA", alias: "SETUP_PREPARE") {
+                script "modules/local/prepare_fasta.nf"
+                process {
+                    """
+                    input[0] = file("${projectDir}/assets/test_data/test_hmmsearch_per_domain.json")
+                    input[1] = file("${projectDir}/assets/test_data/test_sequences.fasta")
+                    input[2] = file("${projectDir}/assets/test_data/resources")
+                    """
+                }
+            }
+            run("HMMALIGN", alias: "SETUP_ALIGN") {
+                script "modules/local/hmmalign.nf"
+                process {
+                    """
+                    input[0] = SETUP_PREPARE.out.domain_dirs.flatten().first()
+                    input[1] = file("${projectDir}/assets/test_data/resources")
+                    """
+                }
+            }
+            run("TRANSFER_ANNOTATIONS", alias: "SETUP_TRANSFER") {
+                script "modules/local/transfer_annotations.nf"
+                process {
+                    """
+                    input[0] = SETUP_ALIGN.out.aligned_domains.flatten().first()
+                    input[1] = file("${projectDir}/assets/test_data/resources")
+                    input[2] = []
+                    """
+                }
+            }
+        }
+
+        when {
+            process {
+                """
+                input[0] = SETUP_TRANSFER.out.sequence_dirs.flatten().first()
+                input[1] = file("${projectDir}/assets/test_data/all_sequences.json")
+                input[2] = file("${projectDir}/assets/test_data/test_sequences.fasta")
+                input[3] = []
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.sequence_dirs
+            assert process.out.versions
+        }
+
+    }
+
+}

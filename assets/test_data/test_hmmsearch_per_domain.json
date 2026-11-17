@@ -1,0 +1,26 @@
+{
+    "PF00005": {
+        "tr|TEST001|TEST001_MOCK": [
+            {
+                "hmm_name": "ABC_tran",
+                "target_seq_name": "tr|TEST001|TEST001_MOCK",
+                "bitscore": 86.0,
+                "ali_from": 10,
+                "ali_to": 50,
+                "ali_range": "/10-50",
+                "subseq": "MSEQVENCETESTPROTEINSEQUENCEFORVALIDATING"
+            }
+        ],
+        "tr|TEST002|TEST002_MOCK": [
+            {
+                "hmm_name": "ABC_tran",
+                "target_seq_name": "tr|TEST002|TEST002_MOCK",
+                "bitscore": 72.5,
+                "ali_from": 5,
+                "ali_to": 45,
+                "ali_range": "/5-45",
+                "subseq": "MANOTHERSEQUENCETHATWEUSEDFORTESTING"
+            }
+        ]
+    }
+}
