@@ -4659,6 +4659,28 @@ def test_load_go_ontology_exception_handling(logger, multi_logger):
         assert result_godag is None
         assert result_obsolete is None
 
+def test_load_go_ontology_caches_across_calls(logger, multi_logger):
+    """Test that the GO DAG is built once per OBO file, however many targets need it"""
+    mock_term = MagicMock()
+    mock_term.item_id = "GO:0000001"
+    mock_term.is_obsolete = True
+    mock_godag = MagicMock()
+    mock_godag.values.return_value = [mock_term]
+
+    with TemporaryDirectory() as tmp_dir:
+        mappings_dir = os.path.join(tmp_dir, "mappings")
+        os.makedirs(mappings_dir, exist_ok=True)
+        with open(os.path.join(mappings_dir, "go-basic.obo"), "w", encoding="utf-8") as f:
+            f.write("format-version: 1.2\n")
+
+        with patch("transfer_annotations.GODag", return_value=mock_godag) as mock_godag_constructor:
+            godag_first, obsolete_first = load_go_ontology(tmp_dir, logger, multi_logger)
+            godag_second, obsolete_second = load_go_ontology(tmp_dir, logger, multi_logger)
+
+            mock_godag_constructor.assert_called_once()
+            assert godag_first is godag_second
+            assert obsolete_first == obsolete_second == {"GO:0000001"}
+
 ###T prepare_go_set
 
 def test_prepare_go_set_basic(logger):
@@ -5046,6 +5068,24 @@ def test_calculate_bma_similarity_basic_calculation(logger, multi_logger):
     # B→A: best matches are [0.3, 1.0, 0.5] (sum=1.8)
     # BMA = (1.7 + 1.8) / (3 + 3) = 3.5 / 6 = 0.5833...
     assert round(result, 4) == 0.5833
+
+def test_calculate_bma_similarity_no_log_per_term(logger, multi_logger):
+    """Test that no line is logged per GO term: on large families this reached ~184 million lines"""
+    mock_wang = MagicMock()
+    mock_wang.get_sim.return_value = 0.5
+
+    with patch("transfer_annotations.SsWang", return_value=mock_wang):
+        calculate_bma_similarity(
+            logger=logger,
+            multi_logger=multi_logger,
+            set_a={"GO:0004022", "GO:0008270", "GO:0016491"},
+            set_b={"GO:0005515", "GO:0008270", "GO:0046872"},
+            godag=MagicMock(),
+            namespace="MF"
+        )
+
+    logged_messages = [str(c.args[0]) for c in logger.debug.call_args_list if c.args]
+    assert not [m for m in logged_messages if "Best match" in m]
 
 def test_calculate_bma_similarity_single_items(logger, multi_logger):
     """Test BMA similarity with single-item sets."""

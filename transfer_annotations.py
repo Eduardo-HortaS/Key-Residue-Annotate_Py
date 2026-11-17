@@ -701,6 +701,9 @@ def populate_conservation(
         if missing:
             logger.debug("TRANSFER_ANNOTS --- POP_CONS --- Pfam ID: %s - Target Name: %s - Conserv-Rep Name: %s - Missing conserved positions: %s", pfam_id, target_name, conservation_key.split("/")[0], missing)
 
+# GO DAGs already built in this process, so the OBO file is parsed once per family rather than once per target
+_GO_ONTOLOGY_CACHE: dict = {}
+
 def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Callable) -> tuple[Optional[GODag], Optional[set]]:
     """Download GO ontology file (go-basic.obo), initialize GODag object from it
     and make a obsolete GO terms set for semantic similarity calculation.
@@ -717,6 +720,10 @@ def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Cal
     """
     try:
         obo_path = os.path.join(resource_dir, "mappings", "go-basic.obo")
+        cache_key = (obo_path, GODag)
+        if cache_key in _GO_ONTOLOGY_CACHE:
+            logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- Reusing cached GO DAG for %s", obo_path)
+            return _GO_ONTOLOGY_CACHE[cache_key]
 
         # Download if necessary
         if not os.path.isfile(obo_path):
@@ -752,6 +759,7 @@ def load_go_ontology(resource_dir: str, logger:logging.Logger, multi_logger: Cal
         goterms_obsolete = {o.item_id for o in godag.values() if o.is_obsolete}
 
         logger.info("TRANSFER_ANNOTS --- LOAD_GO_ONTOLOGY --- GO DAG loaded successfully")
+        _GO_ONTOLOGY_CACHE[cache_key] = (godag, goterms_obsolete)
         return godag, goterms_obsolete
 
     except Exception as e:
@@ -895,7 +903,6 @@ def calculate_bma_similarity(
             if similarities:
                 max_sim = max(similarities)
                 sims_a_to_b.append(max_sim)
-                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Best match for a term %s in set B: %f", term_a, max_sim)
 
         # B→A: for each term in B, find best match in A
         for term_b in set_b:
@@ -907,7 +914,6 @@ def calculate_bma_similarity(
             if similarities:
                 max_sim = max(similarities)
                 sims_b_to_a.append(max_sim)
-                logger.debug("TRANSFER_ANNOTS --- BMA_SIM --- Best match for b term %s in set A: %f", term_b, max_sim)
 
         # Calculate BMA
         avg_a_to_b = sum(sims_a_to_b)
