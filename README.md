@@ -98,3 +98,7 @@ aggregated_report.json: groups the same data as the files above, but for the who
 PF*_ranges.json: versions of the PF*_report.json files for consumption by Nightingale in a pending visualization step (as of 07/04/2025).
 
 iprscan.tsv: internally used, but may be consumed by downstream analyses. The same can be said of any other requested formats (JSON, XML, GFF3) from InterProScan.
+
+
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15858571.svg)](https://doi.org/10.5281/zenodo.15858571)
