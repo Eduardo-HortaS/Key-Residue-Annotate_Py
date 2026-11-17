@@ -1,0 +1,29 @@
+nextflow_process {
+
+    name "Test Process SEQ_BATCH_PREP"
+    script "modules/local/seq_batch_prep.nf"
+    process "SEQ_BATCH_PREP"
+
+    test("Should create batch files in stub mode") {
+
+        options "-stub"
+
+        when {
+            process {
+                """
+                input[0] = file("${projectDir}/assets/test_data/test_sequences.fasta")
+                input[1] = file("${projectDir}/assets/test_data/test_hmmsearch_sequences.json")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.all_sequences_json
+            assert process.out.batches
+            assert process.out.versions
+        }
+
+    }
+
+}

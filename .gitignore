@@ -1,46 +1,98 @@
-# Byte-compiled / optimized files
+# ==============================================================================
+# nf-core/kra .gitignore
+# ==============================================================================
+
+# --------------------------------
+# Nextflow runtime files
+# --------------------------------
+.nextflow/
+.nextflow.log*
+work/
+results/
+null/
+
+# nf-test files
+.nf-test/
+.nf-test.log
+
+# --------------------------------
+# Python
+# --------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
-dist/
-build/
-*.egg-info/
-*.egg
-
-# Virtual environments
+.venv/
 venv/
 env/
+*.egg-info/
+*.egg
+dist/
+build/
+.pytest_cache/
 
-# IDEs and editors
+# --------------------------------
+# IDE and Editors
+# --------------------------------
 .idea/
 .vscode/
 *.sublime-project
 *.sublime-workspace
+*.swp
+*.swo
+*~
 
-# Miscellaneous
-./temp/*
-*.swp
+# --------------------------------
+# OS files
+# --------------------------------
 .DS_Store
-*.txt
-*.swp
-*.log
-*.pkl
-*.seed
-*.json
-*.docx
-*.sh
+Thumbs.db
+
+# --------------------------------
+# Pipeline execution outputs (these should not be committed)
+# --------------------------------
+timeline*.html
+report*.html
+trace*.txt
+dag*.svg
+pipeline_dag*.svg
+
+# --------------------------------
+# Container images
+# --------------------------------
+*.sif
+*.img
+
+# --------------------------------
+# Project-specific files to ignore
+# --------------------------------
+# Old executor logs (not needed in version control)
+executor_version_*.log
+
+# Temporary files
+temp/
+
+# User-specific config files
+config_*.ini
+
+# Large result directories from case studies
+logs/
 results/
-work/
-.github
-.template
-config
-nextflow.config
-dags/
-*log*
-*test
-*config*ini
+
+# Debug/test logs from development
+log_*
+logando_*
+
+# Old/legacy files
+alignment_MarR_case_study.txt
+reported_domains.txt
+sequences_to_test.txt
+aggregated_report.json
+expected.json
+
+# Conda environment file (use environment.yml instead)
+conda_list_key_residue_annotate_env.txt
+
+# Local convenience scripts (user-specific)
+roda_todos_proteomas.sh
+

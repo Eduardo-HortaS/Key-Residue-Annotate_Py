@@ -1,0 +1,26 @@
+# Conda environment specification for nf-core/kra pipeline
+# This is a minimal environment file with core dependencies
+name: nf-core-kra
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.11
+  # Core bioinformatics
+  - hmmer=3.4
+  - biopython=1.83
+  # Data processing
+  - pandas=2.2.2
+  - numpy
+  # System utilities
+  - psutil=5.9.8
+  - joblib=1.4.2
+  # JSON/YAML processing
+  - pyyaml
+  # GO analysis
+  - goatools=1.2.3
+  # Pip dependencies
+  - pip
+  - pip:
+    - pyhmmer==0.10.12

@@ -1,0 +1,41 @@
+nextflow_process {
+
+    name "Test Process HMMALIGN"
+    script "modules/local/hmmalign.nf"
+    process "HMMALIGN"
+
+    test("Should produce alignment output in stub mode") {
+
+        options "-stub"
+
+        setup {
+            run("PREPARE_FASTA", alias: "SETUP_PREPARE_FASTA") {
+                script "modules/local/prepare_fasta.nf"
+                process {
+                    """
+                    input[0] = file("${projectDir}/assets/test_data/test_hmmsearch_per_domain.json")
+                    input[1] = file("${projectDir}/assets/test_data/test_sequences.fasta")
+                    input[2] = file("${projectDir}/assets/test_data/resources")
+                    """
+                }
+            }
+        }
+
+        when {
+            process {
+                """
+                input[0] = SETUP_PREPARE_FASTA.out.domain_dirs.flatten().first()
+                input[1] = file("${projectDir}/assets/test_data/resources")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.aligned_domains
+            assert process.out.versions
+        }
+
+    }
+
+}

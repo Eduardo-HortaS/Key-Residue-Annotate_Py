@@ -1,0 +1,222 @@
+nextflow_workflow {
+
+    name "Test Workflow KRA"
+    script "main.nf"
+    workflow "KRA"
+
+    test("Should run complete pipeline in stub mode") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+                skip_iprscan = true
+            }
+            workflow {
+                """
+                ch_fasta     = Channel.fromPath("${projectDir}/assets/test_data/test_sequences.fasta")
+                ch_hmm       = Channel.fromPath("${projectDir}/assets/test_data/test.hmm")
+                ch_resources = Channel.fromPath("${projectDir}/assets/test_data/resources")
+
+                input[0] = ch_fasta
+                input[1] = ch_hmm
+                input[2] = ch_resources
+                """
+            }
+        }
+
+        then {
+            // Workflow should complete successfully
+            assert workflow.success
+
+            // Check that expected outputs exist
+            assert workflow.out.versions
+            assert workflow.out.sequence_reports
+            assert workflow.out.domain_reports
+        }
+
+    }
+
+    test("Should skip InterProScan when skip_iprscan is true") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+                skip_iprscan = true
+            }
+            workflow {
+                """
+                ch_fasta     = Channel.fromPath("${projectDir}/assets/test_data/test_sequences.fasta")
+                ch_hmm       = Channel.fromPath("${projectDir}/assets/test_data/test.hmm")
+                ch_resources = Channel.fromPath("${projectDir}/assets/test_data/resources")
+
+                input[0] = ch_fasta
+                input[1] = ch_hmm
+                input[2] = ch_resources
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+    test("Should produce version information from all processes") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+                skip_iprscan = true
+            }
+            workflow {
+                """
+                ch_fasta     = Channel.fromPath("${projectDir}/assets/test_data/test_sequences.fasta")
+                ch_hmm       = Channel.fromPath("${projectDir}/assets/test_data/test.hmm")
+                ch_resources = Channel.fromPath("${projectDir}/assets/test_data/resources")
+
+                input[0] = ch_fasta
+                input[1] = ch_hmm
+                input[2] = ch_resources
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Versions channel should contain outputs from multiple processes
+            with(workflow.out.versions) {
+                assert size() >= 1
+            }
+        }
+
+    }
+
+    test("Should handle nucleotide sequences parameter") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+                skip_iprscan = true
+                nucleotide = true
+            }
+            workflow {
+                """
+                ch_fasta     = Channel.fromPath("${projectDir}/assets/test_data/test_sequences.fasta")
+                ch_hmm       = Channel.fromPath("${projectDir}/assets/test_data/test.hmm")
+                ch_resources = Channel.fromPath("${projectDir}/assets/test_data/resources")
+
+                input[0] = ch_fasta
+                input[1] = ch_hmm
+                input[2] = ch_resources
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+    test("Should produce sequence reports with expected structure") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+                skip_iprscan = true
+            }
+            workflow {
+                """
+                ch_fasta     = Channel.fromPath("${projectDir}/assets/test_data/test_sequences.fasta")
+                ch_hmm       = Channel.fromPath("${projectDir}/assets/test_data/test.hmm")
+                ch_resources = Channel.fromPath("${projectDir}/assets/test_data/resources")
+
+                input[0] = ch_fasta
+                input[1] = ch_hmm
+                input[2] = ch_resources
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            
+            // Sequence reports should be directories
+            with(workflow.out.sequence_reports) {
+                assert size() >= 1
+            }
+        }
+
+    }
+
+    test("Should handle custom batch size parameter") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+                skip_iprscan = true
+                seq_batch_size = 500
+            }
+            workflow {
+                """
+                ch_fasta     = Channel.fromPath("${projectDir}/assets/test_data/test_sequences.fasta")
+                ch_hmm       = Channel.fromPath("${projectDir}/assets/test_data/test.hmm")
+                ch_resources = Channel.fromPath("${projectDir}/assets/test_data/resources")
+
+                input[0] = ch_fasta
+                input[1] = ch_hmm
+                input[2] = ch_resources
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+    test("Should handle ECO codes parameter") {
+
+        options "-stub"
+
+        when {
+            params {
+                outdir = "$outputDir"
+                skip_iprscan = true
+                eco_codes = "ECO:0000255"
+            }
+            workflow {
+                """
+                ch_fasta     = Channel.fromPath("${projectDir}/assets/test_data/test_sequences.fasta")
+                ch_hmm       = Channel.fromPath("${projectDir}/assets/test_data/test.hmm")
+                ch_resources = Channel.fromPath("${projectDir}/assets/test_data/resources")
+
+                input[0] = ch_fasta
+                input[1] = ch_hmm
+                input[2] = ch_resources
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+}
