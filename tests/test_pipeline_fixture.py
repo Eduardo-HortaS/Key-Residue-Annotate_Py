@@ -216,6 +216,46 @@ def test_executor_fixture_reports(executor_output_dir):
         assert os.path.isfile(os.path.join(sequence_dir, "aggregated_report.json")), sequence
 
 
+def test_executor_fixture_no_self_annotation(executor_output_dir):
+    """No annotation reaches a target from the target itself.
+
+    POLG_ZIKV is both a target and a seed donor of PF20907: of its 41 annotations there,
+    40 came from itself before the guard compared the target header with the donor mnemonic.
+    """
+    for sequence, domains in expected_hits_per_sequence.items():
+        mnemonic = sequence.split("|")[-1]
+        sequence_dir = os.path.join(executor_output_dir, sequence.replace("|", "-"))
+        for domain in domains:
+            with open(os.path.join(sequence_dir, f"{domain}_report.json"), encoding="utf-8") as f:
+                report = json.load(f)
+            for interval in report["domain"][domain]["hit_intervals"].values():
+                for entries in ((interval.get("annotations") or {}).get("positions") or {}).values():
+                    for anno_id, entry in entries.items():
+                        donors = {e.get("rep_mnemo_name") for e in (entry.get("evidence") or {}).values()}
+                        assert mnemonic not in donors, (sequence, domain, anno_id)
+
+
+def test_executor_fixture_annotation_counts(executor_output_dir):
+    """Number of annotations per report"""
+    expected_counts = {
+        "sp|Q32ZE1|POLG_ZIKV": {"PF01570": 8, "PF20907": 1},
+        "tr|A7K8Y4|A7K8Y4_9PHYC": {"PF01607": 5},
+        "tr|A7K940|A7K940_9PHYC": {"PF01607": 5},
+        "tr|A7K9F8|A7K9F8_9PHYC": {"PF01541": 0, "PF07460": 0},
+    }
+    counts = {}
+    for sequence, domains in expected_hits_per_sequence.items():
+        for domain in domains:
+            path = os.path.join(executor_output_dir, sequence.replace("|", "-"), f"{domain}_report.json")
+            with open(path, encoding="utf-8") as f:
+                intervals = json.load(f)["domain"][domain]["hit_intervals"].values()
+            counts.setdefault(sequence, {})[domain] = sum(
+                len(entries) for interval in intervals
+                for entries in ((interval.get("annotations") or {}).get("positions") or {}).values())
+
+    assert counts == expected_counts
+
+
 def test_nextflow_reproduces_executor_on_fixture(executor_output_dir, nextflow_output_dir):
     """The Nextflow pipeline gives the same outputs as executor.py on the same inputs"""
     comparison = compare_outputs(executor_output_dir, nextflow_output_dir)

@@ -154,6 +154,26 @@ def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[st
 
     return hmmalign_lines, annotations
 
+def same_protein(target_name: str, entry_mnemo_name: str) -> bool:
+    """
+    Checks if a target and a donor are the same protein, so that no protein annotates itself.
+    Targets are named as in the input FASTA (sp|P0AAK7|NRFC_ECOLI), while donors are keyed
+    by their mnemonic (NRFC_ECOLI), so every '|'-separated field of the target is compared.
+
+    Args:
+        target_name: Target name, as in the input FASTA header
+        entry_mnemo_name: Donor's UniProt mnemonic
+
+    Returns:
+        bool: True if the donor is the target itself
+    """
+    mnemo = str(entry_mnemo_name).strip()
+    if not mnemo:
+        return False
+    if str(target_name).strip() == mnemo:
+        return True
+    return mnemo in [part.strip() for part in str(target_name).split("|")]
+
 ### New Helper Functions
 def iterate_aligned_sequences(
     source_sequence: str,
@@ -232,6 +252,12 @@ def extract_target_info_from_hmmalign(logger: logging.Logger, multi_logger: Call
                     target_hit_sequence = target_parts[1]
                     if target_name not in target_info:
                         target_info[target_name] = {}
+                        if len(str(target_name).split("|")) != 3:
+                            multi_logger(
+                                "warning",
+                                "TRANSFER_ANNOTS --- EXTRACT_TARGET_INFO --- Target header '%s' does not follow the 3-field UniProt 'db|accession|mnemonic' format; self-annotation guard will compare all '|'-separated fields",
+                                target_name,
+                            )
                     if target_hit_interval not in target_info[target_name]:
                         target_info[target_name][target_hit_interval] = []
                     target_info[target_name][target_hit_interval].append(
@@ -339,7 +365,7 @@ def find_and_map_annots(
                 offset_end = int(splitted[1].split('-')[1].split()[0])
                 annot_sequence = splitted[1].split()[1]
                 for target_name, target_per_interval in target_info.items():
-                    if target_name == entry_mnemo_name:
+                    if same_protein(target_name, entry_mnemo_name):
                         continue
                     for target_hit_interval, target_info_list in target_per_interval.items():
                         for target_hit_start, target_hit_end, target_hit_sequence in target_info_list:

@@ -20,6 +20,7 @@ from transfer_annotations import (
     get_pfam_id_from_hmmalign_result,
     get_annotation_filepath,
     read_files,
+    same_protein,
     iterate_aligned_sequences,
     extract_target_info_from_hmmalign,
     setup_for_conservations_only,
@@ -3723,6 +3724,19 @@ def test_extract_target_info_invalid_format(logger, multi_logger):
         ANY  # The exact error message may vary
     )
 
+def test_extract_target_info_warns_on_non_uniprot_header(logger, multi_logger):
+    """Test a single warning for a target header without the 3 fields db|accession|mnemonic"""
+    mock_lines = [
+        "# STOCKHOLM 1.0\n",
+        "NRFC_ECOLI|customtarget//10-25  ACDEFGHIKLMNPQRS\n",
+        "NRFC_ECOLI|customtarget//30-45  ACDEFGHIKLMNPQRS\n",
+    ]
+    result = extract_target_info_from_hmmalign(logger, multi_logger, mock_lines)
+
+    assert "NRFC_ECOLI|custom" in result
+    assert multi_logger.call_count == 1
+    assert multi_logger.call_args[0][0] == "warning"
+
 
 ###T setup_for_conservations_only
 
@@ -3787,6 +3801,24 @@ def test_setup_for_conservations_only_invalid_format(logger, multi_logger):
     )
 
 
+###T same_protein
+
+def test_same_protein_uniprot_headers():
+    """Test target headers (sp, tr, bare) against the donor's mnemonic"""
+    assert same_protein("sp|P0AAK7|NRFC_ECOLI", "NRFC_ECOLI") is True
+    assert same_protein("tr|H0YB80|H0YB80_HUMAN", "H0YB80_HUMAN") is True
+    assert same_protein("NRFC_ECOLI", "NRFC_ECOLI") is True
+    assert same_protein("sp|P0AAK7|NRFC_ECOLI", "P0AAK7") is True
+    assert same_protein("sp|P0AAK7|NRFC_ECOLI", "OTHER_ECOLI") is False
+    assert same_protein("sp|P0AAK7|NRFC_ECOLI", "") is False
+
+def test_same_protein_any_pipe_field():
+    """Test headers that do not follow db|accession|mnemonic"""
+    assert same_protein("NRFC_ECOLI|custom_tag", "NRFC_ECOLI") is True
+    assert same_protein("db|NRFC_ECOLI|extra", "NRFC_ECOLI") is True
+    assert same_protein("db|NRFC_ECOLI2|extra", "NRFC_ECOLI") is False
+
+
 ###T find_and_map_annots
 
 def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU22_PF07728, logger, multi_logger, mock_target_info, target_sequence_Q9NU22, annot_sequence_Q9NU22):
@@ -3849,6 +3881,32 @@ def test_find_and_map_annots_no_target_sequence(annotations_content_binding_fixt
             "error",
             "TRANSFER_ANNOTS --- FIND_AND_MAP --- No target sequences found in hmmalign lines!"
         )
+
+def test_find_and_map_annots_skips_self_annotation(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22):
+    """Test that a donor never annotates itself when it is also a target (sp|Q9NU22|MDN1_HUMAN vs MDN1_HUMAN)"""
+    hmmalign_lines = minimal_hmmalign_lines_fixture_Q9NU22.splitlines(keepends=True)
+    target_line = [l for l in hmmalign_lines if l.startswith("sp|Q9NU22|MDN1_HUMANtarget//325-451")][0]
+    self_donor_line = f"MDN1_HUMAN/325-451                                      {target_line.split()[1]}\n"
+    hmmalign_with_self = [hmmalign_lines[0], self_donor_line] + hmmalign_lines[1:]
+
+    only_self_annotations = {
+        "MDN1_HUMAN": {
+            "330": [
+                {
+                    "type": "BINDING",
+                    "description": "Self binding site",
+                    "ligand_id": "ChEBI:CHEBI:37565",
+                    "evidence": "ECO:0000255",
+                    "entry": "Q9NU22",
+                    "aminoacid": "G"
+                }
+            ],
+            "0": {"Molecular Function": {}, "Biological Process": {}}
+        }
+    }
+    transfer_dict = find_and_map_annots(logger, multi_logger, hmmalign_with_self, only_self_annotations, ["ECO:0000255"])
+
+    assert transfer_dict == {}
 
 ###T read_conservations_and_annotations
 
