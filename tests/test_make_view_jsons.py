@@ -611,6 +611,46 @@ def test_transform_to_ranges_empty(multi_logger):
     result = transform_to_ranges({}, multi_logger)
     assert result == {}
 
+def test_transform_to_ranges_annotations_seed_index(multi_logger):
+    """Test the seed-only index: annotations supported by a seed donor, as hits or as misses"""
+    def entry(anno_type, description, seed, non_seed):
+        return {
+            "essentials": {"type": anno_type, "description": description, "count": 1, "annot_residue": "H", "target_residue": "H"},
+            "hit": True,
+            "provenance": {"seed": seed, "non_seed": non_seed, "unknown": {"hit": False, "miss": False}}
+        }
+    no = {"hit": False, "miss": False}
+    interval = {
+        "annotations": {
+            "positions": {
+                "100": {
+                    "ACT_SITE | Seed hit": entry("ACT_SITE", "Seed hit", {"hit": True, "miss": False}, no),
+                    "BINDING | Extra only hit": entry("BINDING", "Extra only hit", no, {"hit": True, "miss": False})
+                },
+                "105": {
+                    "SITE | Seed miss promoted by extra hit": entry("SITE", "Seed miss promoted by extra hit", {"hit": False, "miss": True}, {"hit": True, "miss": False})
+                }
+            },
+            "indices": {
+                "matches": {"100": ["ACT_SITE | Seed hit", "BINDING | Extra only hit"], "105": ["SITE | Seed miss promoted by extra hit"]},
+                "misses": {}
+            }
+        },
+        "annotation_ranges": {
+            "ACT_SITE | Seed hit": {"positions": [100], "ranges": [[100, 100]]},
+            "BINDING | Extra only hit": {"positions": [100], "ranges": [[100, 100]]},
+            "SITE | Seed miss promoted by extra hit": {"positions": [105], "ranges": [[105, 105]]}
+        },
+        "conservations": {"positions": {}, "indices": {"matches": [], "misses": []}},
+        "conservation_ranges": {},
+        "position_conversion": {"target_to_aln": {}, "aln_to_target": {}}
+    }
+
+    result = transform_to_ranges(interval, multi_logger)
+
+    assert result["indices"]["annotations_seed"]["matches"] == {"100": {"ACT_SITE | Seed hit"}}
+    assert result["indices"]["annotations_seed"]["misses"] == {"105": {"SITE | Seed miss promoted by extra hit"}}
+
 ###T process_sequence_report - Integration Tests (
 # + convert_lists_to_original_types() + transform_to_ranges() + convert_sets_and_tuples_to_lists() + convert_default_dict_to_dict()
 # )

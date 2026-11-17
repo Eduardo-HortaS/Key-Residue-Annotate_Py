@@ -174,6 +174,71 @@ def same_protein(target_name: str, entry_mnemo_name: str) -> bool:
         return True
     return mnemo in [part.strip() for part in str(target_name).split("|")]
 
+# Seed members of the family being processed. transfer_annotations.py runs one family
+# per invocation, so this describes that family only. None when the seed is unreadable.
+_SEED_MEMBERS = None
+
+def load_seed_members(resource_dir: str, dom_accession: str) -> Optional[set]:
+    """
+    Reads the mnemonics of the family's seed members from alignment.seed, the same file
+    hmmalign receives in --mapali. Names are cut at '/', as the seed names its rows
+    MNEMO/start-end while annotations are keyed by the bare mnemonic.
+
+    Args:
+        resource_dir: Resource directory path
+        dom_accession: Pfam domain accession
+
+    Returns:
+        set: Seed member mnemonics, or None if alignment.seed cannot be read
+    """
+    path = os.path.join(resource_dir, dom_accession, "alignment.seed")
+    names = set()
+    try:
+        with open(path, encoding="utf-8", errors="replace") as seed_file:
+            for line in seed_file:
+                line = line.rstrip("\n")
+                if not line or line.startswith("//"):
+                    continue
+                if line.startswith("#=GS "):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        names.add(parts[1].split("/")[0])
+                    continue
+                if line.startswith("#"):
+                    continue
+                parts = line.split()
+                if parts:
+                    names.add(parts[0].split("/")[0])
+    except OSError:
+        return None
+    return names or None
+
+def donor_tier(entry_mnemo_name: str) -> str:
+    """
+    Classifies a donor as 'seed' or 'non_seed', or 'unknown' if the seed could not be read.
+    """
+    if _SEED_MEMBERS is None:
+        return "unknown"
+    return "seed" if str(entry_mnemo_name).split("/")[0] in _SEED_MEMBERS else "non_seed"
+
+def _blank_provenance() -> dict:
+    return {"seed": {"hit": False, "miss": False},
+            "non_seed": {"hit": False, "miss": False},
+            "unknown": {"hit": False, "miss": False}}
+
+def record_provenance(entry: dict, entry_mnemo_name: str, hit: bool) -> None:
+    """
+    Records on an annotation entry that a donor of this tier supported it, as a hit or
+    as a miss. Called on every path, including when the contribution is discarded because
+    the entry is already a hit, so the seed-only view can be rebuilt from the entry.
+    """
+    prov = entry.get("provenance")
+    if not isinstance(prov, dict):
+        prov = _blank_provenance()
+        entry["provenance"] = prov
+    layer = prov.setdefault(donor_tier(entry_mnemo_name), {"hit": False, "miss": False})
+    layer["hit" if hit else "miss"] = True
+
 ### New Helper Functions
 def iterate_aligned_sequences(
     source_sequence: str,
@@ -1544,6 +1609,9 @@ def _add_single_annotation(
     positions_dict = interval_dict["annotations"]["positions"][target_position_str]
     existing_entry = positions_dict.get(anno_id, None)
     existing_hit = existing_entry.get("hit") if existing_entry else None
+    # The entry is rebuilt from scratch when a hit arrives where a miss was, so the
+    # provenance recorded so far has to be carried over
+    carried_provenance = existing_entry.get("provenance") if existing_entry else None
 
     # Handle index tracking first
     index_type = "matches" if hit else "misses"
@@ -1557,8 +1625,10 @@ def _add_single_annotation(
                 if not interval_dict["annotations"]["indices"][opposite_index][target_position_str]:
                     del interval_dict["annotations"]["indices"][opposite_index][target_position_str]
 
-    # Skip processing if we were adding as miss but match exists
+    # Skip processing if we were adding as miss but match exists,
+    # recording only that this donor supported the position
     if not hit and existing_hit:
+        record_provenance(existing_entry, entry_mnemo_name, hit)
         return
 
     # Essentials initialization/update
@@ -1571,7 +1641,8 @@ def _add_single_annotation(
                 "annot_residue": annot_residue,
                 "target_residue": target_residue
             },
-            "hit": hit
+            "hit": hit,
+            "provenance": carried_provenance or _blank_provenance()
         }
         positions_dict[anno_id].pop("evidence", None)
         positions_dict[anno_id].pop("paired_position", None)
@@ -1583,6 +1654,8 @@ def _add_single_annotation(
                 "annot_residue": annot_residue,
                 "target_residue": target_residue
             })
+
+    record_provenance(positions_dict[anno_id], entry_mnemo_name, hit)
 
     # Add to indices for the index_type
     if hit or not existing_entry:
@@ -2389,6 +2462,15 @@ def main():
     domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Running transfer_annotations.py for %s", dom_align)
 
     pfam_id = get_pfam_id_from_hmmalign_result(dom_align)
+
+    # Seed members of this family, to tell seed donors from the others in each annotation's provenance
+    global _SEED_MEMBERS
+    _SEED_MEMBERS = load_seed_members(resource_dir, pfam_id)
+    if _SEED_MEMBERS is None:
+        multi_logger("warning", "TRANSFER_ANNOTS --- MAIN --- alignment.seed for %s unreadable; provenance will be marked as 'unknown'", pfam_id)
+    else:
+        domain_logger.debug("TRANSFER_ANNOTS --- MAIN --- %d seed members loaded for %s", len(_SEED_MEMBERS), pfam_id)
+
     annotations_filepath, conservations_filepath = get_annotation_filepath(resource_dir, pfam_id)
     hmmalign_lines, annotations = read_files(dom_align, annotations_filepath)
 

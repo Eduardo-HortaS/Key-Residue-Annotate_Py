@@ -21,6 +21,8 @@ from transfer_annotations import (
     get_annotation_filepath,
     read_files,
     same_protein,
+    load_seed_members,
+    donor_tier,
     iterate_aligned_sequences,
     extract_target_info_from_hmmalign,
     setup_for_conservations_only,
@@ -3819,6 +3821,34 @@ def test_same_protein_any_pipe_field():
     assert same_protein("db|NRFC_ECOLI2|extra", "NRFC_ECOLI") is False
 
 
+###T load_seed_members and donor_tier
+
+def test_load_seed_members():
+    """Test seed members read from #=GS and alignment rows, without the /start-end suffix"""
+    with TemporaryDirectory() as tmp_dir:
+        os.makedirs(os.path.join(tmp_dir, "PF07728"))
+        with open(os.path.join(tmp_dir, "PF07728", "alignment.seed"), "w", encoding="utf-8") as f:
+            f.write(
+                "# STOCKHOLM 1.0\n"
+                "#=GS VWA8_HUMAN/105-261 AC A3KMH1.2\n"
+                "MCRB_ECOLI/196-350   ACDEFGHIKLMNPQRSTVWY\n"
+                "//\n"
+            )
+
+        assert load_seed_members(tmp_dir, "PF07728") == {"VWA8_HUMAN", "MCRB_ECOLI"}
+        assert load_seed_members(tmp_dir, "PF99999") is None
+
+def test_donor_tier():
+    """Test donors classified as seed, non_seed, or unknown when the seed could not be read"""
+    with patch("transfer_annotations._SEED_MEMBERS", {"VWA8_HUMAN", "MCRB_ECOLI"}):
+        assert donor_tier("VWA8_HUMAN") == "seed"
+        assert donor_tier("MCRB_ECOLI/196-350") == "seed"
+        assert donor_tier("EXTRA_DONOR") == "non_seed"
+
+    with patch("transfer_annotations._SEED_MEMBERS", None):
+        assert donor_tier("VWA8_HUMAN") == "unknown"
+
+
 ###T find_and_map_annots
 
 def test_find_and_map_annots_basic_case(annotations_content_binding_fixture_Q9NU22_PF07728, logger, multi_logger, mock_target_info, target_sequence_Q9NU22, annot_sequence_Q9NU22):
@@ -6533,6 +6563,80 @@ def test_add_single_annotation_insert_column_paired(
         paired = position_data["paired_position"]["373"]
         assert paired["insert_column"] is True
         assert "gapped_target" not in paired
+
+
+def anno_total_act_site(target_position, annot_residue, target_residue):
+    """anno_total for an ACT_SITE annotation at target_position"""
+    return {
+        "target_position": target_position,
+        "annot_position": "110",
+        "index_position": "10",
+        "paired_target_position": None,
+        "evidence": "ECO:0000269",
+        "type": "ACT_SITE",
+        "description": "Proton acceptor",
+        "count": 1,
+        "annot_residue": annot_residue,
+        "target_residue": target_residue
+    }
+
+def transfer_dict_empty_interval_Q9NU22():
+    """transfer_dict with a single empty interval for sp|Q9NU22|MDN1_HUMAN"""
+    return {
+        "DOMAIN": {
+            "sequence_id": {
+                "sp|Q9NU22|MDN1_HUMAN": {
+                    "hit_intervals": {
+                        "325-451": {
+                            "annotations": {"positions": {}, "indices": {"matches": {}, "misses": {}}},
+                            "annotation_ranges": {},
+                            "position_conversion": {"target_to_aln": {}, "aln_to_target": {}}
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+def test_add_single_annotation_provenance_seed_miss_then_non_seed_hit():
+    """Test that a seed donor's miss survives when a non-seed donor turns the entry into a hit"""
+    transfer_dict = transfer_dict_empty_interval_Q9NU22()
+    anno_id = "ACT_SITE | Proton acceptor"
+    common = {"transfer_dict": transfer_dict, "target_name": "sp|Q9NU22|MDN1_HUMAN",
+              "interval_key": "325-451", "anno_id": anno_id, "additional_keys": {}}
+
+    with patch("transfer_annotations._SEED_MEMBERS", {"SEED_DONOR"}):
+        _add_single_annotation(hit=False, anno_total=anno_total_act_site("333", "D", "E"),
+                               entry_mnemo_name="SEED_DONOR", entry_primary_accession="P00001", **common)
+        entry = transfer_dict["DOMAIN"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"][anno_id]
+        assert entry["hit"] is False
+        assert entry["provenance"]["seed"] == {"hit": False, "miss": True}
+        assert entry["provenance"]["non_seed"] == {"hit": False, "miss": False}
+
+        _add_single_annotation(hit=True, anno_total=anno_total_act_site("333", "E", "E"),
+                               entry_mnemo_name="EXTRA_DONOR", entry_primary_accession="P00002", **common)
+        entry = transfer_dict["DOMAIN"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"][anno_id]
+        assert entry["hit"] is True
+        assert entry["provenance"]["seed"] == {"hit": False, "miss": True}
+        assert entry["provenance"]["non_seed"] == {"hit": True, "miss": False}
+
+def test_add_single_annotation_provenance_non_seed_hit_then_seed_miss():
+    """Test that a seed donor's miss is recorded even when it arrives after a hit"""
+    transfer_dict = transfer_dict_empty_interval_Q9NU22()
+    anno_id = "ACT_SITE | Proton acceptor"
+    common = {"transfer_dict": transfer_dict, "target_name": "sp|Q9NU22|MDN1_HUMAN",
+              "interval_key": "325-451", "anno_id": anno_id, "additional_keys": {}}
+
+    with patch("transfer_annotations._SEED_MEMBERS", {"SEED_DONOR"}):
+        _add_single_annotation(hit=True, anno_total=anno_total_act_site("334", "K", "K"),
+                               entry_mnemo_name="EXTRA_DONOR", entry_primary_accession="P00002", **common)
+        _add_single_annotation(hit=False, anno_total=anno_total_act_site("334", "R", "K"),
+                               entry_mnemo_name="SEED_DONOR", entry_primary_accession="P00001", **common)
+
+    entry = transfer_dict["DOMAIN"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["334"][anno_id]
+    assert entry["hit"] is True
+    assert entry["provenance"]["non_seed"] == {"hit": True, "miss": False}
+    assert entry["provenance"]["seed"] == {"hit": False, "miss": True}
 
 
 ###T update_position_range

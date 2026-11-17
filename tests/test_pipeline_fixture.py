@@ -256,6 +256,30 @@ def test_executor_fixture_annotation_counts(executor_output_dir):
     assert counts == expected_counts
 
 
+def test_executor_fixture_provenance_seed_only(executor_output_dir):
+    """Without extra donors every annotation comes from seed donors, so the seed-only index
+    in the ranges files equals the full annotations index"""
+    for sequence, domains in expected_hits_per_sequence.items():
+        sequence_dir = os.path.join(executor_output_dir, sequence.replace("|", "-"))
+        for domain in domains:
+            with open(os.path.join(sequence_dir, f"{domain}_report.json"), encoding="utf-8") as f:
+                intervals = json.load(f)["domain"][domain]["hit_intervals"]
+            with open(os.path.join(sequence_dir, f"{domain}_ranges.json"), encoding="utf-8") as f:
+                ranges = json.load(f)["domain"][domain]
+
+            for interval_key, interval in intervals.items():
+                for entries in ((interval.get("annotations") or {}).get("positions") or {}).values():
+                    for anno_id, entry in entries.items():
+                        provenance = entry["provenance"]
+                        assert provenance["non_seed"] == {"hit": False, "miss": False}, (sequence, anno_id)
+                        assert provenance["unknown"] == {"hit": False, "miss": False}, (sequence, anno_id)
+                        assert provenance["seed"]["hit"] is entry["hit"], (sequence, anno_id)
+
+                indices = ranges.get(interval_key, {}).get("indices", {})
+                if "annotations" in indices:
+                    assert indices["annotations_seed"] == indices["annotations"], (sequence, domain, interval_key)
+
+
 def test_nextflow_reproduces_executor_on_fixture(executor_output_dir, nextflow_output_dir):
     """The Nextflow pipeline gives the same outputs as executor.py on the same inputs"""
     comparison = compare_outputs(executor_output_dir, nextflow_output_dir)
