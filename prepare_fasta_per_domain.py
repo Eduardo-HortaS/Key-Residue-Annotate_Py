@@ -31,16 +31,27 @@ If so, call prep_domain_fasta.
 Obs.: It'll make a subdir for each valid domain in the output directory. Also, it'll put the substring
 "target/" between target_seq_name and ali range to facilitate parsing in the transfer_annotations step:
 signalling that substring denotes a target sequence versus the seed sequences.
+With --extra-donors, the domain's extra_donors.fasta (Swiss-Prot proteins that carry the domain but
+are not in its seed) is appended to a separate <domain>_hits_with_donors.fasta, which is then aligned
+instead; <domain>_hits.fasta always holds only the target hits.
 
 """
 
 import os
+import sys
 import json
 import argparse
 import logging
 from typing import Any, Callable
 from utils import get_logger, get_multi_logger
 # from modules.decorators import measure_time_and_memory
+
+class ExtraDonorsError(RuntimeError):
+    """
+    Raised when extra donors were requested but extra_donors.fasta could not be read, or the
+    combined FASTA could not be written. Continuing with the hits FASTA alone would run the
+    domain without its donors while the run still looked successful.
+    """
 
 def parse_arguments():
     """Parse command-line arguments for finding out if a given domain from those
@@ -56,6 +67,10 @@ def parse_arguments():
     parser.add_argument("-iD", "--domain-accession", help="The domain Pfam accession you're prepping for", required=True, type=str)
     parser.add_argument("-r", "--resource-dir", help="Resource dir path", required=True, type=str)
     parser.add_argument("-o", "--output-dir", help="Output dir path", required=True, type=str)
+    parser.add_argument("-x", "--extra-donors", action="store_true",
+        help="Append <resource_dir>/<domain>/extra_donors.fasta to the per-domain "
+             "multifasta, so Swiss-Prot reviewed proteins that carry the domain "
+             "but are NOT seed members can act as donors. Off by default.")
     parser.add_argument("-l", "--log", help="Log path", \
         required=False, type=str, default="logs/prepare_fasta_per_domain.log")
     return parser.parse_args()
@@ -93,11 +108,13 @@ def can_run_hmmalign(dom_accession: str, resource_dir: str, output_dir: str) -> 
     }
     return domain_run_info
 
-def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, domain_logger: logging.Logger, multi_logger: Callable) -> (str | None):
+def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, domain_logger: logging.Logger, multi_logger: Callable, resource_dir: str = None, extra_donors: bool = False) -> (str | None):
     """
     Loads a hits per domain JSON and searches for a target domain by its accession to
     generate a FASTA containing its hits across all sequences.
     Each domain's files are stored in a domain subdirectory within the output directory.
+    With extra_donors, also writes <domain>_hits_with_donors.fasta (hits + the domain's
+    extra_donors.fasta) and returns its path; raises ExtraDonorsError if that fails.
     """
     fasta_data = ""
     try:
@@ -133,10 +150,51 @@ def prep_domain_fasta(per_dom_json: str, dom_accession: str, output_dir: str, do
         with open(fasta_path, 'w', encoding='utf-8') as fasta_file:
             fasta_file.write(fasta_data)
         domain_logger.info("PREPARE_FASTA_PER_DOMAIN --- Generated fasta for domain %s at %s", dom_accession, fasta_path)
-        return fasta_path
     except IOError as e:
         multi_logger("error", "PREPARE_FASTA_PER_DOMAIN --- Error writing FASTA file %s: %s", fasta_path, e)
         return None
+
+    # Extra donors go in a separate FASTA, so <domain>_hits.fasta keeps only the target hits
+    if extra_donors:
+        if not resource_dir:
+            multi_logger("error", "PREPARE_FASTA_PER_DOMAIN --- extra_donors requested "
+                                  "without resource_dir for %s; continuing without extras",
+                         dom_accession)
+        else:
+            extra_path = os.path.join(resource_dir, dom_accession, "extra_donors.fasta")
+            if os.path.isfile(extra_path):
+                try:
+                    with open(extra_path, "r", encoding="utf-8") as ef:
+                        extra_txt = ef.read()
+                    if extra_txt.strip():
+                        combined_data = fasta_data if fasta_data.endswith("\n") else (fasta_data + "\n")
+                        combined_data += extra_txt
+                        if not combined_data.endswith("\n"):
+                            combined_data += "\n"
+                        with_donors_path = os.path.join(domain_dir, f"{dom_accession}_hits_with_donors.fasta")
+                        with open(with_donors_path, "w", encoding="utf-8") as wf:
+                            wf.write(combined_data)
+                        domain_logger.info(
+                            "PREPARE_FASTA_PER_DOMAIN --- %s: %d extra donors appended to %s",
+                            dom_accession, extra_txt.count(">"), with_donors_path)
+                        return with_donors_path
+                except IOError as e:
+                    multi_logger(
+                        "error",
+                        "PREPARE_FASTA_PER_DOMAIN --- %s: FATAL, could not read/write the "
+                        "extra donors at %s (%s). Refusing to continue with the pure "
+                        "%s_hits.fasta, which would run the family without donors and "
+                        "still look successful.",
+                        dom_accession, extra_path, e, dom_accession)
+                    raise ExtraDonorsError(
+                        "%s: extra donors requested but %s could not be read/written: %s"
+                        % (dom_accession, extra_path, e)) from e
+            else:
+                domain_logger.debug(
+                    "PREPARE_FASTA_PER_DOMAIN --- %s has no extra_donors.fasta",
+                    dom_accession)
+
+    return fasta_path
 
 def main():
     """Main function, initializes this script"""
@@ -155,7 +213,13 @@ def main():
 
     domain_info = can_run_hmmalign(dom_accession, resource_dir, output_dir)
     if domain_info['can_align']:
-        dom_fasta_path = prep_domain_fasta(per_dom_json, dom_accession, output_dir, domain_logger, log_to_both)
+        try:
+            dom_fasta_path = prep_domain_fasta(per_dom_json, dom_accession, output_dir, domain_logger, log_to_both,
+                                               resource_dir=resource_dir,
+                                               extra_donors=getattr(args, "extra_donors", False))
+        except ExtraDonorsError as e:
+            log_to_both("error", "PREPARE_FASTA_PER_DOMAIN --- aborting: %s", e)
+            sys.exit(1)
         if dom_fasta_path:
             domain_info['dom_fasta'] = dom_fasta_path
             output_json_path = os.path.join(output_dir, dom_accession, 'domain_info.json')
