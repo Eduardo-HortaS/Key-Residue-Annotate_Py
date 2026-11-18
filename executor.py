@@ -79,6 +79,8 @@ def load_config(config_file=None):
             fallback="gathering"),
             "trim": config.getboolean("Parameters", "trim",
             fallback=False),
+            "extra_donors": config.getboolean("Parameters", "extra_donors",
+            fallback=False),
             "eco_codes": config.get("Parameters", "eco_codes",
             fallback="").split(),
         }
@@ -138,6 +140,10 @@ def parse_arguments():
                         help="Bit score cutoffs for PyHMMER's hmmsearch. \
                         Options: 'noise', 'gathering', 'trusted'",
                         required=False, default="gathering")
+    parser.add_argument("--extra-donors", action="store_true",
+                        help="Allow Swiss-Prot reviewed proteins that carry the domain "
+                             "but are not seed members to act as donors. Off by default.",
+                        required=False)
     parser.add_argument("--trim", action="store_true",
                         help="Flag to enable trimming in hmmalign",
                         required=False)
@@ -338,6 +344,7 @@ def main():
     nucleotide = args.nucleotide
     bit_cutoffs = args.bit_cutoffs
     trim = args.trim
+    extra_donors = getattr(args, "extra_donors", False)
     python_executable = args.python
     logger, timestamped_log = get_logger(args.log)
     all_sequences_json = os.path.join(output_dir, "all_sequences.json")
@@ -458,6 +465,12 @@ def main():
             for dom_accession in hits_per_domain
         ]
 
+        # Extra donors: prepare_fasta_per_domain.py adds extra_donors.fasta to the domain's FASTA
+        if extra_donors:
+            for task in prepare_fasta_tasks:
+                task.append("-x")
+            logger.info("EXECUTOR --- PREPARE_FASTA_PER_DOMAIN.PY --- extra_donors ON")
+
         Parallel(n_jobs=threads)(
             delayed(run_command)(task, logger)
             for task in prepare_fasta_tasks
@@ -516,6 +529,11 @@ def main():
                         "--eco-codes", *eco_codes,
                         "-l", timestamped_log
                     ])
+        # Extra donors: transfer_annotations.py merges extra_donors.json, always together with the step above
+        if extra_donors:
+            for task in transfer_annotations_tasks:
+                task.append("-x")
+            logger.info("EXECUTOR --- TRANSFER_ANNOTATIONS.PY --- extra_donors ON")
         logger.debug("EXECUTOR --- TRANSFER_ANNOTATIONS.PY --- Number of Transfer annotations tasks: %s", len(transfer_annotations_tasks))
         Parallel(n_jobs=threads)(
             delayed(run_command)(task, logger)

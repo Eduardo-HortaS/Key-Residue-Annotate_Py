@@ -21,6 +21,7 @@ process PREPARE_FASTA {
 
     script:
     def args = task.ext.args ?: ''
+    def extra_donors_flag = params.extra_donors ? '--extra-donors' : ''
     """
     mkdir -p logs
 
@@ -35,6 +36,7 @@ process PREPARE_FASTA {
             --resource-dir ${resources} \\
             --output-dir . \\
             --log logs/prepare_fasta_\${domain}.log \\
+            ${extra_donors_flag} \\
             ${args}
     done
 

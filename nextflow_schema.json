@@ -168,6 +168,12 @@
                     "default": false,
                     "description": "Trim nonhomologous residues in hmmalign.",
                     "fa_icon": "fas fa-cut"
+                },
+                "extra_donors": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Also use Swiss-Prot reviewed proteins that carry the domain but are not in its seed alignment as donors (extra_donors.fasta/.json in each domain's resource directory).",
+                    "fa_icon": "fas fa-user-plus"
                 }
             }
         },
