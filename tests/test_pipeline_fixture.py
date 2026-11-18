@@ -157,7 +157,7 @@ def same_file_paths(paths_a: dict, paths_b: dict) -> bool:
 
 
 def compare_outputs(executor_out: str, nextflow_out: str) -> dict:
-    """Pairs and compares both output trees: JSON as data, everything else byte for byte."""
+    """Pairs and compares both output trees: JSON as data, everything else as exact copies."""
     executor_files = output_files(executor_out)
     nextflow_files = output_files(nextflow_out)
     comparison = {"identical": [], "different": [], "only_executor": [], "only_nextflow": []}
