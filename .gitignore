@@ -96,3 +96,5 @@ conda_list_key_residue_annotate_env.txt
 # Local convenience scripts (user-specific)
 roda_todos_proteomas.sh
 
+# Local-only files: kept on the machines, never pushed
+local_only/
