@@ -1,0 +1,64 @@
+# STOCKHOLM 1.0
+#=GF ID   TatA_B_E
+#=GF AC   PF02416.21
+#=GF DE   mttA/Hcf106 family
+#=GF PI   MttA_Hcf106;
+#=GF AU   Bateman A;0000-0002-6982-4660
+#=GF SE   Pfam-B_1826 (release 5.4)
+#=GF GA   21.00 21.00;
+#=GF TC   21.00 21.00;
+#=GF NC   20.90 20.90;
+#=GF BM   hmmbuild HMM.ann SEED.ann
+#=GF SM   hmmsearch -E 1000 -Z 81514348 --cpu 4 HMM pfamseq
+#=GF TP   Family
+#=GF WK   Twin-arginine_translocation_pathway
+#=GF RN   [1]
+#=GF RM   9546395
+#=GF RT   A novel and ubiquitous system for membrane targeting and
+#=GF RT   secretion of cofactor-containing proteins. 
+#=GF RA   Weiner JH, Bilous PT, Shaw GM, Lubitz SP, Frost L, Thomas GH,
+#=GF RA   Cole JA, Turner RJ; 
+#=GF RL   Cell 1998;93:93-101.
+#=GF RN   [2]
+#=GF RM   9367960
+#=GF RT   Sec-independent protein translocation by the maize Hcf106
+#=GF RT   protein. 
+#=GF RA   Settles AM, Yonetani A, Baron A, Bush DR, Cline K, Martienssen
+#=GF RA   R; 
+#=GF RL   Science 1997;278:1467-1470.
+#=GF DR   INTERPRO; IPR003369;
+#=GF DR   TC; 2.A.64;
+#=GF DR   SO; 0100021; polypeptide_conserved_region;
+#=GF CC   Members of this protein family are involved in a sec independent
+#=GF CC   translocation mechanism. This pathway has been called the
+#=GF CC   DeltapH pathway in chloroplasts [2]. Members of this family in
+#=GF CC   E.coli are involved in export of redox proteins with a "twin
+#=GF CC   arginine" leader motif [1].
+#=GF SQ   11
+#=GS TATA2_AQUAE/6-58    AC O66478.1
+#=GS O28223_ARCFU/11-63  AC O28223.1
+#=GS TATA_HELPY/5-78     AC O25088.1
+#=GS P73435_SYNY3/11-62  AC P73435.1
+#=GS TATAC_BACSU/3-55    AC O31804.1
+#=GS TATAD_BACSU/5-57    AC O31467.2
+#=GS TATAD_BACSU/5-57    DR PDB; 2L16 A; 5-52;
+#=GS TATAY_BACSU/3-54    AC O05522.1
+#=GS D3FSE5_ALKPO/4-54   AC D3FSE5.1
+#=GS P73010_SYNY3/47-99  AC P73010.1
+#=GS TATB_MAIZE/73-155   AC O48950.1
+#=GS TATA_MYCTU/4-54     AC P9WGA1.1
+TATA2_AQUAE/6-58               ISMTELIIILAVILLLFGAGRLPEAGRALGEGIRNFRKALSGETEV..............................KEVKAED
+O28223_ARCFU/11-63             PGGQEWLLILLIIFVLFGASKLPEVARSLGRSMGEFKKAQKEAEME..............................LRQFERE
+TATA_HELPY/5-78                TSIWHWVIVLLVIVLLFGAKKIPELAKGLGSGIKNFKKAVKDDEEEAKNEPKTLDA.........QATQTKVHESSEIKSKQE
+P73435_SYNY3/11-62             LGWPEILLILGVVIIIFGPKRIPELGGALGKTLRGFKEELQTQDV...............................DSTEVVD
+TATAC_BACSU/3-55               LSFTKILVILFVGFLVFGPDKLPALGRAAGKALSEFKQATSGLTQD..............................IRKNDSE
+TATAD_BACSU/5-57               IGIPGLILIFVIALIIFGPSKLPEIGRAAGRTLLEFKSATKSLVSG..............................DEKEEKS
+#=GR TATAD_BACSU/5-57    SS    S-HHHHHHHHHHHHHHS-TTTHHHHHHHHHHHHHHHHHHHHHHHH-..............................--XXXXX
+TATAY_BACSU/3-54               IGPGSLAVIAIVALIIFGPKKLPELGKAAGDTLREFKNATKGLTS...............................DEEEKKK
+D3FSE5_ALKPO/4-54              LGAGSIVIIGLVALLIFGPKKLPELGKAAGNTLREFKNATKGLADE..............................EDDKK..
+P73010_SYNY3/47-99             IGLPELGLIFVIALLVFGPKKLPEVGRSLGKALRGFQEASKEFETE..............................LKREAQN
+TATB_MAIZE/73-155              VGAPEALVIGVVALLVFGPKGLAEVARNLGKTLRAFQPTIRELQDVSREFRSTLEREIGIDEVSQSTNYRPTTMNNNQQPAAD
+TATA_MYCTU/4-54                LSPWHWAILAVVVIVLFGAKKLPDAARSLGKSLRIFKSEVRELQNE..............................NKAEA..
+#=GC SS_cons                   S-HHHHHHHHHHHHHHS-TTTHHHHHHHHHHHHHHHHHHHHHHHH-..............................--XXXXX
+#=GC seq_cons                  lGhsclllIhlVslllFGPKKLPElGRuLG+oLRpFKpAs+shpst..............................pcpctpc
+//

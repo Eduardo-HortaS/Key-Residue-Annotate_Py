@@ -3542,6 +3542,7 @@ def test_parse_arguments_required():
         domain_accession="PF07728",
         output_dir="/home/user/results/human/PF07728/",
         eco_codes=[],
+        extra_donors=False,
         log="logs/transfer_annotations.log"
     )
     assert vars(args) == vars(expected)
@@ -5555,6 +5556,35 @@ def test_populate_go_data_empty_target_gos_mocked(
         assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_bp"] == 0.0
         assert anno_data["GO"]["MCRB_ECOLI"]["wang_sem_sim_bma_mf"] == 0.0
 
+def test_populate_go_data_for_annotations_interval_without_annotations(logger, multi_logger):
+    """Test an interval with no annotations, as kept by the union of a family whose extra donors
+    reach only some intervals"""
+    transfer_dict = {
+        "PF07728": {
+            "sequence_id": {
+                "sp|Q9NU22|MDN1_HUMAN": {
+                    "hit_intervals": {
+                        "325-451": {
+                            "hit_start": 325,
+                            "hit_end": 451,
+                            "annotations": {},
+                            "conservations": {"positions": {}, "indices": {}}
+                        }
+                    }
+                }
+            }
+        }
+    }
+    annotations = {"VWA8_HUMAN": {"0": {"Molecular Function": {}, "Biological Process": {}}}}
+
+    with patch("transfer_annotations.load_go_ontology", return_value=(MagicMock(), set())):
+        for target_go_set in (set(), {"GO:0005524"}):
+            populate_go_data_for_annotations(logger, multi_logger, transfer_dict, "PF07728", "sp|Q9NU22|MDN1_HUMAN",
+                                             annotations, "0", target_go_set, "/fake/resources")
+
+    assert transfer_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"] == {}
+
+
 ###T cleanup_improve_transfer_dict
 
 def test_cleanup_improve_transfer_dict_basic(
@@ -5808,6 +5838,73 @@ def test_cleanup_improve_transfer_dict_only_annotations_valid(
         assert interval_path["conservations"]["positions"] == {}
         assert interval_path["conservations"]["indices"]["matches"] == set()
         assert "GO" in interval_path["annotations"]["positions"]["333"][list(interval_path["annotations"]["positions"]["333"].keys())[0]]
+
+
+def test_cleanup_improve_transfer_dict_merged_annotations(
+    logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22,
+    conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains
+):
+    """Test that GO terms of extra donors are found through merged_annotations, as annotations.json
+    only holds the seed donors"""
+    with TemporaryDirectory() as tmp_dir:
+        conservations_path = os.path.join(tmp_dir, "conservations.json")
+        annotations_path = os.path.join(tmp_dir, "annotations.json")
+        mapping_path = os.path.join(tmp_dir, "mapping.tsv")
+        with open(conservations_path, "w", encoding="utf-8") as f:
+            json.dump(conservations_content_Q9NU22_PF07728, f)
+        with open(annotations_path, "w", encoding="utf-8") as f:
+            json.dump({"sequence_id": {}}, f)
+        with open(mapping_path, "w", encoding="utf-8") as f:
+            f.write(mapping_content_Q9NU22_and_H0YB80_domains)
+
+        merged_annotations = {
+            "EXTRA_DONOR": {"0": {"Molecular Function": {"GO:0005524": "ATP binding"}, "Biological Process": {}}}
+        }
+        transfer_dict = {
+            "PF07728": {
+                "sequence_id": {
+                    "sp|Q9NU22|MDN1_HUMAN": {
+                        "hit_intervals": {
+                            "325-451": {
+                                "hit_start": 325,
+                                "hit_end": 451,
+                                "annotations": {
+                                    "positions": {
+                                        "333": {
+                                            "ACT_SITE | Test": {
+                                                "essentials": {"type": "ACT_SITE", "description": "Test", "count": 1,
+                                                               "annot_residue": "L", "target_residue": "L"},
+                                                "hit": True,
+                                                "evidence": {
+                                                    "P00002": {"rep_mnemo_name": "EXTRA_DONOR", "count": 1, "positions": [110],
+                                                               "annot_residue": "L", "target_residue": "L"}
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "indices": {"matches": {"333"}, "misses": set()}
+                                },
+                                "annotation_ranges": {},
+                                "conservations": {"positions": {}, "indices": {"matches": set(), "misses": set()}},
+                                "conservation_ranges": {},
+                                "position_conversion": {"target_to_aln": {}, "aln_to_target": {}}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        with patch("transfer_annotations.load_go_ontology", return_value=(MagicMock(), set())):
+            improved = cleanup_improve_transfer_dict(
+                logger, multi_logger, transfer_dict, "PF07728",
+                minimal_hmmalign_lines_fixture_Q9NU22.splitlines(keepends=True),
+                conservations_path, annotations_path, tmp_dir, tmp_dir, mapping_path,
+                merged_annotations=merged_annotations
+            )
+
+        entry = improved["domain"]["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"]["positions"]["333"]["ACT_SITE | Test"]
+        assert "EXTRA_DONOR" in entry["GO"]
 
 
 ###T convert_sets_and_tuples_to_lists
@@ -8518,7 +8615,8 @@ def test_main_success(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU2
             os.path.join(resource_dir_mock, "PF07728", "annotations.json"),
             output_dir_mock,
             resource_dir_mock,
-            os.path.join(resource_dir_mock, "mappings/interpro_pfam_accession_mapping.tsv")
+            os.path.join(resource_dir_mock, "mappings/interpro_pfam_accession_mapping.tsv"),
+            merged_annotations=None
         )
         mock_write.assert_called_once_with(
             logger,
@@ -8757,3 +8855,129 @@ def test_main_integration_all_types_H0YB80(
 
         assert os.path.exists(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"))
         assert transfer_dict_success_all_types_H0YB80 == json.load(open(os.path.join(output_dir, "tr-H0YB80-H0YB80_HUMAN", "PF00244_report.json"), "r", encoding="utf-8"))
+
+
+def write_extra_donors_inputs(tmp_dir, hmmalign_content, conservations, mapping, extra_donors, extra_donors_fasta):
+    """Writes a PF07728 resource tree with no annotations.json, a seed with only Q7US48_RHOBA,
+    and the given extra donors. Returns the hmmalign path, resource dir and output dir."""
+    hmmalign_path = os.path.join(tmp_dir, "PF07728_hmmalign.sth")
+    resource_dir = os.path.join(tmp_dir, "resources")
+    pfam_dir = os.path.join(resource_dir, "PF07728")
+    mappings_dir = os.path.join(resource_dir, "mappings")
+    output_dir = os.path.join(tmp_dir, "output")
+    for directory in [pfam_dir, mappings_dir, output_dir]:
+        os.makedirs(directory, exist_ok=True)
+
+    with open(hmmalign_path, "w", encoding="latin-1") as f:
+        f.write(hmmalign_content)
+    with open(os.path.join(pfam_dir, "conservations.json"), "w", encoding="utf-8") as f:
+        json.dump(conservations, f)
+    with open(os.path.join(pfam_dir, "alignment.seed"), "w", encoding="utf-8") as f:
+        f.write("# STOCKHOLM 1.0\nQ7US48_RHOBA/138-284 ACDEF\n//\n")
+    with open(os.path.join(mappings_dir, "interpro_pfam_accession_mapping.tsv"), "w", encoding="utf-8") as f:
+        f.write(mapping)
+    if extra_donors is not None:
+        with open(os.path.join(pfam_dir, "extra_donors.json"), "w", encoding="utf-8") as f:
+            f.write(extra_donors if isinstance(extra_donors, str) else json.dumps(extra_donors))
+    if extra_donors_fasta is not None:
+        with open(os.path.join(pfam_dir, "extra_donors.fasta"), "w", encoding="utf-8") as f:
+            f.write(extra_donors_fasta)
+    return hmmalign_path, resource_dir, output_dir
+
+def main_args(tmp_dir, hmmalign_path, resource_dir, output_dir, extra_donors):
+    return Namespace(dom_align=hmmalign_path, resource_dir=resource_dir, domain_accession="PF07728",
+                     output_dir=output_dir, eco_codes=["ECO:0000255"], extra_donors=extra_donors,
+                     log=os.path.join(tmp_dir, "test.log"))
+
+def test_main_extra_donors_keep_intervals_they_do_not_reach(
+    minimal_hmmalign_lines_fixture_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728,
+    conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains
+):
+    """Test a family without annotations.json whose extra donors reach one of two intervals:
+    both intervals keep their conservations"""
+    with TemporaryDirectory() as tmp_dir:
+        target_line = [l for l in minimal_hmmalign_lines_fixture_Q9NU22.splitlines(keepends=True)
+                       if l.startswith("sp|Q9NU22|MDN1_HUMANtarget//325-451")][0]
+        second_interval = target_line.replace("325-451", "672-798")
+        hmmalign_content = minimal_hmmalign_lines_fixture_Q9NU22.replace("\n//", "\n" + second_interval.rstrip("\n") + "\n//")
+        hmmalign_path, resource_dir, output_dir = write_extra_donors_inputs(
+            tmp_dir, hmmalign_content, conservations_content_Q9NU22_PF07728,
+            mapping_content_Q9NU22_and_H0YB80_domains, annotations_content_binding_fixture_Q9NU22_PF07728, None)
+
+        with patch("transfer_annotations.parse_arguments", return_value=main_args(tmp_dir, hmmalign_path, resource_dir, output_dir, True)), \
+             patch("transfer_annotations.load_go_ontology", return_value=(MagicMock(), set())):
+            main()
+
+        with open(os.path.join(output_dir, "PF07728", "PF07728_report.json"), encoding="utf-8") as f:
+            intervals = json.load(f)["sequences"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]
+        assert intervals["325-451"]["annotations"]["positions"] != {}
+        assert intervals["325-451"]["conservations"]["positions"] != {}
+        assert intervals["672-798"]["conservations"]["positions"] != {}
+
+def test_main_extra_donors_in_alignment_without_flag(
+    minimal_hmmalign_lines_fixture_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728,
+    conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains
+):
+    """Test the exit when the alignment holds extra donors (MCRB_ECOLI, not in the seed)
+    but transfer_annotations runs without -x"""
+    with TemporaryDirectory() as tmp_dir:
+        hmmalign_path, resource_dir, output_dir = write_extra_donors_inputs(
+            tmp_dir, minimal_hmmalign_lines_fixture_Q9NU22, conservations_content_Q9NU22_PF07728,
+            mapping_content_Q9NU22_and_H0YB80_domains, annotations_content_binding_fixture_Q9NU22_PF07728,
+            ">MCRB_ECOLI/196-350\nACDEF\n")
+
+        with patch("transfer_annotations.parse_arguments", return_value=main_args(tmp_dir, hmmalign_path, resource_dir, output_dir, False)):
+            with pytest.raises(SystemExit) as exit_info:
+                main()
+        assert exit_info.value.code == 1
+
+def test_main_extra_donors_flag_without_them_in_alignment(
+    minimal_hmmalign_lines_fixture_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728,
+    conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains
+):
+    """Test the exit when transfer_annotations runs with -x but the alignment holds none of the
+    extra donors (prepare_fasta_per_domain.py ran without -x)"""
+    with TemporaryDirectory() as tmp_dir:
+        hmmalign_path, resource_dir, output_dir = write_extra_donors_inputs(
+            tmp_dir, minimal_hmmalign_lines_fixture_Q9NU22, conservations_content_Q9NU22_PF07728,
+            mapping_content_Q9NU22_and_H0YB80_domains,
+            {"UNSEEN_EXTRA_DONOR": annotations_content_binding_fixture_Q9NU22_PF07728["MCRB_ECOLI"]},
+            ">UNSEEN_EXTRA_DONOR/1-50\nACDEF\n")
+
+        with patch("transfer_annotations.parse_arguments", return_value=main_args(tmp_dir, hmmalign_path, resource_dir, output_dir, True)):
+            with pytest.raises(SystemExit) as exit_info:
+                main()
+        assert exit_info.value.code == 1
+
+def test_main_extra_donors_not_in_alignment_without_flag(
+    minimal_hmmalign_lines_fixture_Q9NU22, annotations_content_binding_fixture_Q9NU22_PF07728,
+    conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains
+):
+    """Test that without -x an extra_donors.json whose donors are not in the alignment is ignored"""
+    with TemporaryDirectory() as tmp_dir:
+        hmmalign_path, resource_dir, output_dir = write_extra_donors_inputs(
+            tmp_dir, minimal_hmmalign_lines_fixture_Q9NU22, conservations_content_Q9NU22_PF07728,
+            mapping_content_Q9NU22_and_H0YB80_domains,
+            {"UNSEEN_EXTRA_DONOR": annotations_content_binding_fixture_Q9NU22_PF07728["MCRB_ECOLI"]},
+            ">UNSEEN_EXTRA_DONOR/1-50\nACDEF\n")
+
+        with patch("transfer_annotations.parse_arguments", return_value=main_args(tmp_dir, hmmalign_path, resource_dir, output_dir, False)), \
+             patch("transfer_annotations.load_go_ontology", return_value=(MagicMock(), set())):
+            main()
+
+        assert os.path.isfile(os.path.join(output_dir, "PF07728", "PF07728_report.json"))
+
+def test_main_extra_donors_unreadable(
+    minimal_hmmalign_lines_fixture_Q9NU22, conservations_content_Q9NU22_PF07728, mapping_content_Q9NU22_and_H0YB80_domains
+):
+    """Test the exit when extra_donors.json cannot be parsed, instead of running without the extra donors"""
+    with TemporaryDirectory() as tmp_dir:
+        hmmalign_path, resource_dir, output_dir = write_extra_donors_inputs(
+            tmp_dir, minimal_hmmalign_lines_fixture_Q9NU22, conservations_content_Q9NU22_PF07728,
+            mapping_content_Q9NU22_and_H0YB80_domains, '{"MCRB_ECOLI": {"201": [', ">MCRB_ECOLI/196-350\nACDEF\n")
+
+        with patch("transfer_annotations.parse_arguments", return_value=main_args(tmp_dir, hmmalign_path, resource_dir, output_dir, True)):
+            with pytest.raises(SystemExit) as exit_info:
+                main()
+        assert exit_info.value.code == 1
+        assert not os.path.exists(os.path.join(output_dir, "PF07728", "PF07728_report.json"))

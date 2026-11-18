@@ -1,10 +1,11 @@
 """
 Integration tests running the whole pipeline on tests/fixture/
 
-The fixture is small but real: four UniProt sequences and five Pfam 37.0 families picked so
+The fixture is small but real: six UniProt sequences and six Pfam 37.0 families picked so
 that every case the pipeline must handle is present (Swiss-Prot and TrEMBL targets, a target
-that is also a donor, a family without annotations.json, a conservations-only family,
-donors with more than one region). See tests/fixture/SOURCES.txt.
+that is also a donor, families without annotations.json whose extra donors reach all or only
+some of their targets, a conservations-only family, donors with more than one region).
+See tests/fixture/SOURCES.txt.
 
 InterProScan is not run: its per-sequence output is in the fixture and is placed where
 executor.py expects it (run_iprscan.done marks the step as complete); the Nextflow pipeline
@@ -39,6 +40,8 @@ expected_hits_per_sequence = {
     "tr|A7K8Y4|A7K8Y4_9PHYC": ["PF01607"],
     "tr|A7K940|A7K940_9PHYC": ["PF01607"],
     "tr|A7K9F8|A7K9F8_9PHYC": ["PF01541", "PF07460"],
+    "sp|P0A843|TATE_ECOLI": ["PF02416"],
+    "sp|P69428|TATA_ECOLI": ["PF02416"],
 }
 
 # Files executor.py keeps in its output tree and the Nextflow pipeline does not publish:
@@ -242,6 +245,8 @@ def test_executor_fixture_annotation_counts(executor_output_dir):
         "tr|A7K8Y4|A7K8Y4_9PHYC": {"PF01607": 5},
         "tr|A7K940|A7K940_9PHYC": {"PF01607": 5},
         "tr|A7K9F8|A7K9F8_9PHYC": {"PF01541": 0, "PF07460": 0},
+        "sp|P0A843|TATE_ECOLI": {"PF02416": 0},
+        "sp|P69428|TATA_ECOLI": {"PF02416": 0},
     }
     counts = {}
     for sequence, domains in expected_hits_per_sequence.items():

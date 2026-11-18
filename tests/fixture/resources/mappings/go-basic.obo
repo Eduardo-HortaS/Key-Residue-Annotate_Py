@@ -1447,6 +1447,19 @@ xref: Reactome:R-HSA-425393 "Transport of inorganic cations/anions and amino aci
 is_a: GO:0006810 ! transport
 
 [Term]
+id: GO:0006886
+name: intracellular protein transport
+namespace: biological_process
+alt_id: GO:0032779
+def: "The directed movement of proteins in a cell, including the movement of proteins between specific compartments or structures within a cell, such as organelles of a eukaryotic cell." [GOC:mah]
+subset: goslim_generic
+subset: goslim_prokaryote
+synonym: "copper-induced intracellular protein transport" RELATED [GOC:al]
+is_a: GO:0015031 ! protein transport
+is_a: GO:0046907 ! intracellular transport
+relationship: part_of GO:0008104 ! protein localization
+
+[Term]
 id: GO:0006897
 name: endocytosis
 namespace: biological_process
@@ -1980,6 +1993,37 @@ subset: goslim_yeast
 is_a: GO:0005488 ! binding
 
 [Term]
+id: GO:0008320
+name: protein transmembrane transporter activity
+namespace: molecular_function
+alt_id: GO:0015266
+alt_id: GO:0015463
+def: "Enables the transfer of a protein from one side of a membrane to the other." [GOC:jl]
+synonym: "protein channel activity" RELATED []
+xref: Reactome:R-HSA-1268022 "TOMM40 complex translocates proteins from the cytosol to the mitochondrial intermembrane space"
+xref: Reactome:R-HSA-1299475 "TIMM23 PAM translocates proteins from the mitochondrial intermembrane space to the mitochondrial matrix"
+xref: Reactome:R-HSA-184269 "Monoubiquitinated N-myristoyl GAG polyprotein is targeted to the late endosomal vesicle membrane by the ESCRT-I complex"
+xref: Reactome:R-HSA-3149434 "Transport of GAG to the Plasma Membrane"
+xref: Reactome:R-HSA-5205661 "Pink1 is recruited from the cytoplasm to the mitochondria"
+xref: Reactome:R-HSA-5210943 "pagA(197-794):ANTRX2 oligomer transports cya and lef (target cell endosome to cytosol)"
+xref: Reactome:R-HSA-5210947 "pagA(197-794):ANTRX1 oligomer transports cya and lef (target cell endosome to cytosol)"
+xref: Reactome:R-HSA-5228406 "tetX HC transports tetX LC from target cell endosome membrane into cytosol"
+xref: Reactome:R-HSA-5229111 "AP4 transports APP from trans-Golgi network to endosome lumen"
+xref: Reactome:R-HSA-5244404 "botB HC transports botB LC from target cell synaptic vesicle membrane into cytosol"
+xref: Reactome:R-HSA-5244428 "botA HC transports botA LC from target cell synaptic vesicle membrane into cytosol"
+xref: Reactome:R-HSA-5244506 "botE HC transports botE LC from target cell synaptic vesicle membrane into cytosol"
+xref: Reactome:R-HSA-5246514 "botC HC transports botC LC from target cell synaptic vesicle membrane to cytosol"
+xref: Reactome:R-HSA-5250616 "botD HC transports botD LC from target cell synaptic vesicle membrane into cytosol"
+xref: Reactome:R-HSA-5250884 "botF HC transports botF LC from target cell synaptic vesicle membrane into cytosol"
+xref: Reactome:R-HSA-5250972 "botG HC transports botG LC from target cell synaptic vesicle membrane into cytosol"
+xref: Reactome:R-HSA-5336420 "DT fragment B transports DT fragment A from target cell endosome membrane"
+xref: Reactome:R-HSA-9636375 "SecA2 transports SapM from cytoplasm to cytosol"
+xref: Reactome:R-HSA-9698930 "HCMV C Nucleocapsid Translocation"
+xref: Reactome:R-HSA-9698933 "HCMV B Nucleocapsid Translocation"
+is_a: GO:0022884 ! macromolecule transmembrane transporter activity
+is_a: GO:0140318 ! protein transporter activity
+
+[Term]
 id: GO:0008757
 name: S-adenosylmethionine-dependent methyltransferase activity
 namespace: molecular_function
@@ -2315,6 +2359,19 @@ is_a: GO:0009894 ! regulation of catabolic process
 relationship: negatively_regulates GO:0009056 ! catabolic process
 
 [Term]
+id: GO:0009977
+name: proton motive force dependent protein transmembrane transporter activity
+namespace: molecular_function
+alt_id: GO:0015557
+def: "Catalysis of the transfer of proteins from one side of a membrane to the other. Transportation is dependent on pH gradient across the membrane." [PMID:11526245, PMID:25494301]
+synonym: "arginine targeting transmembrane transporter activity" EXACT []
+synonym: "delta-pH-dependent protein transporter activity" EXACT []
+synonym: "pH-dependent protein transporter activity" EXACT []
+synonym: "twin-arginine targeting transmembrane transporter activity" EXACT []
+is_a: GO:0008320 ! protein transmembrane transporter activity
+is_a: GO:0015291 ! secondary active transmembrane transporter activity
+
+[Term]
 id: GO:0009987
 name: cellular process
 namespace: biological_process
@@ -2484,6 +2541,19 @@ xref: Wikipedia:Programmed_cell_death
 is_a: GO:0008219 ! cell death
 
 [Term]
+id: GO:0015031
+name: protein transport
+namespace: biological_process
+alt_id: GO:0015831
+def: "The directed movement of proteins into, out of or within a cell, or between cells, by means of some agent such as a transporter or pore." [GOC:ai]
+subset: goslim_chembl
+subset: goslim_pir
+subset: goslim_yeast
+synonym: "enzyme transport" NARROW []
+is_a: GO:0045184 ! establishment of protein localization
+is_a: GO:0071705 ! nitrogen compound transport
+
+[Term]
 id: GO:0015267
 name: channel activity
 namespace: molecular_function
@@ -2502,6 +2572,30 @@ xref: Reactome:R-HSA-3779381 "H2O2 diffuses from the mitochondrial matrix to the
 xref: Reactome:R-HSA-8953430 "PXMP2 trimer transports glycolate from cytosol to peroxisomal matrix"
 xref: TC:1
 is_a: GO:0022803 ! passive transmembrane transporter activity
+
+[Term]
+id: GO:0015291
+name: secondary active transmembrane transporter activity
+namespace: molecular_function
+alt_id: GO:0015290
+alt_id: GO:0015353
+alt_id: GO:0015404
+alt_id: GO:0015570
+def: "Enables the transfer of a solute from one side of a membrane to the other, up its concentration gradient. The transporter binds the solute and undergoes a series of conformational changes. Transport works equally well in either direction and is driven by a chemiosmotic source of energy, not direct ATP coupling. Secondary active transporters include symporters and antiporters." [GOC:mtg_transport, ISBN:0198506732, ISBN:0815340729, PMID:10839820]
+synonym: "active transporter" BROAD []
+synonym: "coupled carrier" EXACT []
+synonym: "electrochemical potential-driven transporter activity" EXACT []
+synonym: "energizer of outer membrane receptor-mediated transport activity" NARROW []
+synonym: "galactose/glucose (methylgalactoside) porter activity" RELATED []
+synonym: "heavy metal ion porter activity" NARROW []
+synonym: "ion-gradient-driven energizer activity" NARROW []
+synonym: "multidrug endosomal transmembrane transporter activity" NARROW []
+synonym: "nitrite/nitrate porter activity" NARROW []
+synonym: "porter activity" EXACT []
+synonym: "porters" EXACT []
+synonym: "secondary carrier-type facilitators" EXACT []
+xref: TC:2.A
+is_a: GO:0022804 ! active transmembrane transporter activity
 
 [Term]
 id: GO:0016032
@@ -3185,6 +3279,17 @@ xref: Wikipedia:Facilitated_diffusion
 is_a: GO:0022857 ! transmembrane transporter activity
 
 [Term]
+id: GO:0022804
+name: active transmembrane transporter activity
+namespace: molecular_function
+def: "Enables the transfer of a specific substance or related group of substances from one side of a membrane to the other, up the solute's concentration gradient. The transporter binds the solute and undergoes a series of conformational changes. Transport works equally well in either direction." [GOC:mtg_transport, ISBN:0815340729]
+synonym: "active carrier activity" EXACT []
+synonym: "carrier activity" EXACT []
+synonym: "permease activity" EXACT []
+synonym: "pump activity" EXACT []
+is_a: GO:0022857 ! transmembrane transporter activity
+
+[Term]
 id: GO:0022857
 name: transmembrane transporter activity
 namespace: molecular_function
@@ -3209,6 +3314,13 @@ xref: Reactome:R-HSA-5671707 "Fe3+ dissociates from SLC22A17:LCN2:2,5DHBA"
 xref: Reactome:R-HSA-6784434 "An unknown carrier transports cytosolic glyoxylate to the peroxisome"
 xref: Reactome:R-HSA-6784436 "An unknown carrier transports mitochondrial glyoxylate to the cytosol"
 is_a: GO:0005215 ! transporter activity
+
+[Term]
+id: GO:0022884
+name: macromolecule transmembrane transporter activity
+namespace: molecular_function
+def: "Enables the transfer of a macromolecule from one side of a membrane to the other." [GOC:mtg_transport, ISBN:0815340729]
+is_a: GO:0022857 ! transmembrane transporter activity
 
 [Term]
 id: GO:0023052
@@ -4148,6 +4260,18 @@ is_a: GO:0006259 ! DNA metabolic process
 is_a: GO:0051276 ! chromosome organization
 
 [Term]
+id: GO:0043953
+name: protein transport by the Tat complex
+namespace: biological_process
+def: "The process in which folded proteins are transported across cytoplasmic membranes of bacteria and membranes of organelles derived from bacteria (chloroplasts and mitochondria) by the TAT complex." [GOC:pamgo_curators]
+comment: Note that this term represents an activity and not a cellular structure. Consider also annotating to the cellular structure term 'TAT protein translocation system complex ; GO:0033281'. Note that this term is used for annotation of proteins that compose the transport complex but not the proteins being transported.
+synonym: "protein secretion by the TAT complex" NARROW []
+synonym: "protein translocation by the TAT complex" NARROW []
+synonym: "protein translocation by the twin-arginine translocation complex" NARROW []
+synonym: "twin-arginine translocation pathway" EXACT []
+is_a: GO:0071806 ! protein transmembrane transport
+
+[Term]
 id: GO:0044003
 name: symbiont-mediated perturbation of host process
 namespace: biological_process
@@ -4373,6 +4497,17 @@ is_a: GO:0006259 ! DNA metabolic process
 relationship: part_of GO:0006261 ! DNA-templated DNA replication
 
 [Term]
+id: GO:0045184
+name: establishment of protein localization
+namespace: biological_process
+def: "The directed movement of a protein to a specific location." [GOC:bf]
+synonym: "establishment of protein localisation" EXACT [GOC:mah]
+synonym: "protein positioning" EXACT []
+synonym: "protein recruitment" EXACT []
+is_a: GO:0008104 ! protein localization
+is_a: GO:0051234 ! establishment of localization
+
+[Term]
 id: GO:0045934
 name: negative regulation of nucleobase-containing compound metabolic process
 namespace: biological_process
@@ -4449,6 +4584,18 @@ subset: goslim_metagenomics
 synonym: "heavy metal binding" NARROW []
 synonym: "metal binding" EXACT []
 is_a: GO:0043169 ! cation binding
+
+[Term]
+id: GO:0046907
+name: intracellular transport
+namespace: biological_process
+alt_id: GO:1902582
+def: "The directed movement of substances within a cell." [GOC:ai]
+synonym: "single organism intracellular transport" RELATED [GOC:TermGenie]
+synonym: "single-organism intracellular transport" RELATED []
+is_a: GO:0006810 ! transport
+is_a: GO:0051641 ! cellular localization
+is_a: GO:0051649 ! establishment of localization in cell
 
 [Term]
 id: GO:0046914
@@ -4891,6 +5038,19 @@ is_a: GO:0009987 ! cellular process
 is_a: GO:0051179 ! localization
 
 [Term]
+id: GO:0051649
+name: establishment of localization in cell
+namespace: biological_process
+def: "Any process, occurring in a cell, that localizes a substance or cellular component. This may occur via movement, tethering or selective degradation." [GOC:ai, GOC:dos, GOC:dph, GOC:tb]
+synonym: "establishment of cellular localization" RELATED [GOC:dph, GOC:tb]
+synonym: "establishment of intracellular localization" NARROW []
+synonym: "establishment of localisation in cell" EXACT [GOC:mah]
+synonym: "establishment of localization within cell" NARROW []
+synonym: "positioning within cell" NARROW []
+is_a: GO:0051234 ! establishment of localization
+relationship: part_of GO:0051641 ! cellular localization
+
+[Term]
 id: GO:0051668
 name: localization within membrane
 namespace: biological_process
@@ -5164,6 +5324,18 @@ def: "A telomere loop disassembly process that results in the disassembly of tel
 is_a: GO:0090657 ! telomeric loop disassembly
 
 [Term]
+id: GO:0065002
+name: intracellular protein transmembrane transport
+namespace: biological_process
+def: "The directed movement of proteins in a cell, from one side of a membrane to another by means of some agent such as a transporter or pore." [GOC:isa_complete]
+comment: Note that this term is not intended for use in annotating lateral movement within membranes.
+synonym: "intracellular membrane translocation of a protein" EXACT []
+synonym: "intracellular protein membrane transport" EXACT []
+synonym: "intracellular protein transport across a membrane" EXACT []
+is_a: GO:0006886 ! intracellular protein transport
+is_a: GO:0071806 ! protein transmembrane transport
+
+[Term]
 id: GO:0065007
 name: biological regulation
 namespace: biological_process
@@ -5199,6 +5371,24 @@ def: "Any process in which a macromolecule is transported to, and/or maintained 
 synonym: "cellular macromolecule localisation" EXACT [GOC:mah]
 is_a: GO:0033036 ! macromolecule localization
 is_a: GO:0051641 ! cellular localization
+
+[Term]
+id: GO:0071705
+name: nitrogen compound transport
+namespace: biological_process
+def: "The directed movement of nitrogen-containing compounds into, out of or within a cell, or between cells, by means of some agent such as a transporter or pore." [GOC:mah]
+subset: gocheck_obsoletion_candidate
+is_a: GO:0006810 ! transport
+
+[Term]
+id: GO:0071806
+name: protein transmembrane transport
+namespace: biological_process
+def: "The process in which a protein is transported across a membrane." [GOC:mah, GOC:vw]
+comment: Note that this term is not intended for use in annotating lateral movement within membranes.
+synonym: "protein membrane transport" EXACT []
+is_a: GO:0015031 ! protein transport
+is_a: GO:0055085 ! transmembrane transport
 
 [Term]
 id: GO:0071840
@@ -5444,6 +5634,19 @@ def: "Catalytic activity that acts to modify RNA, driven by ATP hydrolysis." [GO
 subset: goslim_generic
 subset: goslim_prokaryote
 is_a: GO:0140640 ! catalytic activity, acting on a nucleic acid
+
+[Term]
+id: GO:0140318
+name: protein transporter activity
+namespace: molecular_function
+def: "Directly binding to a specific protein and delivering it to a specific cellular location." [PMID:18706423]
+comment: Examples of protein carriers include the soluble TIM chaperone complexes of S. cerevisiae Tim9-Tim10 and Tim8-Tim13, that provide a shuttle system between TOM and the membrane insertases TIM22 and SAM and, thus, ensure that precursors are kept in a translocation-competent conformation.
+synonym: "protein carrier activity" RELATED []
+synonym: "protein transport chaperone" RELATED []
+xref: Reactome:R-HSA-2248891 "M6PR transports activated ARSA to the lysosome"
+xref: Reactome:R-HSA-9662747 "iRHOM2 transports ADAM17 from ER to the Golgi-network"
+xref: Reactome:R-HSA-9662818 "iRHOM2 transports ADAM17:Zn2+ from Golgi to the plasma membrane"
+is_a: GO:0005215 ! transporter activity
 
 [Term]
 id: GO:0140640

@@ -60,6 +60,7 @@ get_alignment_sequences -> populate_conservation -> gather_go_terms_for_target
 """
 
 import os
+import sys
 import json
 import re
 import argparse
@@ -93,6 +94,10 @@ def parse_arguments():
     parser.add_argument("-d", "--domain-accession", help="Domain accession for scoped logging", required=True, type=str)
     parser.add_argument("-o", "--output-dir", required=True, type=str, help="Output dir path")
     parser.add_argument("-e", "--eco-codes", required=False, default=[], nargs="*", help="Space-separated ECO codes to filter annotations")
+    parser.add_argument("-x", "--extra-donors", action="store_true",
+        help="Merge <resource_dir>/<PF>/extra_donors.json into the donor set. "
+             "Pair this with the same flag on prepare_fasta_per_domain.py: "
+             "without their sequences in the alignment these donors are inert.")
     parser.add_argument("-l", "--log", required=False, default="logs/transfer_annotations.log", type=str, help="Log path")
 
     args = parser.parse_args()
@@ -1035,7 +1040,7 @@ def populate_go_data_for_annotations(
 
         for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
             interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
-            for _, position_data in interval_data["annotations"]["positions"].items():
+            for _, position_data in ((interval_data.get("annotations") or {}).get("positions") or {}).items():
                 for _, anno_data in position_data.items():
                     go_data_for_annotation = {}
                     for _, evidence_data in anno_data.get("evidence", {}).items():
@@ -1057,7 +1062,7 @@ def populate_go_data_for_annotations(
     go_info_cache = {}
     for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
         interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
-        for _, position_data in interval_data["annotations"]["positions"].items():
+        for _, position_data in ((interval_data.get("annotations") or {}).get("positions") or {}).items():
             for _, anno_data in position_data.items():
                 go_data_for_annotation = {}
                 for _, evidence_data in anno_data.get("evidence", {}).items():
@@ -1129,7 +1134,8 @@ def cleanup_improve_transfer_dict(
     annotations_filepath: str,
     output_dir: str,
     resource_dir: str,
-    pfam_interpro_map_filepath: str
+    pfam_interpro_map_filepath: str,
+    merged_annotations: dict = None
 ) -> dict:
     """Main function for enhancing transfer dictionary with conservation and GO data.
 
@@ -1164,6 +1170,11 @@ def cleanup_improve_transfer_dict(
         transfer_dict[pfam_id] = transfer_dict.pop("DOMAIN")
 
     conservations, annotations = read_conservations_and_annotations(conservations_filepath, annotations_filepath)
+
+    # annotations.json only holds the seed donors: with extra donors merged, the caller passes
+    # the merged dict, so their GO terms are found too
+    if merged_annotations is not None:
+        annotations = merged_annotations
     has_valid_conservations = bool(conservations) and conservations != {"sequence_id/range": {}} and any("/" in key for key in conservations.keys())
     has_valid_annotations = bool(annotations) and annotations != {"sequence_id": {}} and any(isinstance(annotations.get(key, {}).get("0", {}), dict) for key in annotations)
     if not has_valid_conservations and not has_valid_annotations:
@@ -2474,6 +2485,81 @@ def main():
     annotations_filepath, conservations_filepath = get_annotation_filepath(resource_dir, pfam_id)
     hmmalign_lines, annotations = read_files(dom_align, annotations_filepath)
 
+    # Extra donors are kept in their own file, extra_donors.json, and only merged with -x.
+    # Whether the family has annotations of its own is captured before merging, because the
+    # empty {"sequence_id": {}} is what selects the conservations-only mode.
+    sentinel_no_annotations = (annotations == {"sequence_id": {}})
+    extras_merged = False
+
+    aln_iter = hmmalign_lines.splitlines() if isinstance(hmmalign_lines, str) else (hmmalign_lines or [])
+    aln_donor_mnemos = set()
+    for _line in aln_iter:
+        if not _line or _line.startswith("#") or _line.startswith("//") or "target/" in _line:
+            continue
+        _parts = _line.split()
+        if _parts and "/" in _parts[0]:
+            aln_donor_mnemos.add(_parts[0].split("/")[0])
+
+    extra_path = os.path.join(resource_dir, pfam_id, "extra_donors.json")
+    extra_fasta_path = os.path.join(resource_dir, pfam_id, "extra_donors.fasta")
+
+    if getattr(args, "extra_donors", False):
+        if os.path.isfile(extra_path):
+            try:
+                with open(extra_path, "r", encoding="utf-8") as ef:
+                    extras = json.load(ef)
+            except (OSError, ValueError) as e:
+                multi_logger("error", "TRANSFER_ANNOTS --- MAIN --- %s: FATAL, could not read the extra donors at %s (%s). Refusing to continue without them, which would run the family without its extra donors and still look successful.",
+                             pfam_id, extra_path, e)
+                sys.exit(1)
+            if extras:
+                # Half-on guard: -x here, but prepare_fasta_per_domain.py ran without it
+                if os.path.isfile(extra_fasta_path) and os.path.getsize(extra_fasta_path) > 0:
+                    extra_only_mnemos = set(extras.keys()) - (_SEED_MEMBERS or set())
+                    check_mnemos = extra_only_mnemos or set(extras.keys())
+                    if check_mnemos and not (aln_donor_mnemos & check_mnemos):
+                        multi_logger(
+                            "error",
+                            "TRANSFER_ANNOTS --- MAIN --- Half-on -x detected for %s: transfer_annotations ran with -x, but no extra donor sequences from extra_donors.json/extra_donors.fasta were found in %s (did prepare_fasta_per_domain run without -x?)",
+                            pfam_id,
+                            dom_align,
+                        )
+                        sys.exit(1)
+                if annotations == {"sequence_id": {}}:
+                    annotations = {}
+                before_count = len(annotations)
+                for mnemo, sub in extras.items():
+                    if mnemo not in annotations:
+                        annotations[mnemo] = sub
+                extras_merged = len(annotations) > before_count
+                domain_logger.info(
+                    "TRANSFER_ANNOTS --- MAIN --- %s: %d extra donors added "
+                    "to the %d from the seed", pfam_id,
+                    len(annotations) - before_count, before_count)
+        else:
+            domain_logger.debug(
+                "TRANSFER_ANNOTS --- MAIN --- %s has no extra_donors.json", pfam_id)
+    elif _SEED_MEMBERS and aln_donor_mnemos and os.path.isfile(extra_path):
+        # Half-on guard: no -x here, but prepare_fasta_per_domain.py ran with it
+        try:
+            with open(extra_path, "r", encoding="utf-8") as ef:
+                extras_off = json.load(ef)
+        except (OSError, json.JSONDecodeError):
+            extras_off = {}
+        if extras_off:
+            seed_keys = set() if annotations == {"sequence_id": {}} else set(annotations.keys())
+            extra_only_mnemos = set(extras_off.keys()) - set(_SEED_MEMBERS) - seed_keys
+            leaked = aln_donor_mnemos & extra_only_mnemos
+            if leaked:
+                multi_logger(
+                    "error",
+                    "TRANSFER_ANNOTS --- MAIN --- Half-on -x detected for %s: transfer_annotations ran without -x, but extra donor sequences (%s) were found in %s (prepare_fasta_per_domain ran with -x)",
+                    pfam_id,
+                    ", ".join(sorted(leaked)[:5]),
+                    dom_align,
+                )
+                sys.exit(1)
+
     try:
         if annotations == {"sequence_id": {}}:
             # CONSERVATIONS ONLY PATH
@@ -2483,6 +2569,31 @@ def main():
             # ANNOTATIONS + CONSERVATIONS PATH
             domain_logger.debug("TRANSFER_ANNOTS --- MAIN --- Anno. + Cons. mode - Good ECO Codes to Filter by %s", good_eco_codes)
             transfer_dict = find_and_map_annots(domain_logger, multi_logger, hmmalign_lines, annotations, good_eco_codes)
+        if extras_merged and sentinel_no_annotations:
+            # The family has no annotations of its own: without the extras it would take the
+            # conservations-only mode, which keeps every interval in the alignment, while the
+            # annotations mode only keeps the intervals some annotation reaches. Union of both,
+            # so the intervals the extras do not reach keep their conservations.
+            base_dict = setup_for_conservations_only(
+                domain_logger, multi_logger, hmmalign_lines, pfam_id)
+            if base_dict:
+                base_seqs = base_dict[pfam_id]["sequence_id"]
+                obtained = ((transfer_dict.get(pfam_id) or transfer_dict.get("DOMAIN") or {}).get("sequence_id")
+                            or {}) if transfer_dict else {}
+                reused = 0
+                for t_name, t_body in obtained.items():
+                    destination = base_seqs.setdefault(t_name, {"hit_intervals": {}})
+                    for iv_key, iv_dict in (t_body.get("hit_intervals") or {}).items():
+                        destination["hit_intervals"][iv_key] = iv_dict
+                        reused += 1
+                n_base = sum(len(v.get("hit_intervals") or {})
+                             for v in base_seqs.values())
+                domain_logger.info(
+                    "TRANSFER_ANNOTS --- MAIN --- %s: union of conservations-only "
+                    "+ extras' annotations -- %d intervals in total, %d with an "
+                    "annotation", pfam_id, n_base, reused)
+                transfer_dict = base_dict
+
         if not transfer_dict:
             domain_logger.info("TRANSFER_ANNOTS --- MAIN --- Transfer Dict was EMPTY")
         else:
@@ -2496,7 +2607,8 @@ def main():
     improved_transfer_dict = cleanup_improve_transfer_dict(
         domain_logger, multi_logger, transfer_dict,
         pfam_id, hmmalign_lines, conservations_filepath,
-        annotations_filepath, output_dir, resource_dir, pfam_interpro_map_filepath
+        annotations_filepath, output_dir, resource_dir, pfam_interpro_map_filepath,
+        merged_annotations=annotations if extras_merged else None
         )
     write_reports(domain_logger, multi_logger, improved_transfer_dict, output_dir)
 

@@ -1,0 +1,16 @@
+{
+    "TATA2_AQUAE/6-58": {
+        "23": {
+            "conservation": 0.991,
+            "amino_acid": "G"
+        },
+        "35": {
+            "conservation": 0.9055,
+            "amino_acid": "G"
+        },
+        "41": {
+            "conservation": 0.8125,
+            "amino_acid": "F"
+        }
+    }
+}
