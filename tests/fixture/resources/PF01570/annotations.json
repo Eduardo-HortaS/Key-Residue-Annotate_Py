@@ -1,0 +1,198 @@
+{
+    "POLG_YEFV1": {
+        "134": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine; by host",
+                "evidence": "ECO:0000255",
+                "entry": "P03314",
+                "aminoacid": "N"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0005524": "ATP binding",
+                "GO:0016887": "ATP hydrolysis activity",
+                "GO:0003725": "double-stranded RNA binding",
+                "GO:0005525": "GTP binding",
+                "GO:0046872": "metal ion binding",
+                "GO:0004483": "methyltransferase cap1 activity",
+                "GO:0004482": "mRNA 5'-cap (guanine-N7-)-methyltransferase activity",
+                "GO:0046983": "protein dimerization activity",
+                "GO:0003724": "RNA helicase activity",
+                "GO:0003968": "RNA-directed RNA polymerase activity",
+                "GO:0004252": "serine-type endopeptidase activity",
+                "GO:0005198": "structural molecule activity"
+            },
+            "Biological Process": {
+                "GO:0075512": "clathrin-dependent endocytosis of virus by host cell",
+                "GO:0039654": "fusion of virus membrane with host endosome membrane",
+                "GO:0006508": "proteolysis",
+                "GO:0039520": "symbiont-mediated activation of host autophagy",
+                "GO:0052170": "symbiont-mediated suppression of host innate immune response",
+                "GO:0039564": "symbiont-mediated suppression of host JAK-STAT cascade via inhibition of STAT2 activity",
+                "GO:0039502": "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
+                "GO:0039694": "viral RNA genome replication",
+                "GO:0019062": "virion attachment to host cell"
+            }
+        },
+        "150": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine; by host",
+                "evidence": "ECO:0000255",
+                "entry": "P03314",
+                "aminoacid": "N"
+            }
+        ],
+        "186": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P03314",
+                "aminoacid": "C",
+                "paired_position": "151"
+            }
+        ],
+        "151": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P03314",
+                "aminoacid": "C",
+                "paired_position": "186"
+            }
+        ],
+        "162": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P03314",
+                "aminoacid": "C",
+                "paired_position": "199"
+            }
+        ],
+        "199": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P03314",
+                "aminoacid": "C",
+                "paired_position": "162"
+            }
+        ],
+        "184": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P03314",
+                "aminoacid": "C",
+                "paired_position": "170"
+            }
+        ],
+        "170": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P03314",
+                "aminoacid": "C",
+                "paired_position": "184"
+            }
+        ]
+    },
+    "POLG_DEN1W": {
+        "183": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine; by host",
+                "evidence": "ECO:0000255|PROSITE-ProRule:PRU00498",
+                "entry": "P17763",
+                "aminoacid": "N"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0005524": "ATP binding",
+                "GO:0016887": "ATP hydrolysis activity",
+                "GO:0015267": "channel activity",
+                "GO:0003725": "double-stranded RNA binding",
+                "GO:0008289": "lipid binding",
+                "GO:0046872": "metal ion binding",
+                "GO:0004483": "methyltransferase cap1 activity",
+                "GO:0004482": "mRNA 5'-cap (guanine-N7-)-methyltransferase activity",
+                "GO:0046983": "protein dimerization activity",
+                "GO:0003724": "RNA helicase activity",
+                "GO:0003968": "RNA-directed RNA polymerase activity",
+                "GO:0004252": "serine-type endopeptidase activity",
+                "GO:0005198": "structural molecule activity"
+            },
+            "Biological Process": {
+                "GO:0075512": "clathrin-dependent endocytosis of virus by host cell",
+                "GO:0039654": "fusion of virus membrane with host endosome membrane",
+                "GO:0034220": "monoatomic ion transmembrane transport",
+                "GO:0006508": "proteolysis",
+                "GO:0039520": "symbiont-mediated activation of host autophagy",
+                "GO:0039545": "symbiont-mediated suppression of host cytoplasmic pattern recognition receptor signaling pathway via inhibition of MAVS activity",
+                "GO:0039574": "symbiont-mediated suppression of host JAK-STAT cascade via inhibition of host TYK2 activity",
+                "GO:0039564": "symbiont-mediated suppression of host JAK-STAT cascade via inhibition of STAT2 activity",
+                "GO:0039502": "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
+                "GO:0039694": "viral RNA genome replication",
+                "GO:0019062": "virion attachment to host cell"
+            }
+        },
+        "148": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P17763",
+                "aminoacid": "C",
+                "paired_position": "182"
+            }
+        ],
+        "182": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P17763",
+                "aminoacid": "C",
+                "paired_position": "148"
+            }
+        ],
+        "194": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P17763",
+                "aminoacid": "C",
+                "paired_position": "159"
+            }
+        ],
+        "159": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P17763",
+                "aminoacid": "C",
+                "paired_position": "194"
+            }
+        ],
+        "180": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P17763",
+                "aminoacid": "C",
+                "paired_position": "167"
+            }
+        ],
+        "167": [
+            {
+                "type": "DISULFID",
+                "evidence": "ECO:0000250|UniProtKB:P14336",
+                "entry": "P17763",
+                "aminoacid": "C",
+                "paired_position": "180"
+            }
+        ]
+    }
+}

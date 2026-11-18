@@ -171,6 +171,33 @@ def transform_to_ranges(interval_dict: Dict, multi_logger: Callable) -> Dict:
                 range_based["indices"][data_type] = {}
             range_based["indices"][data_type] = interval_dict[data_type]["indices"]
 
+            # Seed-only view: annotations supported by a seed donor, as a hit or as a miss
+            if data_type == "annotations":
+                seed_matches = {}
+                seed_misses = {}
+                positions_dict = interval_dict["annotations"].get("positions", {})
+                if isinstance(positions_dict, dict):
+                    for pos_str, pos_entries in positions_dict.items():
+                        if not isinstance(pos_entries, dict):
+                            continue
+                        for anno_id, entry_data in pos_entries.items():
+                            if not isinstance(entry_data, dict):
+                                continue
+                            prov = entry_data.get("provenance")
+                            if not isinstance(prov, dict):
+                                continue
+                            seed_prov = prov.get("seed")
+                            if not isinstance(seed_prov, dict):
+                                continue
+                            if seed_prov.get("hit") is True:
+                                seed_matches.setdefault(pos_str, set()).add(anno_id)
+                            elif seed_prov.get("miss") is True:
+                                seed_misses.setdefault(pos_str, set()).add(anno_id)
+                range_based["indices"]["annotations_seed"] = {
+                    "matches": seed_matches,
+                    "misses": seed_misses,
+                }
+
         # Process ranges
         for range_id, ranges_data in ranges_dict.items():
             ranges_list = ranges_data.get("ranges", [])

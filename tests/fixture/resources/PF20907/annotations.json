@@ -1,0 +1,650 @@
+{
+    "POLG_BVDVN": {
+        "2224": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine; by host",
+                "evidence": "ECO:0000255",
+                "entry": "P19711",
+                "aminoacid": "N"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0005524": "ATP binding",
+                "GO:0016887": "ATP hydrolysis activity",
+                "GO:0015267": "channel activity",
+                "GO:0004197": "cysteine-type endopeptidase activity",
+                "GO:0003677": "DNA binding",
+                "GO:1990814": "DNA/DNA annealing activity",
+                "GO:0050780": "dopamine receptor binding",
+                "GO:0005525": "GTP binding",
+                "GO:0042802": "identical protein binding",
+                "GO:0033897": "ribonuclease T2 activity",
+                "GO:0003723": "RNA binding",
+                "GO:0003724": "RNA helicase activity",
+                "GO:0033592": "RNA strand annealing activity",
+                "GO:0003968": "RNA-directed RNA polymerase activity",
+                "GO:0004252": "serine-type endopeptidase activity",
+                "GO:0070008": "serine-type exopeptidase activity"
+            },
+            "Biological Process": {
+                "GO:0075512": "clathrin-dependent endocytosis of virus by host cell",
+                "GO:0039654": "fusion of virus membrane with host endosome membrane",
+                "GO:0034220": "monoatomic ion transmembrane transport",
+                "GO:0006508": "proteolysis",
+                "GO:0043489": "RNA stabilization",
+                "GO:0039520": "symbiont-mediated activation of host autophagy",
+                "GO:0039548": "symbiont-mediated suppression of host cytoplasmic pattern recognition receptor signaling pathway via inhibition of IRF3 activity",
+                "GO:0019072": "viral genome packaging",
+                "GO:0019082": "viral protein processing",
+                "GO:0039694": "viral RNA genome replication",
+                "GO:0019062": "virion attachment to host cell"
+            }
+        },
+        "2307": [
+            {
+                "type": "CARBOHYD",
+                "description": "N-linked (GlcNAc...) asparagine; by host",
+                "evidence": "ECO:0000255",
+                "entry": "P19711",
+                "aminoacid": "N"
+            }
+        ]
+    },
+    "POLG_ZIKV": {
+        "2035": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with NY7",
+                "ligand_ccd_id": "NY7",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "K"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YEK",
+                "ligand_ccd_id": "YEK",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "K"
+            }
+        ],
+        "0": {
+            "Molecular Function": {
+                "GO:0005524": "ATP binding",
+                "GO:0016887": "ATP hydrolysis activity",
+                "GO:0003725": "double-stranded RNA binding",
+                "GO:0005525": "GTP binding",
+                "GO:0008289": "lipid binding",
+                "GO:0046872": "metal ion binding",
+                "GO:0004483": "methyltransferase cap1 activity",
+                "GO:0004482": "mRNA 5'-cap (guanine-N7-)-methyltransferase activity",
+                "GO:0046983": "protein dimerization activity",
+                "GO:0030674": "protein-macromolecule adaptor activity",
+                "GO:0003724": "RNA helicase activity",
+                "GO:0003968": "RNA-directed RNA polymerase activity",
+                "GO:0004252": "serine-type endopeptidase activity",
+                "GO:0005198": "structural molecule activity"
+            },
+            "Biological Process": {
+                "GO:0075512": "clathrin-dependent endocytosis of virus by host cell",
+                "GO:0039654": "fusion of virus membrane with host endosome membrane",
+                "GO:0006508": "proteolysis",
+                "GO:0039520": "symbiont-mediated activation of host autophagy",
+                "GO:0039723": "symbiont-mediated suppression of host cytoplasmic pattern recognition receptor signaling pathway via inhibition of TBK1 activity",
+                "GO:0140886": "symbiont-mediated suppression of host interferon-mediated signaling pathway",
+                "GO:0039574": "symbiont-mediated suppression of host JAK-STAT cascade via inhibition of host TYK2 activity",
+                "GO:0039563": "symbiont-mediated suppression of host JAK-STAT cascade via inhibition of STAT1 activity",
+                "GO:0039564": "symbiont-mediated suppression of host JAK-STAT cascade via inhibition of STAT2 activity",
+                "GO:0039722": "symbiont-mediated suppression of host toll-like receptor signaling pathway",
+                "GO:0039502": "symbiont-mediated suppression of host type I interferon-mediated signaling pathway",
+                "GO:0039694": "viral RNA genome replication",
+                "GO:0019062": "virion attachment to host cell"
+            }
+        },
+        "2005": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with NY7",
+                "ligand_ccd_id": "NY7",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "L"
+            }
+        ],
+        "2006": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with NY7",
+                "ligand_ccd_id": "NY7",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "Y"
+            }
+        ],
+        "2007": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with NY7",
+                "ligand_ccd_id": "NY7",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "R"
+            }
+        ],
+        "1986": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQM",
+                "ligand_ccd_id": "UQM",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "L"
+            }
+        ],
+        "2013": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQM",
+                "ligand_ccd_id": "UQM",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "V"
+            }
+        ],
+        "2014": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQM",
+                "ligand_ccd_id": "UQM",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with LHR",
+                "ligand_ccd_id": "LHR",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            }
+        ],
+        "2042": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQM",
+                "ligand_ccd_id": "UQM",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "W"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with LHR",
+                "ligand_ccd_id": "LHR",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "W"
+            }
+        ],
+        "2079": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQS",
+                "ligand_ccd_id": "UQS",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "W"
+            }
+        ],
+        "2080": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQS",
+                "ligand_ccd_id": "UQS",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "T"
+            }
+        ],
+        "2083": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQS",
+                "ligand_ccd_id": "UQS",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "G"
+            }
+        ],
+        "2112": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQS",
+                "ligand_ccd_id": "UQS",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            }
+        ],
+        "2065": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with 7ZC",
+                "ligand_ccd_id": "7ZC",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "T"
+            }
+        ],
+        "2070": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with 7ZC",
+                "ligand_ccd_id": "7ZC",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "M"
+            }
+        ],
+        "2075": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with 7ZC",
+                "ligand_ccd_id": "7ZC",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "P"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZUW",
+                "ligand_ccd_id": "ZUW",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "P"
+            }
+        ],
+        "2010": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQY",
+                "ligand_ccd_id": "UQY",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            }
+        ],
+        "2011": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQY",
+                "ligand_ccd_id": "UQY",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "D"
+            }
+        ],
+        "2015": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UQY",
+                "ligand_ccd_id": "UQY",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with LHR",
+                "ligand_ccd_id": "LHR",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            }
+        ],
+        "1974": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UR4",
+                "ligand_ccd_id": "UR4",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "G"
+            }
+        ],
+        "1976": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with UR4",
+                "ligand_ccd_id": "UR4",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            }
+        ],
+        "2038": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with S7A",
+                "ligand_ccd_id": "S7A",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "D"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with AWD",
+                "ligand_ccd_id": "AWD",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "D"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with HV2",
+                "ligand_ccd_id": "HV2",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "D"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YG9",
+                "ligand_ccd_id": "YG9",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "D"
+            }
+        ],
+        "2040": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with S7A",
+                "ligand_ccd_id": "S7A",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "P"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YG9",
+                "ligand_ccd_id": "YG9",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "P"
+            }
+        ],
+        "2097": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with S7A",
+                "ligand_ccd_id": "S7A",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "V"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with HV2",
+                "ligand_ccd_id": "HV2",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "V"
+            }
+        ],
+        "2103": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with S7A",
+                "ligand_ccd_id": "S7A",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with HV2",
+                "ligand_ccd_id": "HV2",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YG9",
+                "ligand_ccd_id": "YG9",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "A"
+            }
+        ],
+        "2106": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with S7A",
+                "ligand_ccd_id": "S7A",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "S"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with HV2",
+                "ligand_ccd_id": "HV2",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "S"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YG9",
+                "ligand_ccd_id": "YG9",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "S"
+            }
+        ],
+        "2107": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with S7A",
+                "ligand_ccd_id": "S7A",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "F"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with HV2",
+                "ligand_ccd_id": "HV2",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "F"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YG9",
+                "ligand_ccd_id": "YG9",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "F"
+            }
+        ],
+        "2068": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZUW",
+                "ligand_ccd_id": "ZUW",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "T"
+            }
+        ],
+        "2020": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with LHR",
+                "ligand_ccd_id": "LHR",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "F"
+            }
+        ],
+        "2051": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV5",
+                "ligand_ccd_id": "ZV5",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "G"
+            }
+        ],
+        "2052": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV5",
+                "ligand_ccd_id": "ZV5",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "I"
+            }
+        ],
+        "2056": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV5",
+                "ligand_ccd_id": "ZV5",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "D"
+            }
+        ],
+        "2058": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV5",
+                "ligand_ccd_id": "ZV5",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "R"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZVE",
+                "ligand_ccd_id": "ZVE",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "R"
+            }
+        ],
+        "2091": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV5",
+                "ligand_ccd_id": "ZV5",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "R"
+            }
+        ],
+        "1991": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV8",
+                "ligand_ccd_id": "ZV8",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "L"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZVH",
+                "ligand_ccd_id": "ZVH",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "L"
+            }
+        ],
+        "2034": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV8",
+                "ligand_ccd_id": "ZV8",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "M"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YEK",
+                "ligand_ccd_id": "YEK",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "M"
+            }
+        ],
+        "2039": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZV8",
+                "ligand_ccd_id": "ZV8",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "L"
+            }
+        ],
+        "2061": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZVE",
+                "ligand_ccd_id": "ZVE",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "F"
+            }
+        ],
+        "2082": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZVE",
+                "ligand_ccd_id": "ZVE",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "Y"
+            }
+        ],
+        "2084": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZVE",
+                "ligand_ccd_id": "ZVE",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "E"
+            }
+        ],
+        "2041": [
+            {
+                "type": "BINDING",
+                "description": "Interacts with ZVH",
+                "ligand_ccd_id": "ZVH",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "V"
+            },
+            {
+                "type": "BINDING",
+                "description": "Interacts with YDU",
+                "ligand_ccd_id": "YDU",
+                "evidence": "ECO:0000314",
+                "entry": "Q32ZE1",
+                "aminoacid": "V"
+            }
+        ]
+    }
+}

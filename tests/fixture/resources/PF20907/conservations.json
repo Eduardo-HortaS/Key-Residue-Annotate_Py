@@ -1,0 +1,92 @@
+{
+    "POLG_ZIKV/1970-2113": {
+        "1977": {
+            "conservation": 1.0,
+            "amino_acid": "E"
+        },
+        "1987": {
+            "conservation": 1.0,
+            "amino_acid": "E"
+        },
+        "1991": {
+            "conservation": 1.0,
+            "amino_acid": "L"
+        },
+        "2005": {
+            "conservation": 1.0,
+            "amino_acid": "L"
+        },
+        "2009": {
+            "conservation": 1.0,
+            "amino_acid": "E"
+        },
+        "2023": {
+            "conservation": 1.0,
+            "amino_acid": "R"
+        },
+        "2030": {
+            "conservation": 1.0,
+            "amino_acid": "F"
+        },
+        "2032": {
+            "conservation": 1.0,
+            "amino_acid": "E"
+        },
+        "2033": {
+            "conservation": 1.0,
+            "amino_acid": "L"
+        },
+        "2038": {
+            "conservation": 1.0,
+            "amino_acid": "D"
+        },
+        "2039": {
+            "conservation": 1.0,
+            "amino_acid": "L"
+        },
+        "2040": {
+            "conservation": 1.0,
+            "amino_acid": "P"
+        },
+        "2043": {
+            "conservation": 1.0,
+            "amino_acid": "L"
+        },
+        "2056": {
+            "conservation": 1.0,
+            "amino_acid": "D"
+        },
+        "2057": {
+            "conservation": 1.0,
+            "amino_acid": "R"
+        },
+        "2059": {
+            "conservation": 1.0,
+            "amino_acid": "W"
+        },
+        "2061": {
+            "conservation": 1.0,
+            "amino_acid": "F"
+        },
+        "2088": {
+            "conservation": 1.0,
+            "amino_acid": "L"
+        },
+        "2092": {
+            "conservation": 1.0,
+            "amino_acid": "W"
+        },
+        "2094": {
+            "conservation": 1.0,
+            "amino_acid": "D"
+        },
+        "2103": {
+            "conservation": 1.0,
+            "amino_acid": "A"
+        },
+        "2104": {
+            "conservation": 1.0,
+            "amino_acid": "L"
+        }
+    }
+}

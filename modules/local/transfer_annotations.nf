@@ -24,6 +24,7 @@ process TRANSFER_ANNOTATIONS {
     def args = task.ext.args ?: ''
     def domain_accession = domain_dir.baseName
     def eco_codes = params.eco_codes ? "--eco-codes ${params.eco_codes}" : ''
+    def extra_donors_flag = params.extra_donors ? '--extra-donors' : ''
     """
     mkdir -p logs
 
@@ -46,6 +47,7 @@ process TRANSFER_ANNOTATIONS {
         --domain-accession ${domain_accession} \\
         --output-dir . \\
         ${eco_codes} \\
+        ${extra_donors_flag} \\
         --log logs/transfer_${domain_accession}.log \\
         ${args}
 

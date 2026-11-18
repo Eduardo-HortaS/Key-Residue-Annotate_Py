@@ -1,0 +1,21 @@
+Test data for the integration tests. Files taken from public releases, reduced to what the tests need.
+
+proteome.fasta
+    UniProtKB entries Q32ZE1, A7K8Y4, A7K940, A7K9F8, P0A843 and P69428. UniProt, CC BY 4.0.
+
+Pfam-A.hmm
+    Models PF20907, PF01570, PF01607, PF01541, PF07460 and PF02416 from Pfam 37.0. CC0.
+
+resources/PF*/
+    Seed alignments and HMMs from Pfam 37.0 (CC0). Annotations, conservations and extra donors
+    built from Pfam 37.0 and UniProtKB/Swiss-Prot 2026_01 (UniProt, CC BY 4.0).
+
+resources/mappings/interpro_pfam_accession_mapping.tsv
+    InterPro to Pfam accession mapping, rows for the six families. InterPro, CC0.
+
+resources/mappings/go-basic.obo
+    Gene Ontology go-basic.obo, release 2025-02-06, reduced to the terms used by these files and
+    their ancestors. Gene Ontology Consortium, CC BY 4.0.
+
+iprscan_by_sequence/
+    InterProScan output for the six sequences.
