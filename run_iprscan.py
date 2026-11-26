@@ -30,7 +30,7 @@ The default output format is TSV.
 
 Command Format:
 
-<iprscan_path> -i <input_fasta> -b <output_base_file> -f <output_format> -appl <databases> -goterms -iprlookup -dp
+<iprscan_path> -i <input_fasta> -b <output_base_file> -f <output_format> -appl <databases> -goterms -iprlookup [-dp] [-dra | -etra]
 
 Functions:
     1 - parse_arguments - Parse command-line arguments for running InterProScan.
@@ -264,11 +264,11 @@ def run_interproscan(
         These will be available as-is for downstream analyses but are not processed by this pipeline",
         ', '.join(additional_formats).upper())
 
-    output_format = ', '.join(formats)
+    output_format = ','.join(formats)
     # NOTE: Need to be careful with CPU cores and memory allocated,
     # InterProScan can be very intensive in these regards.
     cmd = f"{iprscan_path} -i {input_fasta} -b {output_basefile} -f {output_format} \
-    -goterms -iprlookup -dra --cpu {cpu_cores}"
+    -goterms -iprlookup --cpu {cpu_cores}"
 
     if analyses:
         cmd += f" -appl {analyses}"
