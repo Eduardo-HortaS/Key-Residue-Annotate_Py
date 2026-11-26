@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 # Add the parent directory to the sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from run_iprscan import run_interproscan
+from run_iprscan import run_interproscan, parse_arguments
 
 import pytest
 
@@ -59,3 +59,25 @@ def test_run_interproscan_base_arguments():
     assert command[command.index("-appl") + 1] == "pfam,gene3d"
     assert command[command.index("--cpu") + 1] == "4"
     assert "-goterms" in command and "-iprlookup" in command
+
+def test_run_interproscan_returns_formats_with_tsv():
+    """Test that the formats returned, which main splits per sequence, include the TSV added for GO terms"""
+    with patch("run_iprscan.subprocess.run", return_value=MagicMock(returncode=0)):
+        formats = run_interproscan(iprscan_path_mock, True, False, input_fasta_mock, output_basefile_mock,
+                                   "JSON, XML", "pfam", 4, MagicMock())
+    assert formats == ["json", "xml", "tsv"]
+
+
+###T parse_arguments
+
+def test_parse_arguments_single_mode():
+    """Test that single mode parses without the batch-only arguments"""
+    argv = ["run_iprscan.py", "-iPr", iprscan_path_mock, "single", "-f", input_fasta_mock, "-s", "seq1"]
+    with patch.object(sys, "argv", argv):
+        args = parse_arguments()
+    assert args.mode == "single" and args.fasta == input_fasta_mock
+
+def test_parse_arguments_batch_mode_requires_parent_dir():
+    argv = ["run_iprscan.py", "-iPr", iprscan_path_mock, "batch", "-sB", "seq1", "-sBi", "1"]
+    with patch.object(sys, "argv", argv), pytest.raises(SystemExit):
+        parse_arguments()

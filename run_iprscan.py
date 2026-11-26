@@ -123,12 +123,6 @@ def parse_arguments():
         if not args.sequence_parent_dir:
             parser.error("Batch mode requires --sequence-parent-dir")
 
-    # Validate batch mode arguments
-    if args.sequence_batch and not args.sequence_parent_dir:
-        parser.error("--sequence-batch requires --sequence-parent-dir")
-    if args.sequence_parent_dir and not args.sequence_batch:
-        parser.error("--sequence-parent-dir requires --sequence-batch")
-
     args.output_format = ', '.join(fmt.strip() for fmt in args.output_format.split(','))
 
     return args
@@ -236,7 +230,7 @@ def split_iprscan_output(
 def run_interproscan(
     iprscan_path: str, enable_precalc: bool, disable_res: bool,
     input_fasta: str, output_basefile: str, output_format: str,
-    analyses: str, cpu_cores: int,  multi_logger: Callable) -> None:
+    analyses: str, cpu_cores: int,  multi_logger: Callable) -> list[str]:
     """
     Runs InterProScan with the given arguments.
 
@@ -250,6 +244,9 @@ def run_interproscan(
         analyses: Comma-separated analyses to limit InterProScan run
         cpu_cores: Number of CPU cores to use per job
         multi_logger: Callable to send warning, error and critical messages to both a main and sequence|batch logger
+
+    Returns:
+        list[str]: Output formats requested from InterProScan, TSV always among them
     """
     formats = [fmt.strip().lower() for fmt in output_format.split(',')]
     additional_formats = [fmt for fmt in formats if fmt in ["xml", "json", "gff3"]]
@@ -288,6 +285,7 @@ def run_interproscan(
     else:
         multi_logger("info", "RUN_IPRSCAN --- RUN --- InterProScan completed successfully. \
         Output saved to %s.%s", output_basefile, output_format.lower())
+    return formats
 
 
 def main():
@@ -339,7 +337,7 @@ def main():
         sys.exit(1)
 
     # Run InterProScan
-    run_interproscan(
+    formats = run_interproscan(
         iprscan_path=args.iprscan_path,
         enable_precalc=args.enable_precalc,
         disable_res=args.disable_res,
@@ -353,7 +351,6 @@ def main():
 
     # Split outputs if in batch mode
     if args.mode == "batch" and sequence_batch_pipe:
-        formats = [fmt.strip() for fmt in args.output_format.split(',')]
         split_iprscan_output(
             output_base=output_base,
             sequence_batch_pipe=sequence_batch_pipe,
