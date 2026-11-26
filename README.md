@@ -63,9 +63,25 @@ Note that resource_dir should point to where you are keeping the intermediary fi
 
 Pleas consider that, while nucleotide FASTA input is supported (indicated by the nucleotide flag), it will be much slower than the expected amino acid input.
 
+### Running with Nextflow
+
+The same pipeline is available as a Nextflow workflow (main.nf), which is the recommended way to run it from now on. It gives the same outputs as executor.py on the same inputs. The main parameters mirror the INI file:
+
+```bash
+nextflow run main.nf -profile conda \
+    --fasta proteome.fasta --hmm Pfam-A.hmm --resources resources/ --outdir results/ \
+    --iprscan_path /path/to/interproscan.sh --cpu_cores_iprscan 8 --max_cpus 12 --max_memory 14.GB
+```
+
+Instead of running InterProScan, precomputed results can be given with `--iprscan_precomputed <dir>` (one `<sequence>/iprscan.tsv` per sequence, sequence names with `|` replaced by `-`), or InterProScan can be skipped with `--skip_iprscan true` (no GO comparison is made then). Other parameters: `--eco_codes`, `--bit_cutoffs` (gathering, trusted or noise), `--trim`, `--nucleotide` and `--extra_donors` (below).
+
+### Extra donors
+
+By default, annotations come only from the Swiss-Prot proteins in each domain's seed alignment. With `extra_donors = true` in the INI file (`--extra-donors` for executor.py, `--extra_donors` for Nextflow), Swiss-Prot reviewed proteins that carry the domain but are not in its seed are also used as donors, from each domain's `extra_donors.fasta` and `extra_donors.json` in resource_dir. This finds more annotations at a cost in precision. Every transferred annotation records which kind of donor supported it (`provenance`: seed, non_seed), and the PF*_ranges.json files carry a seed-only index (`annotations_seed`), so results can be filtered afterwards; annotations supported by both kinds of donor are the most reliable.
+
 ## Overview
 
-executor.py: controller script for all scripts in the pipeline. Will be replaced by a Nextflow script in the near future.
+executor.py: controller script for all scripts in the pipeline. The Nextflow workflow (main.nf, with its modules in modules/local/) runs the same scripts and is the recommended way to run the pipeline.
 
 run_hmmsearch.py: runs PyHMMER's hmmsearch with the input FASTA. It translates nucleotides if needed, but at a heavy price in performance.
 
@@ -91,7 +107,7 @@ decorators.py: contains decorators used for future optimizations.
 
 Currently, the output files include:
 
-PF*_report.json: transferred annotations and metadata per domain for a sequence, containing only data for subsequences that were hits for that domain.
+PF*_report.json: transferred annotations and metadata per domain for a sequence, containing only data for subsequences that were hits for that domain. Each annotation records its supporting donors and their provenance (seed or extra donors).
 
 aggregated_report.json: groups the same data as the files above, but for the whole sequence and all hits across domains.
 
