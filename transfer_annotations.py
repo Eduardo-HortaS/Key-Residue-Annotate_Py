@@ -164,6 +164,7 @@ def same_protein(target_name: str, entry_mnemo_name: str, entry_accession: str =
     Checks if a target and a donor are the same protein, so that no protein annotates itself.
     When the target header follows UniProt (sp|P0AAK7|NRFC_ECOLI) and the donor's accession is
     known, the accessions are compared: entry names change and get reused, accessions do not.
+    An isoform (sp|P0AAK7-2|NRFC_ECOLI) counts as its canonical entry.
     Otherwise every '|'-separated field of the target is compared with the donor's mnemonic.
 
     Args:
@@ -176,7 +177,7 @@ def same_protein(target_name: str, entry_mnemo_name: str, entry_accession: str =
     """
     fields = [part.strip() for part in str(target_name).split("|")]
     if entry_accession and len(fields) == 3 and fields[1]:
-        return fields[1] == str(entry_accession).strip()
+        return fields[1].split("-")[0] == str(entry_accession).strip().split("-")[0]
     mnemo = str(entry_mnemo_name).strip()
     if not mnemo:
         return False
