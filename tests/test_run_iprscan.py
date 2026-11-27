@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock
 # Add the parent directory to the sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from run_iprscan import run_interproscan, parse_arguments
+from run_iprscan import run_interproscan, parse_arguments, split_iprscan_output
 
 import pytest
 
@@ -67,6 +67,22 @@ def test_run_interproscan_returns_formats_with_tsv():
                                    "JSON, XML", "pfam", 4, MagicMock())
     assert formats == ["json", "xml", "tsv"]
 
+
+###T split_iprscan_output
+
+def test_split_iprscan_output_headers_with_dashes(tmp_path):
+    """Test that each sequence of the batch gets its own lines, also when its header has a dash (an isoform),
+    and that sequences outside the batch are left out"""
+    parent = tmp_path / "iprscan_by_sequence"; batches = parent / "batches"; batches.mkdir(parents=True)
+    rows = {"sp|P0AAK7-2|NRFC_ECOLI": "sp|P0AAK7-2|NRFC_ECOLI\tmd5\t100\tPfam\tPF00001\n",
+            "sp|P12345|ABC_HUMAN": "sp|P12345|ABC_HUMAN\tmd5\t200\tPfam\tPF00002\n",
+            "sp|Q99999|OUT_HUMAN": "sp|Q99999|OUT_HUMAN\tmd5\t300\tPfam\tPF00003\n"}
+    (batches / "iprscan_batch_1.tsv").write_text("".join(rows.values()), encoding="utf-8")
+    split_iprscan_output(str(batches / "iprscan_batch_1"), ["sp-P0AAK7-2-NRFC_ECOLI", "sp-P12345-ABC_HUMAN"],
+                         ["tsv"], MagicMock(), MagicMock())
+    assert (parent / "sp-P0AAK7-2-NRFC_ECOLI" / "iprscan.tsv").read_text(encoding="utf-8") == rows["sp|P0AAK7-2|NRFC_ECOLI"]
+    assert (parent / "sp-P12345-ABC_HUMAN" / "iprscan.tsv").read_text(encoding="utf-8") == rows["sp|P12345|ABC_HUMAN"]
+    assert not (parent / "sp-Q99999-OUT_HUMAN").exists()
 
 ###T parse_arguments
 

@@ -37,7 +37,7 @@ process RUN_IPRSCAN {
 
     python ${projectDir}/run_iprscan.py \\
         -iPr ${iprscan_path} \\
-        -iOf ${output_format} \\
+        -iOf "${output_format}" \\
         -iCc ${cpu_cores} \\
         -l logs/iprscan_batch_${batch_index}.log \\
         ${analyses} \\

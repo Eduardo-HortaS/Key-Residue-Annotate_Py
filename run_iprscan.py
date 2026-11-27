@@ -172,17 +172,20 @@ def create_batch_fasta(
         raise
 
 def split_iprscan_output(
-    output_base: str, sequence_batch_pipe: list[str], formats: list[str],
+    output_base: str, sequence_batch_dash: list[str], formats: list[str],
     logger: logging.Logger, multi_logger: Callable) -> None:
     """Splits InterProScan output files by sequence.
+    Sequences are matched by their directory names ('|' replaced by '-'), since headers that
+    contain dashes (isoforms, custom names) cannot be recovered from those names.
 
     Args:
         output_base: Base path of InterProScan output files
-        sequence_ids: List of sequence IDs in the batch
+        sequence_batch_dash: Sequence IDs in the batch, using dashes instead of pipes
         formats: List of output formats to process
         logger: Logger function
     """
-    logger.info("RUN_IPRSCAN --- SPLIT_IPRSCAN --- Using sequence_ids: %s", sequence_batch_pipe)
+    logger.info("RUN_IPRSCAN --- SPLIT_IPRSCAN --- Using sequence_ids: %s", sequence_batch_dash)
+    batch_dirs = set(sequence_batch_dash)
     for fmt in formats:
         fmt = fmt.strip().lower()
         input_file = f"{output_base}.{fmt}"
@@ -202,7 +205,7 @@ def split_iprscan_output(
                     if line.strip():
                         seq_id = line.split("\t")[0]
                         logger.info(f"RUN_IPRSCAN --- SPLIT_IPRSCAN --- Sequence ID {seq_id}")
-                        if seq_id in sequence_batch_pipe:
+                        if seq_id.replace("|", "-") in batch_dirs:
                             sequence_outputs.setdefault(seq_id, []).append(line)
 
                 # Write individual sequence files
@@ -310,7 +313,7 @@ def main():
         sys.exit(1)
 
     input_fasta = None
-    sequence_batch_pipe = None
+    sequence_batch_dash = None
 
     if args.mode == "single":
         # Single File Mode
@@ -318,7 +321,6 @@ def main():
     elif args.mode == "batch":
         # Batch Mode
         sequence_batch_dash = [sb.strip() for sb in args.sequence_batch.split(',')]
-        sequence_batch_pipe = [sb.replace("-", "|") for sb in sequence_batch_dash]
         input_fasta = create_batch_fasta(
             sequence_parent_dir=args.sequence_parent_dir,
             sequence_batch_dash=sequence_batch_dash,
@@ -350,10 +352,10 @@ def main():
     )
 
     # Split outputs if in batch mode
-    if args.mode == "batch" and sequence_batch_pipe:
+    if args.mode == "batch" and sequence_batch_dash:
         split_iprscan_output(
             output_base=output_base,
-            sequence_batch_pipe=sequence_batch_pipe,
+            sequence_batch_dash=sequence_batch_dash,
             formats=formats,
             logger=sequence_logger,
             multi_logger=log_to_both)

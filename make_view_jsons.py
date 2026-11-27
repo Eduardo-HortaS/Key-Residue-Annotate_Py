@@ -258,8 +258,13 @@ def process_sequence_report(report_path: str, sequence_id: str, logger: logging.
         return None
 
     if sequence_id not in data:
-        multi_logger("error", "MAKE_VIEW - PROC_SEQ_REP - Sequence %s not found in report", sequence_id)
-        raise ValueError(f"Sequence {sequence_id} not found in aggregated report")
+        # The ID may come from a directory name, where '|' became '-'; headers that contain dashes
+        # cannot be recovered from it, so the header is found by comparing that form instead.
+        matches = [key for key in data if key.replace("|", "-") == sequence_id.replace("|", "-")]
+        if len(matches) != 1:
+            multi_logger("error", "MAKE_VIEW - PROC_SEQ_REP - Sequence %s not found in report", sequence_id)
+            raise ValueError(f"Sequence {sequence_id} not found in aggregated report")
+        sequence_id = matches[0]
 
     transformed = {
         "sequence_id": sequence_id,
