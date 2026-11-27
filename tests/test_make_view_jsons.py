@@ -686,6 +686,31 @@ def test_process_sequence_report_basic(tmp_path, mock_aggregated_report_data, lo
     assert "DISULFID | Intrachain (with C-246); in linked form" in ranges["data"]["annotations"]
     assert "conserved_positions" in ranges["data"]["conservations"]
 
+def test_process_sequence_report_header_with_dash(tmp_path, mock_aggregated_report_data, logger, multi_logger):
+    """Test that a header with a dash (an isoform) is found from its folder name, where '|' became '-'"""
+    report_path = tmp_path / "aggregated_report.json"
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump({"sp|Q9NU22-2|MDN1_HUMAN": mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]}, f)
+
+    for given in ("sp-Q9NU22-2-MDN1_HUMAN", "sp|Q9NU22|2|MDN1_HUMAN", "sp|Q9NU22-2|MDN1_HUMAN"):
+        result = process_sequence_report(str(report_path), given, logger, multi_logger)
+        assert result["sequence_id"] == "sp|Q9NU22-2|MDN1_HUMAN"
+        assert "325-451" in result["domain"]["PF07728"]
+
+def test_main_header_with_dash(tmp_path, mock_aggregated_report_data, multi_logger):
+    """Test that main() writes the range views for a sequence whose header has a dash"""
+    sequence_dir = tmp_path / "sp-Q9NU22-2-MDN1_HUMAN"
+    sequence_dir.mkdir()
+    with open(sequence_dir / "aggregated_report.json", "w", encoding="utf-8") as f:
+        json.dump({"sp|Q9NU22-2|MDN1_HUMAN": mock_aggregated_report_data["sp|Q9NU22|MDN1_HUMAN"]}, f)
+    test_args = ["-sD", str(sequence_dir), "-s", "sp-Q9NU22-2-MDN1_HUMAN", "-l", str(tmp_path / "view.log")]
+    with patch("make_view_jsons.get_multi_logger", return_value=multi_logger):
+        with pytest.MonkeyPatch().context() as mp:
+            mp.setattr("sys.argv", ["script_name.py"] + test_args)
+            main()
+    with open(sequence_dir / "PF07728_ranges.json", encoding="utf-8") as f:
+        assert json.load(f)["sequence_id"] == "sp|Q9NU22-2|MDN1_HUMAN"
+
 ###T write_range_views - Integration tests (+ convert_sets_and_tuples_to_lists())
 
 def test_write_range_views_debug_logging(tmp_path, mock_transformed_data, logger, multi_logger):
