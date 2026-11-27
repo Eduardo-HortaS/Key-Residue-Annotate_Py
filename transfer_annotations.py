@@ -162,10 +162,12 @@ def read_files(hmmalign_result: str, annotations_filepath: str) -> tuple[list[st
 def same_protein(target_name: str, entry_mnemo_name: str, entry_accession: str = None) -> bool:
     """
     Checks if a target and a donor are the same protein, so that no protein annotates itself.
-    When the target header follows UniProt (sp|P0AAK7|NRFC_ECOLI) and the donor's accession is
-    known, the accessions are compared: entry names change and get reused, accessions do not.
-    An isoform (sp|P0AAK7-2|NRFC_ECOLI) counts as its canonical entry.
-    Otherwise every '|'-separated field of the target is compared with the donor's mnemonic.
+    They are taken as the same if either their accessions or their names match. Accessions catch
+    entries renamed between the target's and the donor's releases; names catch entries whose
+    accession changed (merged entries) and targets without a UniProt header.
+    Accessions are compared when the target header follows UniProt (sp|P0AAK7|NRFC_ECOLI) and the
+    donor's accession is known; an isoform (sp|P0AAK7-2|NRFC_ECOLI) counts as its canonical entry.
+    Names: every '|'-separated field of the target is compared with the donor's mnemonic.
 
     Args:
         target_name: Target name, as in the input FASTA header
@@ -177,7 +179,8 @@ def same_protein(target_name: str, entry_mnemo_name: str, entry_accession: str =
     """
     fields = [part.strip() for part in str(target_name).split("|")]
     if entry_accession and len(fields) == 3 and fields[1]:
-        return fields[1].split("-")[0] == str(entry_accession).strip().split("-")[0]
+        if fields[1].split("-")[0] == str(entry_accession).strip().split("-")[0]:
+            return True
     mnemo = str(entry_mnemo_name).strip()
     if not mnemo:
         return False

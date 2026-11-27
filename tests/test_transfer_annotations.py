@@ -3815,11 +3815,12 @@ def test_same_protein_uniprot_headers():
     assert same_protein("sp|P0AAK7|NRFC_ECOLI", "OTHER_ECOLI") is False
     assert same_protein("sp|P0AAK7|NRFC_ECOLI", "") is False
 
-def test_same_protein_by_accession():
-    """Test that, with the donor's accession known, accessions decide: a reused name is another protein,
-    a renamed protein is still itself"""
-    assert same_protein("sp|Q00001|ABC_HUMAN", "ABC_HUMAN", "P00009") is False
+def test_same_protein_by_accession_or_name():
+    """Test that a match on either accession or name makes the donor the target: a renamed protein by its
+    accession, a merged entry (accession changed, name kept) by its name; a match on neither is another protein"""
     assert same_protein("sp|P00009|NEW_HUMAN", "OLD_HUMAN", "P00009") is True
+    assert same_protein("sp|Q00001|ABC_HUMAN", "ABC_HUMAN", "P00009") is True
+    assert same_protein("sp|Q00001|ABC_HUMAN", "XYZ_HUMAN", "P00009") is False
     assert same_protein("sp|P0AAK7|NRFC_ECOLI", "NRFC_ECOLI", "P0AAK7") is True
 
 def test_same_protein_isoform_is_its_canonical_entry():
@@ -3970,9 +3971,14 @@ def test_find_and_map_annots_skips_renamed_self(logger, multi_logger, minimal_hm
     hmmalign_lines, annotations = self_donor_case(minimal_hmmalign_lines_fixture_Q9NU22, "OLDNAME_HUMAN", "Q9NU22")
     assert find_and_map_annots(logger, multi_logger, hmmalign_lines, annotations, ["ECO:0000255"]) == {}
 
-def test_find_and_map_annots_keeps_reused_name(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22):
-    """Test that a donor with the target's name but another accession does annotate the target"""
+def test_find_and_map_annots_skips_same_name(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22):
+    """Test that a donor with the target's name is skipped even under another accession (a merged entry)"""
     hmmalign_lines, annotations = self_donor_case(minimal_hmmalign_lines_fixture_Q9NU22, "MDN1_HUMAN", "P99999")
+    assert find_and_map_annots(logger, multi_logger, hmmalign_lines, annotations, ["ECO:0000255"]) == {}
+
+def test_find_and_map_annots_keeps_other_protein(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22):
+    """Test that a donor matching the target on neither accession nor name does annotate it"""
+    hmmalign_lines, annotations = self_donor_case(minimal_hmmalign_lines_fixture_Q9NU22, "OTHER_HUMAN", "P99999")
     assert find_and_map_annots(logger, multi_logger, hmmalign_lines, annotations, ["ECO:0000255"]) != {}
 
 ###T read_conservations_and_annotations
