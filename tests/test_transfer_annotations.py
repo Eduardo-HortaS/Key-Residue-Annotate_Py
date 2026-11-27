@@ -5627,6 +5627,31 @@ def test_populate_go_data_for_annotations_interval_without_annotations(logger, m
     assert transfer_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]["325-451"]["annotations"] == {}
 
 
+def test_populate_go_data_for_annotations_per_interval(logger, multi_logger):
+    """Test that each hit interval keeps the GO comparison made with its own target GO terms, instead of every
+    interval getting the terms of the last interval processed"""
+    def interval(start, end):
+        return {"hit_start": start, "hit_end": end, "annotations": {"positions": {str(start + 5): {
+            "BINDING | ATP": {"evidence": {"ECO:0000269": {"rep_mnemo_name": "VWA8_HUMAN"}}}}}}}
+    transfer_dict = {"PF07728": {"sequence_id": {"sp|Q9NU22|MDN1_HUMAN": {"hit_intervals": {
+        "325-451": interval(325, 451), "1000-1120": interval(1000, 1120)}}}}}
+    annotations = {"VWA8_HUMAN": {"0": {"Molecular Function": {"GO:0005524": "ATP binding"}, "Biological Process": {}}}}
+
+    with patch("transfer_annotations.load_go_ontology", return_value=(MagicMock(), set())), \
+         patch("transfer_annotations.prepare_go_set", side_effect=lambda go_set, *_: (set(), set(go_set))), \
+         patch("transfer_annotations.calculate_bma_similarity", return_value=1.0):
+        populate_go_data_for_annotations(logger, multi_logger, transfer_dict, "PF07728", "sp|Q9NU22|MDN1_HUMAN",
+                                         annotations, "0", {"GO:0005524"}, "/fake/resources", interval_key="325-451")
+        populate_go_data_for_annotations(logger, multi_logger, transfer_dict, "PF07728", "sp|Q9NU22|MDN1_HUMAN",
+                                         annotations, "0", set(), "/fake/resources", interval_key="1000-1120")
+
+    intervals = transfer_dict["PF07728"]["sequence_id"]["sp|Q9NU22|MDN1_HUMAN"]["hit_intervals"]
+    first = intervals["325-451"]["annotations"]["positions"]["330"]["BINDING | ATP"]["GO"]["VWA8_HUMAN"]
+    second = intervals["1000-1120"]["annotations"]["positions"]["1005"]["BINDING | ATP"]["GO"]["VWA8_HUMAN"]
+    assert first["status"] == "normal" and first["terms"]["MF"] == {"GO:0005524": first["terms"]["MF"]["GO:0005524"]}
+    assert second["status"] == "no_target_terms"
+
+
 ###T cleanup_improve_transfer_dict
 
 def test_cleanup_improve_transfer_dict_basic(

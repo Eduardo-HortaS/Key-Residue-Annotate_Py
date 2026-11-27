@@ -1023,6 +1023,7 @@ def populate_go_data_for_annotations(
     go_terms_annot_key: str,
     target_go_set: set,
     resource_dir: str,
+    interval_key: Optional[str] = None,
 ) -> None:
     """
     Adds GO data into transfer_dict for each anno_id found, using semantic similarity
@@ -1039,8 +1040,12 @@ def populate_go_data_for_annotations(
         go_terms_annot_key: Key for GO terms in annotations
         target_go_set: Set of GO terms found for the target sequence
         resource_dir: Directory containing intermediary files - go-basic.obo will locate here
+        interval_key: Hit interval whose target GO terms target_go_set holds; only that interval is
+            filled, since GO terms are gathered per interval. All intervals if not given.
     """
     godag, goterms_obsolete = load_go_ontology(resource_dir, logger, multi_logger)
+    hit_intervals = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]
+    interval_keys = [interval_key] if interval_key is not None else list(hit_intervals)
 
     # We need target GO terms to be available
     if not target_go_set:
@@ -1051,8 +1056,8 @@ def populate_go_data_for_annotations(
             "terms": {"BP": {}, "MF": {}}
         }
 
-        for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
-            interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
+        for key in interval_keys:
+            interval_data = hit_intervals[key]
             for _, position_data in ((interval_data.get("annotations") or {}).get("positions") or {}).items():
                 for _, anno_data in position_data.items():
                     go_data_for_annotation = {}
@@ -1073,8 +1078,8 @@ def populate_go_data_for_annotations(
     )
 
     go_info_cache = {}
-    for interval_key in transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"]:
-        interval_data = transfer_dict[pfam_id]["sequence_id"][target_name]["hit_intervals"][interval_key]
+    for key in interval_keys:
+        interval_data = hit_intervals[key]
         for _, position_data in ((interval_data.get("annotations") or {}).get("positions") or {}).items():
             for _, anno_data in position_data.items():
                 go_data_for_annotation = {}
@@ -1267,6 +1272,7 @@ def cleanup_improve_transfer_dict(
                     go_terms_annot_key=go_terms_annot_key,
                     target_go_set=target_go_set,
                     resource_dir=resource_dir,
+                    interval_key=interval_key,
                 )
 
     pfam_data = transfer_dict[pfam_id]
