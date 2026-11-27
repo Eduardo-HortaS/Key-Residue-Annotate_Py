@@ -3815,6 +3815,23 @@ def test_same_protein_uniprot_headers():
     assert same_protein("sp|P0AAK7|NRFC_ECOLI", "OTHER_ECOLI") is False
     assert same_protein("sp|P0AAK7|NRFC_ECOLI", "") is False
 
+def test_same_protein_by_accession_or_name():
+    """Test that a match on either accession or name makes the donor the target: a renamed protein by its
+    accession, a merged entry (accession changed, name kept) by its name; a match on neither is another protein"""
+    assert same_protein("sp|P00009|NEW_HUMAN", "OLD_HUMAN", "P00009") is True
+    assert same_protein("sp|Q00001|ABC_HUMAN", "ABC_HUMAN", "P00009") is True
+    assert same_protein("sp|Q00001|ABC_HUMAN", "XYZ_HUMAN", "P00009") is False
+    assert same_protein("sp|P0AAK7|NRFC_ECOLI", "NRFC_ECOLI", "P0AAK7") is True
+
+def test_same_protein_isoform_is_its_canonical_entry():
+    assert same_protein("sp|P0AAK7-2|NRFC_ECOLI", "NRFC_ECOLI", "P0AAK7") is True
+    assert same_protein("sp|P0AAK7-2|NRFC_ECOLI", "OTHER_ECOLI", "P0AAK8") is False
+
+def test_same_protein_accession_falls_back_to_names():
+    """Test that a header without the 3 UniProt fields falls back to comparing names"""
+    assert same_protein("NRFC_ECOLI|custom_tag", "NRFC_ECOLI", "P0AAK7") is True
+    assert same_protein("MYPROT", "NRFC_ECOLI", "P0AAK7") is False
+
 def test_same_protein_any_pipe_field():
     """Test headers that do not follow db|accession|mnemonic"""
     assert same_protein("NRFC_ECOLI|custom_tag", "NRFC_ECOLI") is True
@@ -3938,6 +3955,31 @@ def test_find_and_map_annots_skips_self_annotation(logger, multi_logger, minimal
     transfer_dict = find_and_map_annots(logger, multi_logger, hmmalign_with_self, only_self_annotations, ["ECO:0000255"])
 
     assert transfer_dict == {}
+
+def self_donor_case(minimal_hmmalign_lines_fixture_Q9NU22, donor_name: str, donor_accession: str):
+    """Hmmalign lines with a donor aligned exactly as the target sp|Q9NU22|MDN1_HUMAN, and that donor's annotations"""
+    hmmalign_lines = minimal_hmmalign_lines_fixture_Q9NU22.splitlines(keepends=True)
+    target_line = [l for l in hmmalign_lines if l.startswith("sp|Q9NU22|MDN1_HUMANtarget//325-451")][0]
+    donor_line = f"{donor_name}/325-451                                      {target_line.split()[1]}\n"
+    annotations = {donor_name: {"330": [{"type": "BINDING", "description": "Binding site", "ligand_id": "ChEBI:CHEBI:37565",
+                                         "evidence": "ECO:0000255", "entry": donor_accession, "aminoacid": "G"}],
+                                "0": {"Molecular Function": {}, "Biological Process": {}}}}
+    return [hmmalign_lines[0], donor_line] + hmmalign_lines[1:], annotations
+
+def test_find_and_map_annots_skips_renamed_self(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22):
+    """Test that the donor's accession is read from its annotations: a donor under an older name of the target is still the target"""
+    hmmalign_lines, annotations = self_donor_case(minimal_hmmalign_lines_fixture_Q9NU22, "OLDNAME_HUMAN", "Q9NU22")
+    assert find_and_map_annots(logger, multi_logger, hmmalign_lines, annotations, ["ECO:0000255"]) == {}
+
+def test_find_and_map_annots_skips_same_name(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22):
+    """Test that a donor with the target's name is skipped even under another accession (a merged entry)"""
+    hmmalign_lines, annotations = self_donor_case(minimal_hmmalign_lines_fixture_Q9NU22, "MDN1_HUMAN", "P99999")
+    assert find_and_map_annots(logger, multi_logger, hmmalign_lines, annotations, ["ECO:0000255"]) == {}
+
+def test_find_and_map_annots_keeps_other_protein(logger, multi_logger, minimal_hmmalign_lines_fixture_Q9NU22):
+    """Test that a donor matching the target on neither accession nor name does annotate it"""
+    hmmalign_lines, annotations = self_donor_case(minimal_hmmalign_lines_fixture_Q9NU22, "OTHER_HUMAN", "P99999")
+    assert find_and_map_annots(logger, multi_logger, hmmalign_lines, annotations, ["ECO:0000255"]) != {}
 
 ###T read_conservations_and_annotations
 
